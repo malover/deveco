@@ -41,18 +41,7 @@ function makeCtx(sessionID: string = "ses_test"): ToolType.Context {
   }
 }
 
-async function getTool(registry: ToolRegistry.Service): Promise<ToolType.Def> {
-  const agent = { name: "build", mode: "primary" as const, permission: [], options: {} }
-  const tool = (await Effect.runPromise(
-    registry.tools({
-      providerID: "opencode" as any,
-      modelID: "gpt-5" as any,
-      agent,
-    }),
-  )).find((t) => t.id === SwitchCwdTool.id)
-  if (!tool) throw new Error("switch_cwd tool not found")
-  return tool
-}
+
 
 afterEach(async () => {
   clearSessionCwd()
@@ -267,7 +256,7 @@ describe("switch_cwd tool", () => {
   )
 })
 
-function getToolAsEffect(registry: ToolRegistry.Service) {
+function getToolAsEffect(registry: ToolRegistry.Interface): Effect.Effect<ToolType.Def, never, never> {
   return Effect.gen(function* () {
     const agent = { name: "build", mode: "primary" as const, permission: [], options: {} }
     const tools = yield* registry.tools({
@@ -278,5 +267,5 @@ function getToolAsEffect(registry: ToolRegistry.Service) {
     const tool = tools.find((t) => t.id === SwitchCwdTool.id)
     if (!tool) throw new Error("switch_cwd tool not found")
     return tool
-  })
+  }).pipe(Effect.orDie)
 }

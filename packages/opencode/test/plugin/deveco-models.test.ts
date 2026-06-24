@@ -11,9 +11,6 @@ import {
   DEVECO_API_URL,
   DEVECO_DEFAULTS,
   DEVECO_PROVIDER_CONFIG,
-  getDevecoProviderConfig,
-  getTaskDefaultModelMap,
-  _resetCacheForTesting,
 } from "../../src/plugin/deveco-models"
 
 const DEVECO_NPM = "@ai-sdk/openai-compatible"
@@ -102,6 +99,17 @@ function mockFetch(fn: (input: URL | RequestInfo, init?: RequestInit | BunFetchR
   return fn as typeof globalThis.fetch
 }
 
+let freshModule: typeof import("../../src/plugin/deveco-models")
+let testCounter = 0
+
+async function loadFresh() {
+  mock.module("@/effect/app-runtime", () => ({
+    AppRuntime: { runPromise: async () => {}, dispose: async () => {} },
+  }))
+  freshModule = (await import(`../../src/plugin/deveco-models?fresh=${++testCounter}`)) as typeof freshModule
+  return freshModule
+}
+
 describe("static exports", () => {
   test("DEVECO_DEFAULTS provider metadata and model entries", () => {
     const provider = DEVECO_DEFAULTS.provider
@@ -144,65 +152,70 @@ describe("getDevecoProviderConfig", () => {
 
   beforeEach(() => {
     originalFetch = globalThis.fetch
-    _resetCacheForTesting()
   })
 
   afterEach(() => {
     globalThis.fetch = originalFetch
-    _resetCacheForTesting()
   })
 
   test("falls back to defaults filtered by blacklist on HTTP error", async () => {
+    const mod = await loadFresh()
     globalThis.fetch = mockFetch(async () => new Response("error", { status: 500 }))
-    const result = await getDevecoProviderConfig("token")
+    const result = await mod.getDevecoProviderConfig("token")
     expect(result.id).toBe(DEVECO_PROVIDER_ID)
     expect(Object.keys(result.models)).not.toContain("Qwen2.5-VL-72B")
     expect(result.models["glm-5"]).toBeDefined()
   })
 
   test("falls back to defaults filtered by blacklist on empty API models", async () => {
+    const mod = await loadFresh()
     globalThis.fetch = mockFetch(async () =>
       Response.json({ code: 200, body: { version: 1, inner_models: [] } })
     )
-    const result = await getDevecoProviderConfig("token")
+    const result = await mod.getDevecoProviderConfig("token")
     expect(Object.keys(result.models)).not.toContain("Qwen2.5-VL-72B")
     expect(result.models["glm-5"]).toBeDefined()
   })
 
   test("falls back to defaults on non-200 code in response body", async () => {
+    const mod = await loadFresh()
     globalThis.fetch = mockFetch(async () =>
       Response.json({ code: 403, body: { version: 1, inner_models: [] } })
     )
-    const result = await getDevecoProviderConfig("token")
+    const result = await mod.getDevecoProviderConfig("token")
     expect(Object.keys(result.models)).not.toContain("Qwen2.5-VL-72B")
   })
 
   test("falls back to defaults on network error (fetch throws)", async () => {
+    const mod = await loadFresh()
     globalThis.fetch = mockFetch(async () => { throw new Error("ECONNREFUSED") })
-    const result = await getDevecoProviderConfig("token")
+    const result = await mod.getDevecoProviderConfig("token")
     expect(result.id).toBe(DEVECO_PROVIDER_ID)
     expect(result.models["glm-5"]).toBeDefined()
   })
 
   test("falls back to defaults on malformed JSON that fails schema validation", async () => {
+    const mod = await loadFresh()
     globalThis.fetch = mockFetch(async () => Response.json({ unexpected: "shape" }))
-    const result = await getDevecoProviderConfig("token")
+    const result = await mod.getDevecoProviderConfig("token")
     expect(result.models["glm-5"]).toBeDefined()
   })
 
   test("fallback does not cache — subsequent call still fetches", async () => {
+    const mod = await loadFresh()
     let callCount = 0
     globalThis.fetch = mockFetch(async () => {
       callCount++
       throw new Error("network error")
     })
-    await getDevecoProviderConfig("token")
+    await mod.getDevecoProviderConfig("token")
     expect(callCount).toBe(1)
-    await getDevecoProviderConfig("token")
+    await mod.getDevecoProviderConfig("token")
     expect(callCount).toBe(2)
   })
 
   test("maps API model configs and filters by task blacklist", async () => {
+    const mod = await loadFresh()
     const apiResponse = makeValidApiResponse({
       models: [
         { model_id: "reasoning-model", thinking_mode: "on", tool_call_mode: "tool_calls", context_window: 200000, output: 8000 },
@@ -220,7 +233,7 @@ describe("getDevecoProviderConfig", () => {
     })
     globalThis.fetch = mockFetch(async () => Response.json(apiResponse))
 
-    const result = await getDevecoProviderConfig("test-token")
+    const result = await mod.getDevecoProviderConfig("test-token")
 
     expect(result.id).toBe(DEVECO_PROVIDER_ID)
     expect(result.models["reasoning-model"]!.reasoning).toBe(true)
@@ -249,6 +262,7 @@ describe("getDevecoProviderConfig", () => {
   })
 
   test("uses empty blacklist when API has no taskDefaultModelMap (no models filtered)", async () => {
+    const mod = await loadFresh()
     const apiResponse = makeValidApiResponse({
       models: [
         { model_id: "model-a", tool_call_mode: "tool_calls" },
@@ -256,12 +270,13 @@ describe("getDevecoProviderConfig", () => {
       ],
     })
     globalThis.fetch = mockFetch(async () => Response.json(apiResponse))
-    const result = await getDevecoProviderConfig("token")
+    const result = await mod.getDevecoProviderConfig("token")
     expect(result.models["model-a"]).toBeDefined()
     expect(result.models["Qwen2.5-VL-72B"]).toBeDefined()
   })
 
   test("extracts taskDefaultModelMap from non-first group", async () => {
+    const mod = await loadFresh()
     const apiResponse = makeValidApiResponse({
       groups: [
         {
@@ -276,32 +291,34 @@ describe("getDevecoProviderConfig", () => {
       ],
     })
     globalThis.fetch = mockFetch(async () => Response.json(apiResponse))
-    const result = await getDevecoProviderConfig("token")
+    const result = await mod.getDevecoProviderConfig("token")
     expect(result.models["model-x"]).toBeDefined()
-    const map = getTaskDefaultModelMap()
+    const map = mod.getTaskDefaultModelMap()
     expect(map.small_model).toBe("model-x")
   })
 
   test("caches result and skips API on subsequent calls", async () => {
+    const mod = await loadFresh()
     let callCount = 0
     globalThis.fetch = mockFetch(async () => {
       callCount++
       return Response.json(makeValidApiResponse())
     })
-    const first = await getDevecoProviderConfig("token")
+    const first = await mod.getDevecoProviderConfig("token")
     expect(callCount).toBe(1)
-    const second = await getDevecoProviderConfig("token")
+    const second = await mod.getDevecoProviderConfig("token")
     expect(callCount).toBe(1)
     expect(second).toBe(first)
   })
 
   test("sends authorization and content-type headers", async () => {
+    const mod = await loadFresh()
     let capturedHeaders: Headers | undefined
     globalThis.fetch = mockFetch(async (_input, init) => {
       capturedHeaders = new Headers(init?.headers as Record<string, string> | undefined)
       return Response.json(makeValidApiResponse())
     })
-    await getDevecoProviderConfig("my-token")
+    await mod.getDevecoProviderConfig("my-token")
     expect(capturedHeaders!.get("Authorization")).toBe("Bearer my-token")
     expect(capturedHeaders!.get("Content-Type")).toBe("application/json")
   })
@@ -312,28 +329,28 @@ describe("getTaskDefaultModelMap", () => {
 
   beforeEach(() => {
     originalFetch = globalThis.fetch
-    _resetCacheForTesting()
   })
 
   afterEach(() => {
     globalThis.fetch = originalFetch
-    _resetCacheForTesting()
   })
 
-  test("returns DEVECO_DEFAULTS.taskDefaultModelMap when cache is empty", () => {
-    const map = getTaskDefaultModelMap()
+  test("returns DEVECO_DEFAULTS.taskDefaultModelMap when cache is empty", async () => {
+    const mod = await loadFresh()
+    const map = mod.getTaskDefaultModelMap()
     expect(map.small_model).toBe("glm-5")
     expect(map.blacklist).toBe("Qwen2.5-VL-72B")
   })
 
   test("returns cached map after successful API fetch", async () => {
+    const mod = await loadFresh()
     globalThis.fetch = mockFetch(async () =>
       Response.json(makeValidApiResponse({
         taskDefaultModelMap: { small_model: "api-model", blacklist: "bad-model" },
       }))
     )
-    await getDevecoProviderConfig("token")
-    const map = getTaskDefaultModelMap()
+    await mod.getDevecoProviderConfig("token")
+    const map = mod.getTaskDefaultModelMap()
     expect(map.small_model).toBe("api-model")
     expect(map.blacklist).toBe("bad-model")
   })

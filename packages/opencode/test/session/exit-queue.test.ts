@@ -147,7 +147,7 @@ describe("exit", () => {
       const resp = response ?? new Response("ok")
       return typeof resp === "function" ? await resp() : resp
     })
-    globalThis.fetch = mockFn as typeof globalThis.fetch
+    globalThis.fetch = mockFn as unknown as typeof globalThis.fetch
     return captured
   }
 

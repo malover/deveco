@@ -24,13 +24,13 @@ describe("Info schema", () => {
   })
 
   test("accepts retry variant with minimal fields", () => {
-    const input = { type: "retry", attempt: 2, message: "boom", next: 1000 }
+    const input = { type: "retry" as const, attempt: 2, message: "boom", next: 1000 }
     expect(decode(input)).toEqual(input)
   })
 
   test("accepts retry variant with action without link", () => {
     const input = {
-      type: "retry",
+      type: "retry" as const,
       attempt: 1,
       message: "rate limited",
       next: 500,
@@ -47,7 +47,7 @@ describe("Info schema", () => {
 
   test("accepts retry variant with action including optional link", () => {
     const input = {
-      type: "retry",
+      type: "retry" as const,
       attempt: 3,
       message: "network down",
       next: 100,
@@ -97,7 +97,7 @@ describe("Info schema", () => {
 
   test("round-trips idle through encode", () => {
     const encode = Schema.encodeUnknownSync(Info as never)
-    const encoded = encode({ type: "idle" } as never)
+    const encoded = (encode as (input: unknown) => unknown)({ type: "idle" } as never)
     expect(encoded).toEqual({ type: "idle" })
   })
 })

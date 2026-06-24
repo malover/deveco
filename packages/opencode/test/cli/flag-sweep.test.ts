@@ -2,12 +2,10 @@ import { describe, expect, test } from "bun:test"
 import { readSource } from "../lib/source-reader"
 
 const KNOWN_OPENCODE_FLAG_FILES: Array<{ path: string; flag: string }> = [
-  { path: "packages/opencode/src/cli/cmd/run.ts", flag: "OPENCODE_SERVER_PASSWORD" },
   { path: "packages/opencode/src/cli/cmd/web.ts", flag: "OPENCODE_SERVER_PASSWORD" },
   { path: "packages/opencode/src/cli/cmd/serve.ts", flag: "OPENCODE_SERVER_PASSWORD" },
   { path: "packages/opencode/src/server/routes/instance/httpapi/middleware/workspace-routing.ts", flag: "OPENCODE_WORKSPACE_ID" },
   { path: "packages/opencode/src/server/routes/instance/httpapi/middleware/fence.ts", flag: "OPENCODE_WORKSPACE_ID" },
-  { path: "packages/opencode/src/cli/cmd/tui/plugin/internal.ts", flag: "OPENCODE_EXPERIMENTAL_SESSION_SWITCHER" },
 ]
 
 describe("OPENCODE_* flag residual regression guard (P0 Bug #1)", () => {

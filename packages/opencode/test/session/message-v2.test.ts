@@ -1664,7 +1664,7 @@ describe("session.message-v2.latest", () => {
     const state = MessageV2.latest([
       { info: u, parts: [{ ...basePart("msg_u1", "p1"), type: "text", text: "hi" }] as SessionV1.Part[] },
     ])
-    expect(state.user?.id).toBe("msg_u1")
+    expect(String(state.user?.id)).toBe("msg_u1")
     expect(state.assistant).toBeUndefined()
     expect(state.finished).toBeUndefined()
     expect(state.tasks).toEqual([])
@@ -1676,7 +1676,7 @@ describe("session.message-v2.latest", () => {
       { info: a, parts: [{ ...basePart("msg_a1", "p1"), type: "text", text: "hi" }] as SessionV1.Part[] },
     ])
     expect(state.user).toBeUndefined()
-    expect(state.assistant?.id).toBe("msg_a1")
+    expect(String(state.assistant?.id)).toBe("msg_a1")
     expect(state.finished).toBeUndefined()
     expect(state.tasks).toEqual([])
   })
@@ -1689,8 +1689,8 @@ describe("session.message-v2.latest", () => {
       { info: assistantInfo("msg_004", "msg_003"), parts: [] },
     ]
     const state = MessageV2.latest(msgs)
-    expect(state.user?.id).toBe("msg_003")
-    expect(state.assistant?.id).toBe("msg_004")
+    expect(String(state.user?.id)).toBe("msg_003")
+    expect(String(state.assistant?.id)).toBe("msg_004")
   })
 
   test("picks chronologically last finished assistant", () => {
@@ -1700,7 +1700,7 @@ describe("session.message-v2.latest", () => {
       { info: a1, parts: [] },
       { info: a2, parts: [] },
     ])
-    expect(state.finished?.id).toBe("msg_a2")
+    expect(String(state.finished?.id)).toBe("msg_a2")
   })
 
   test("excludes finished message parts from tasks", () => {
@@ -1748,7 +1748,7 @@ describe("session.message-v2.filterCompacted", () => {
     const m3: SessionV1.WithParts = { info: userInfo("msg_003"), parts: [] }
     // Input is reverse chronological (as returned by page)
     const result = MessageV2.filterCompacted([m3, m2, m1])
-    expect(result.map((m) => m.info.id)).toEqual(["msg_001", "msg_002", "msg_003"])
+    expect(result.map((m) => String(m.info.id))).toEqual(["msg_001", "msg_002", "msg_003"])
   })
 
   test("breaks on compaction without tail_start_id", () => {
@@ -1775,7 +1775,7 @@ describe("session.message-v2.filterCompacted", () => {
     const result = MessageV2.filterCompacted([overflowAssistant, compactionUser, tailUser, oldMsg])
     // completed has compactionID → compaction user triggers break (no tail_start_id)
     // tailUser and oldMsg never get pushed
-    expect(result.map((m) => m.info.id)).toEqual([String(compactionID), String(overflowID)])
+    expect(result.map((m) => String(m.info.id))).toEqual([String(compactionID), String(overflowID)])
   })
 
   test("retains tail messages with tail_start_id compaction", () => {
@@ -1817,7 +1817,7 @@ describe("session.message-v2.filterCompacted", () => {
     // reverse chronological
     const result = MessageV2.filterCompacted([continueUser, summaryAssistant, compactionUser, overflowAssistant, tailUser])
     // All messages should be retained + reordered
-    const ids = result.map((m) => m.info.id)
+    const ids = result.map((m) => String(m.info.id))
     expect(ids).toContain(String(tailID))
     expect(ids).toContain(String(compactionID))
     expect(ids).toContain(String(summaryID))
@@ -1828,7 +1828,7 @@ describe("session.message-v2.filterCompacted", () => {
     const m1: SessionV1.WithParts = { info: userInfo("msg_001"), parts: [] }
     const m2: SessionV1.WithParts = { info: userInfo("msg_002"), parts: [] }
     const result = MessageV2.filterCompacted([m2, m1])
-    expect(result.map((m) => m.info.id)).toEqual(["msg_001", "msg_002"])
+    expect(result.map((m) => String(m.info.id))).toEqual(["msg_001", "msg_002"])
   })
 
   test("handles empty input", () => {
@@ -1846,7 +1846,7 @@ describe("session.message-v2.fromError (additional branches)", () => {
   })
 
   test("returns OutputLengthError as-is", () => {
-    const err = new SessionV1.OutputLengthError({}).toObject() as SessionV1.OutputLengthError
+    const err = new SessionV1.OutputLengthError({}).toObject() as InstanceType<typeof SessionV1.OutputLengthError>
     const result = MessageV2.fromError(err, { providerID })
     expect(SessionV1.OutputLengthError.isInstance(result)).toBe(true)
   })

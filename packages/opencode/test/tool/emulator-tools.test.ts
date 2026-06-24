@@ -523,9 +523,9 @@ describe("inputSchemaToZodArgs", () => {
         emulatorTools.find((t) => t.name === "build_project")!.inputSchema,
       )
       // build_mode: nullable string → optional
-      expect(args.build_mode.unwrap()).toBeInstanceOf(z.ZodNullable)
+      expect((args.build_mode as z.ZodOptional<z.ZodTypeAny>).unwrap()).toBeInstanceOf(z.ZodNullable)
       // clean: nullable boolean → optional
-      expect(args.clean.unwrap()).toBeInstanceOf(z.ZodNullable)
+      expect((args.clean as z.ZodOptional<z.ZodTypeAny>).unwrap()).toBeInstanceOf(z.ZodNullable)
     })
   })
 
@@ -616,7 +616,7 @@ describe("inputSchemaToZodArgs", () => {
         emulatorTools.find((t) => t.name === "get_ui_verification_log")!.inputSchema,
       )
       const inner = (args.maxLogSize as z.ZodOptional<z.ZodTypeAny>).unwrap()
-      expect(inner.unwrap()).toBeInstanceOf(z.ZodNumber)
+      expect((inner as z.ZodNullable<z.ZodTypeAny>).unwrap()).toBeInstanceOf(z.ZodNumber)
     })
 
     it("validates maxLogSize accepts -1", () => {
