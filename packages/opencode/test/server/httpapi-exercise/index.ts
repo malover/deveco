@@ -20,13 +20,14 @@
 import { Effect } from "effect"
 import { OpenApi } from "effect/unstable/httpapi"
 import { TestLLMServer } from "../../lib/llm-server"
+import { Global } from "@opencode-ai/core/global"
 import path from "path"
+import { LocalCrypto } from "../../../src/security/local-crypto"
 import { array, boolean, check, isRecord, message, object, stable } from "./assertions"
 import { controlledPtyInput, http, route } from "./dsl"
 import {
   cleanupExercisePaths,
   exerciseConfigDirectory,
-  exerciseDataDirectory,
   exerciseDatabasePath,
   exerciseGlobalRoot,
 } from "./environment"
@@ -630,10 +631,12 @@ const scenarios: Scenario[] = [
     .put("/auth/{providerID}", "auth.set")
     .global()
     .at(() => ({ path: route("/auth/{providerID}", { providerID: "test" }), body: { type: "api", key: "test-key" } }))
-    .jsonEffect(200, (body) =>
+    .jsonEffect(200, () =>
       Effect.gen(function* () {
-        check(body === true, "auth set should return true")
-        const auth = yield* Effect.promise(() => Bun.file(path.join(exerciseDataDirectory, "auth.json")).json())
+        const raw = yield* Effect.promise(() =>
+          Bun.file(path.join(Global.Path.data, "auth.json")).json(),
+        )
+        const auth = LocalCrypto.decryptAuthData(raw as Record<string, unknown>)
         object(auth)
         check(isRecord(auth.test) && auth.test.key === "test-key", "auth set should write isolated auth file")
       }),
@@ -644,16 +647,18 @@ const scenarios: Scenario[] = [
     .seeded(() =>
       Effect.promise(() =>
         Bun.write(
-          path.join(exerciseDataDirectory, "auth.json"),
-          JSON.stringify({ test: { type: "api", key: "remove-me" } }),
+          path.join(Global.Path.data, "auth.json"),
+          JSON.stringify(LocalCrypto.encryptAuthData({ test: { type: "api", key: "remove-me" } })),
         ),
       ),
     )
     .at(() => ({ path: route("/auth/{providerID}", { providerID: "test" }) }))
-    .jsonEffect(200, (body) =>
+    .jsonEffect(200, () =>
       Effect.gen(function* () {
-        check(body === true, "auth remove should return true")
-        const auth = yield* Effect.promise(() => Bun.file(path.join(exerciseDataDirectory, "auth.json")).json())
+        const raw = yield* Effect.promise(() =>
+          Bun.file(path.join(Global.Path.data, "auth.json")).json(),
+        )
+        const auth = LocalCrypto.decryptAuthData(raw as Record<string, unknown>)
         object(auth)
         check(auth.test === undefined, "auth remove should delete provider from isolated auth file")
       }),
@@ -1420,6 +1425,34 @@ const scenarios: Scenario[] = [
           "shell should return a tool part",
         )
       },
+      "status",
+    ),
+  http.protected
+    .post("/session/{sessionID}/btw", "session.btw")
+    .preserveDatabase()
+    .mutating()
+    .withLlm()
+    .seeded((ctx) =>
+      Effect.gen(function* () {
+        const session = yield* ctx.session({ title: "BTW session" })
+        yield* ctx.message(session.id, { text: "history context" })
+        yield* ctx.llmText("by-the-way answer")
+        return { session, asideID: "aside_httpapi_exercise" }
+      }),
+    )
+    .at((ctx) => ({
+      path: route("/session/{sessionID}/btw", { sessionID: ctx.state.session.id }),
+      headers: ctx.headers(),
+      body: { asideID: ctx.state.asideID, text: "what is going on?" },
+    }))
+    .jsonEffect(
+      200,
+      (body, ctx) =>
+        Effect.gen(function* () {
+          object(body)
+          check(body.asideID === ctx.state.asideID, "btw should echo asideID")
+          yield* ctx.llmWait(1)
+        }),
       "status",
     ),
   http.protected

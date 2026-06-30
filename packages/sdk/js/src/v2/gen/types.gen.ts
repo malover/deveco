@@ -5,7 +5,6 @@ export type ClientOptions = {
 }
 
 export type Event =
-  | EventModelsDevRefreshed
   | EventPluginAdded
   | EventIntegrationUpdated
   | EventCatalogUpdated
@@ -50,13 +49,14 @@ export type Event =
   | EventMessagePartDelta
   | EventSessionDiff
   | EventSessionError
-  | EventInstallationUpdated
-  | EventInstallationUpdateAvailable
-  | EventFileEdited
+  | EventModelsDevRefreshed
+  | EventPermissionAsked
+  | EventPermissionReplied
   | EventPermissionV2Asked
   | EventPermissionV2Replied
   | EventReferenceUpdated
   | EventProjectDirectoriesUpdated
+  | EventFileEdited
   | EventFileWatcherUpdated
   | EventPtyCreated
   | EventPtyUpdated
@@ -66,9 +66,13 @@ export type Event =
   | EventQuestionV2Replied
   | EventQuestionV2Rejected
   | EventTodoUpdated
+  | EventInstallationUpdated
+  | EventInstallationUpdateAvailable
   | EventLspUpdated
-  | EventPermissionAsked
-  | EventPermissionReplied
+  | EventBtwStart
+  | EventBtwDelta
+  | EventBtwComplete
+  | EventBtwError
   | EventTuiPromptAppend2
   | EventTuiCommandExecute2
   | EventTuiToastShow2
@@ -315,7 +319,7 @@ export type ContentFilterError = {
 export type QueueError = {
   name: "QueueError"
   data: {
-    position: number
+    position: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
     message: string
     responseBody?: string
   }
@@ -748,13 +752,6 @@ export type GlobalEvent = {
   project?: string
   workspace?: string
   payload:
-    | {
-        id: string
-        type: "models-dev.refreshed"
-        properties: {
-          [key: string]: unknown
-        }
-      }
     | {
         id: string
         type: "plugin.added"
@@ -1265,23 +1262,36 @@ export type GlobalEvent = {
       }
     | {
         id: string
-        type: "installation.updated"
+        type: "models-dev.refreshed"
         properties: {
-          version: string
+          [key: string]: unknown
         }
       }
     | {
         id: string
-        type: "installation.update-available"
+        type: "permission.asked"
         properties: {
-          version: string
+          id: string
+          sessionID: string
+          permission: string
+          patterns: Array<string>
+          metadata: {
+            [key: string]: unknown
+          }
+          always: Array<string>
+          tool?: {
+            messageID: string
+            callID: string
+          }
         }
       }
     | {
         id: string
-        type: "file.edited"
+        type: "permission.replied"
         properties: {
-          file: string
+          sessionID: string
+          requestID: string
+          reply: "once" | "always" | "reject"
         }
       }
     | {
@@ -1320,6 +1330,13 @@ export type GlobalEvent = {
         type: "project.directories.updated"
         properties: {
           projectID: string
+        }
+      }
+    | {
+        id: string
+        type: "file.edited"
+        properties: {
+          file: string
         }
       }
     | {
@@ -1399,6 +1416,20 @@ export type GlobalEvent = {
       }
     | {
         id: string
+        type: "installation.updated"
+        properties: {
+          version: string
+        }
+      }
+    | {
+        id: string
+        type: "installation.update-available"
+        properties: {
+          version: string
+        }
+      }
+    | {
+        id: string
         type: "lsp.updated"
         properties: {
           [key: string]: unknown
@@ -1406,29 +1437,34 @@ export type GlobalEvent = {
       }
     | {
         id: string
-        type: "permission.asked"
+        type: "btw.start"
         properties: {
-          id: string
+          asideID: string
           sessionID: string
-          permission: string
-          patterns: Array<string>
-          metadata: {
-            [key: string]: unknown
-          }
-          always: Array<string>
-          tool?: {
-            messageID: string
-            callID: string
-          }
+          question: string
         }
       }
     | {
         id: string
-        type: "permission.replied"
+        type: "btw.delta"
         properties: {
-          sessionID: string
-          requestID: string
-          reply: "once" | "always" | "reject"
+          asideID: string
+          text: string
+        }
+      }
+    | {
+        id: string
+        type: "btw.complete"
+        properties: {
+          asideID: string
+        }
+      }
+    | {
+        id: string
+        type: "btw.error"
+        properties: {
+          asideID: string
+          message: string
         }
       }
     | {
@@ -2064,6 +2100,13 @@ export type Config = {
     continue_loop_on_deny?: boolean
     mcp_timeout?: number
     policies?: Array<ConfigV2ExperimentalPolicy>
+  }
+  agreement?: {
+    tms_url?: string
+    privacy_url?: string
+    terms_url?: string
+    privacy_id?: string
+    terms_id?: string
   }
 }
 
@@ -2799,6 +2842,15 @@ export type ProjectCopyError = {
 
 export type EffectHttpApiErrorForbidden = {
   _tag: "Forbidden"
+}
+
+export type QueueError1 = {
+  name: "QueueError"
+  data: {
+    position: number | "NaN" | "Infinity" | "-Infinity"
+    message: string
+    responseBody?: string
+  }
 }
 
 export type EventTuiPromptAppend2 = {
@@ -4240,14 +4292,6 @@ export type ProjectCopyCopy = {
   directory: string
 }
 
-export type EventModelsDevRefreshed = {
-  id: string
-  type: "models-dev.refreshed"
-  properties: {
-    [key: string]: unknown
-  }
-}
-
 export type EventPluginAdded = {
   id: string
   type: "plugin.added"
@@ -4794,33 +4838,46 @@ export type EventSessionError = {
       | StructuredOutputError
       | ContextOverflowError
       | ContentFilterError
-      | QueueError
+      | QueueError1
       | ModelServiceRateLimitError
       | ApiError
   }
 }
 
-export type EventInstallationUpdated = {
+export type EventModelsDevRefreshed = {
   id: string
-  type: "installation.updated"
+  type: "models-dev.refreshed"
   properties: {
-    version: string
+    [key: string]: unknown
   }
 }
 
-export type EventInstallationUpdateAvailable = {
+export type EventPermissionAsked = {
   id: string
-  type: "installation.update-available"
+  type: "permission.asked"
   properties: {
-    version: string
+    id: string
+    sessionID: string
+    permission: string
+    patterns: Array<string>
+    metadata: {
+      [key: string]: unknown
+    }
+    always: Array<string>
+    tool?: {
+      messageID: string
+      callID: string
+    }
   }
 }
 
-export type EventFileEdited = {
+export type EventPermissionReplied = {
   id: string
-  type: "file.edited"
+  type: "permission.replied"
   properties: {
-    file: string
+    sessionID: string
+    requestID: string
+    reply: "once" | "always" | "reject"
   }
 }
 
@@ -4863,6 +4920,14 @@ export type EventProjectDirectoriesUpdated = {
   type: "project.directories.updated"
   properties: {
     projectID: string
+  }
+}
+
+export type EventFileEdited = {
+  id: string
+  type: "file.edited"
+  properties: {
+    file: string
   }
 }
 
@@ -4950,6 +5015,22 @@ export type EventTodoUpdated = {
   }
 }
 
+export type EventInstallationUpdated = {
+  id: string
+  type: "installation.updated"
+  properties: {
+    version: string
+  }
+}
+
+export type EventInstallationUpdateAvailable = {
+  id: string
+  type: "installation.update-available"
+  properties: {
+    version: string
+  }
+}
+
 export type EventLspUpdated = {
   id: string
   type: "lsp.updated"
@@ -4958,32 +5039,39 @@ export type EventLspUpdated = {
   }
 }
 
-export type EventPermissionAsked = {
+export type EventBtwStart = {
   id: string
-  type: "permission.asked"
+  type: "btw.start"
   properties: {
-    id: string
+    asideID: string
     sessionID: string
-    permission: string
-    patterns: Array<string>
-    metadata: {
-      [key: string]: unknown
-    }
-    always: Array<string>
-    tool?: {
-      messageID: string
-      callID: string
-    }
+    question: string
   }
 }
 
-export type EventPermissionReplied = {
+export type EventBtwDelta = {
   id: string
-  type: "permission.replied"
+  type: "btw.delta"
   properties: {
-    sessionID: string
-    requestID: string
-    reply: "once" | "always" | "reject"
+    asideID: string
+    text: string
+  }
+}
+
+export type EventBtwComplete = {
+  id: string
+  type: "btw.complete"
+  properties: {
+    asideID: string
+  }
+}
+
+export type EventBtwError = {
+  id: string
+  type: "btw.error"
+  properties: {
+    asideID: string
+    message: string
   }
 }
 
@@ -8568,6 +8656,46 @@ export type PartUpdateResponses = {
 }
 
 export type PartUpdateResponse = PartUpdateResponses[keyof PartUpdateResponses]
+
+export type SessionBtwData = {
+  body?: {
+    asideID: string
+    text: string
+    model?: string
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/btw"
+}
+
+export type SessionBtwErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionBtwError = SessionBtwErrors[keyof SessionBtwErrors]
+
+export type SessionBtwResponses = {
+  /**
+   * Aside accepted
+   */
+  200: {
+    asideID: string
+  }
+}
+
+export type SessionBtwResponse = SessionBtwResponses[keyof SessionBtwResponses]
 
 export type SyncStartData = {
   body?: never

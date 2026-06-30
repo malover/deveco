@@ -75,6 +75,12 @@ export const PermissionResponsePayload = Schema.Struct({
   response: PermissionV1.Reply,
 })
 
+export const BtwPayload = Schema.Struct({
+  asideID: Schema.String,
+  text: Schema.String,
+  model: Schema.optional(Schema.String),
+})
+
 export const SessionPaths = {
   list: root,
   status: `${root}/status`,
@@ -98,6 +104,7 @@ export const SessionPaths = {
   shell: `${root}/:sessionID/shell`,
   revert: `${root}/:sessionID/revert`,
   unrevert: `${root}/:sessionID/unrevert`,
+  btw: `${root}/:sessionID/btw`,
   permissions: `${root}/:sessionID/permissions/:permissionID`,
   deleteMessage: `${root}/:sessionID/message/:messageID`,
   deletePart: `${root}/:sessionID/message/:messageID/part/:partID`,
@@ -440,6 +447,20 @@ export const SessionApi = HttpApi.make("session")
           OpenApi.annotations({
             identifier: "part.update",
             description: "Update a part in a message.",
+          }),
+        ),
+        HttpApiEndpoint.post("btw", SessionPaths.btw, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          payload: BtwPayload,
+          success: described(Schema.Struct({ asideID: Schema.String }), "Aside accepted"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.btw",
+            summary: "Ask a by-the-way question",
+            description:
+              "Run an isolated, tool-less, single-turn completion over the session's full history. Streams the answer via btw.* events; does NOT write to session history or change session status.",
           }),
         ),
       )

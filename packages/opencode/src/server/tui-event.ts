@@ -3,6 +3,37 @@ import { PositiveInt } from "@opencode-ai/core/schema"
 import { EventV2 } from "@opencode-ai/core/event"
 import { Effect, Schema } from "effect"
 
+export const BtwEvent = {
+  Start: EventV2.define({
+    type: "btw.start",
+    schema: {
+      asideID: Schema.String,
+      sessionID: SessionID,
+      question: Schema.String,
+    },
+  }),
+  Delta: EventV2.define({
+    type: "btw.delta",
+    schema: {
+      asideID: Schema.String,
+      text: Schema.String,
+    },
+  }),
+  Complete: EventV2.define({
+    type: "btw.complete",
+    schema: {
+      asideID: Schema.String,
+    },
+  }),
+  Error: EventV2.define({
+    type: "btw.error",
+    schema: {
+      asideID: Schema.String,
+      message: Schema.String,
+    },
+  }),
+}
+
 const DEFAULT_TOAST_DURATION = 5000
 
 export const TuiEvent = {

@@ -173,6 +173,8 @@ import type {
   QuestionV2Reply,
   SessionAbortErrors,
   SessionAbortResponses,
+  SessionBtwErrors,
+  SessionBtwResponses,
   SessionChildrenErrors,
   SessionChildrenResponses,
   SessionCommandErrors,
@@ -3548,7 +3550,7 @@ export class Session2 extends HeyApiClient {
       }
       permission?: PermissionRuleset
       time?: {
-        archived?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+        archived?: number
       }
     },
     options?: Options<never, ThrowOnError>,
@@ -4306,6 +4308,49 @@ export class Session2 extends HeyApiClient {
       ...params,
     })
   }
+
+  /**
+   * Ask a by-the-way question
+   *
+   * Run an isolated, tool-less, single-turn completion over the session's full history. Streams the answer via btw.* events; does NOT write to session history or change session status.
+   */
+  public btw<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      asideID?: string
+      text?: string
+      model?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "asideID" },
+            { in: "body", key: "text" },
+            { in: "body", key: "model" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionBtwResponses, SessionBtwErrors, ThrowOnError>({
+      url: "/session/{sessionID}/btw",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
 }
 
 export class Part extends HeyApiClient {
@@ -4663,9 +4708,9 @@ export class Tui extends HeyApiClient {
   }
 
   /**
-   * Open help dialog
+   * Open user guide
    *
-   * Open the help dialog in the TUI to display user assistance information.
+   * Open the DevEco Code user guide in the default browser.
    */
   public openHelp<ThrowOnError extends boolean = false>(
     parameters?: {

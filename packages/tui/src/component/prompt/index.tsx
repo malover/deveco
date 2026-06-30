@@ -47,6 +47,7 @@ import { createColors, createFrames } from "../../ui/spinner"
 import { useDialog } from "../../ui/dialog"
 import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
 import { DialogAlert } from "../../ui/dialog-alert"
+import { useBtw } from "../../context/btw"
 import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { createFadeIn } from "../../util/signal"
@@ -170,6 +171,7 @@ export function Prompt(props: PromptProps) {
   const sync = useSync()
   const tuiConfig = useTuiConfig()
   const dialog = useDialog()
+  const btw = useBtw()
   const toast = useToast()
   const status = createMemo(() => sync.data.session_status?.[props.sessionID ?? ""] ?? { type: "idle" })
   const history = usePromptHistory()
@@ -582,6 +584,22 @@ export function Prompt(props: PromptProps) {
         slashName: "move",
         run: () => {
           move.open()
+        },
+      },
+      {
+        title: t("btw.title"),
+        desc: t("btw.description"),
+        name: "session.btw.open",
+        category: t("category.session"),
+        slashName: "btw",
+        run: () => {
+          // Activated from the slash command autocomplete. Insert the prefix
+          // into the input box and place the cursor at the end so the user
+          // can type the question and submit.
+          const text = "/btw "
+          input.setText(text)
+          setStore("prompt", { input: text, parts: [] })
+          input.gotoBufferEnd()
         },
       },
     ].map((entry) => ({
@@ -1039,6 +1057,27 @@ export function Prompt(props: PromptProps) {
     }
 
     const variant = local.model.variant.current()
+    // Detect /btw aside early so we can route it through btw.open instead
+    // of session.prompt / session.command / session.shell below. The home
+    // route's `if (sessionID == null)` block still creates a session before
+    // we dispatch.
+    const BTW_PREFIX = "/btw"
+    let btwQuestion: string | null = null
+    if (
+      store.mode === "normal" &&
+      store.prompt.input.trim().startsWith(BTW_PREFIX)
+    ) {
+      const trimmed = store.prompt.input.trim().slice(BTW_PREFIX.length).trim()
+      if (!trimmed) {
+        history.append({ ...store.prompt, mode: "normal" })
+        input.clear()
+        input.extmarks.clear()
+        setStore("prompt", { input: "", parts: [] })
+        setStore("extmarkToPartIndex", new Map())
+        return true
+      }
+      btwQuestion = trimmed
+    }
     let sessionID = props.sessionID
     let finishMoveProgress = false
     if (sessionID == null) {
@@ -1107,6 +1146,34 @@ export function Prompt(props: PromptProps) {
             },
           ]
         : []
+
+    if (btwQuestion !== null) {
+      // /btw route: dispatch an isolated, tool-less aside. Does not write to
+      // session history and does not change main session status.
+      btw.open({
+        sessionID,
+        question: btwQuestion,
+        model: `${selectedModel.providerID}/${selectedModel.modelID}`,
+      })
+      history.append({ ...store.prompt, mode: currentMode })
+      input.extmarks.clear()
+      setStore("prompt", { input: "", parts: [] })
+      setStore("extmarkToPartIndex", new Map())
+      props.onSubmit?.()
+
+      // Home route: navigate to the freshly created session AFTER the prompt
+      // dispatch so the aside overlay (which lives above the route tree)
+      // remains mounted.
+      if (!props.sessionID) {
+        if (editorParts.length > 0) editor.preserveSelectionFromNewSession()
+        setTimeout(() => {
+          route.navigate({ type: "session", sessionID })
+        }, 50)
+      }
+      input.clear()
+      if (finishMoveProgress) move.finishSubmit()
+      return true
+    }
 
     if (store.mode === "shell") {
       move.startSubmit()
