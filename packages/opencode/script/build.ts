@@ -2,6 +2,7 @@
 
 import { $ } from "bun"
 import fs from "fs"
+import { createRequire } from "module"
 import path from "path"
 import { fileURLToPath } from "url"
 import { createSolidTransformPlugin } from "@opentui/solid/bun-plugin"
@@ -242,6 +243,22 @@ const rgArchiveMap: Record<string, { archive: string; binary: string }> = {
 }
 
 const binaries: Record<string, string> = {}
+function resolveUiVerificationScript() {
+  try {
+    const pkgJson = createRequire(import.meta.url).resolve("ui-verification-mcp/package.json")
+    return path.join(path.dirname(pkgJson), "dist", "uiVerification.mjs")
+  } catch {
+    console.error(`  ERROR: ui-verification-mcp dist/uiVerification.mjs not found. Run "bun install" first.`)
+    process.exit(1);
+  }
+}
+
+async function copyUiVerificationRuntime(name: string) {
+  const vendorDir = path.join(dir, "dist", name, "vendor", "ui-verification-mcp")
+  await fs.promises.mkdir(vendorDir, { recursive: true })
+  await fs.promises.copyFile(resolveUiVerificationScript(), path.join(vendorDir, "uiVerification.mjs"))
+  console.log("  Bundled ui-verification-mcp");
+}
 if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
   await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
@@ -337,6 +354,8 @@ for (const item of targets) {
     await fs.promises.copyFile(cachedNode, path.join(vendorDir, "napi_bridge.node"))
     console.log(`  Bundled mcp-bridge for ${mcpKey}`)
   }
+
+  await copyUiVerificationRuntime(name)
 
   // Copy ripgrep from cache
   const rgKey = `${item.os}-${item.arch}`

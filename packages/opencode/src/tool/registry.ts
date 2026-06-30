@@ -20,6 +20,7 @@ import { HdcLogTool } from "./hdc_log"
 import { SwitchCwdTool } from "./switch-cwd"
 import { OhKnowledgeTool } from "./oh_knowledge"
 import { ArktsCheckTool } from "./arkts_check"
+import { GetUiVerificationLogTool, SaveUiScreenshotTool, VerifyUiTool } from "./ui-verification/ui-verification-tool"
 import { Auth } from "@/auth"
 import * as Tool from "./tool"
 import { Config } from "@/config/config"
@@ -121,6 +122,9 @@ export const layer = Layer.effect(
     const ohknowledge = yield* OhKnowledgeTool
     const arktscheck = yield* ArktsCheckTool
     const debugexit = yield* DebugExitTool
+    const verifyui = yield* VerifyUiTool
+    const getuilog = yield* GetUiVerificationLogTool
+    const saveuiscreenshot = yield* SaveUiScreenshotTool
     const auth = yield* Auth.Service
     const agent = yield* Agent.Service
 
@@ -240,6 +244,9 @@ export const layer = Layer.effect(
           switchcwd: Tool.init(switchcwd),
           ohknowledge: Tool.init(ohknowledge),
           arktscheck: Tool.init(arktscheck),
+          verify_ui: Tool.init(verifyui),
+          get_ui_verification_log: Tool.init(getuilog),
+          save_ui_screenshot: Tool.init(saveuiscreenshot),
           debugexit: Tool.init(debugexit),
         })
 
@@ -267,6 +274,9 @@ export const layer = Layer.effect(
             tool.hdclog,
             tool.switchcwd,
             tool.arktscheck,
+            tool.verify_ui,
+            tool.get_ui_verification_log,
+            tool.save_ui_screenshot,
             tool.debugexit,
             ...(ohknowledgeEnabled ? [tool.ohknowledge] : []),
           ],
