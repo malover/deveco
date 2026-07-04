@@ -56,6 +56,7 @@ import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
 import { SubagentFooter } from "./subagent-footer.tsx"
 import { SlowResponseTip } from "./slow-response-tip"
+import { BtwPanel } from "../../component/btw-overlay"
 import { filetype } from "../../util/filetype"
 import parsers from "../../parsers-config"
 import { errorMessage } from "../../util/error"
@@ -83,6 +84,7 @@ import { getRevertDiffFiles } from "../../util/revert-diff"
 import { DEVECO_BASE_MODE, useBindings, useCommandShortcut, useOpencodeKeymap } from "../../keymap"
 import { PathFormatterProvider, usePathFormatter } from "../../context/path-format"
 import { useI18n } from "../../i18n"
+import { useBtw } from "../../context/btw"
 
 addDefaultParsers(parsers.parsers)
 
@@ -186,6 +188,7 @@ export function Session() {
     await writeFile(file, content)
   }
   const pluginRuntime = usePluginRuntime()
+  const btw = useBtw()
   const route = useRouteData("session")
   const { navigate } = useRoute()
   const sync = useSync()
@@ -1297,7 +1300,7 @@ export function Session() {
                 <Show when={session()?.parentID}>
                   <SubagentFooter />
                 </Show>
-                <Show when={visible()}>
+                <Show when={visible() && !btw.state().open}>
                   <pluginRuntime.Slot
                     name="session_prompt"
                     mode="replace"
@@ -1318,6 +1321,9 @@ export function Session() {
                       right={<pluginRuntime.Slot name="session_prompt_right" session_id={route.sessionID} />}
                     />
                   </pluginRuntime.Slot>
+                </Show>
+                <Show when={btw.state().open}>
+                  <BtwPanel />
                 </Show>
               </box>
             </Show>

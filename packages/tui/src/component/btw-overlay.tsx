@@ -1,113 +1,170 @@
-import { createEffect, onCleanup, Show } from "solid-js"
-import { useTerminalDimensions } from "@opentui/solid"
-import { RGBA, type ScrollBoxRenderable, TextAttributes } from "@opentui/core"
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js"
+import { type ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useI18n } from "../i18n"
 import { useBtw } from "../context/btw"
+import { SplitBorder } from "../ui/border"
 import { useBindings } from "../keymap"
-import { useClipboard } from "../context/clipboard"
-import { useToast } from "../ui/toast"
+import { useTerminalDimensions } from "@opentui/solid"
 
-const PANEL_MAX_WIDTH = 84
-const PANEL_MIN_WIDTH = 48
-const ANSWER_AREA_HEIGHT = 6
+const ANSWER_AREA_MAX_HEIGHT = 9
+const QUESTION_LIST_MAX_HEIGHT = 3
 
-export function BtwOverlay() {
+export function BtwPanel() {
   const btw = useBtw()
   const { theme } = useTheme()
   const { t } = useI18n()
   const dimensions = useTerminalDimensions()
-  const clipboard = useClipboard()
-  const toast = useToast()
 
   let scrollRef: ScrollBoxRenderable | undefined
-
-  const panelWidth = () =>
-    Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, dimensions().width - 8))
-  const panelMaxHeight = () => Math.max(0, dimensions().height - 4)
-
-  function copyAnswer() {
-    const text = btw.state().answer
-    if (!text) {
-      toast.show({ message: t("btw.copy_empty"), variant: "info" })
-      return
+  let questionScrollRef: ScrollBoxRenderable | undefined
+  const current = createMemo(() => btw.current())
+  const records = createMemo(() => btw.state().records)
+  const currentDone = createMemo(() => {
+    const record = current()
+    return Boolean(record && !record.loading)
+  })
+  const questionListHeight = createMemo(() => Math.max(1, Math.min(records().length, QUESTION_LIST_MAX_HEIGHT)))
+  const answerContentHeight = createMemo(() => {
+    const record = current()
+    if (!record) return 1
+    if (record.loading && !record.answer && !record.error) return 1
+    const text = record.error || record.answer || ""
+    const contentWidth = Math.max(1, dimensions().width - 8)
+    const visualLines = text.split("\n").reduce((count, line) => count + Math.max(1, Math.ceil(line.length / contentWidth)), 0)
+    return Math.max(1, Math.min(visualLines, ANSWER_AREA_MAX_HEIGHT))
+  })
+  const [answerScrollLine, setAnswerScrollLine] = createSignal(Number.MAX_SAFE_INTEGER)
+  const hintItems = createMemo(() => {
+    const record = current()
+    if (!record) return ["Esc to close"]
+    if (record.loading) {
+      if (records().length <= 1) return ["Esc to close"]
+      return ["←/→ to switch", "x to clear history", "Esc to close"]
     }
-    void clipboard.write?.(text).then(
-      () => toast.show({ message: t("btw.copy_success"), variant: "success" }),
-      () => toast.show({ message: t("btw.copy_failed"), variant: "error" }),
-    )
-  }
-
-  useBindings(() => ({
-    enabled: () => btw.state().open,
-    bindings: [
-      { key: "escape", cmd: () => btw.close() },
-      { key: "space", cmd: () => btw.close() },
-      { key: "return", cmd: () => btw.close() },
-      { key: "y", cmd: () => copyAnswer() },
-    ],
-  }))
+    const hints = records().length > 1 ? ["←/→ to switch"] : ["↑/↓ to scroll"]
+    if (records().length > 1) hints.push("x to delete")
+    if (record.answer) hints.push(btw.state().copyNoticeID === record.id ? "copied to clipboard" : "c to copy")
+    if (record.answer || record.error) hints.push("f to fork")
+    hints.push("Esc to close")
+    return hints
+  })
 
   // Auto-scroll to the bottom as the answer streams in.
   createEffect(() => {
-    btw.state().answer
-    queueMicrotask(() => scrollRef?.scrollTo?.(Number.MAX_SAFE_INTEGER))
+    current()?.answer
+    if (current()?.loading) setAnswerScrollLine(Number.MAX_SAFE_INTEGER)
+    queueMicrotask(() => scrollRef?.scrollTo?.(answerScrollLine()))
   })
 
-  onCleanup(() => {
-    if (btw.state().open) btw.close()
+  createEffect(() => {
+    const index = btw.state().index
+    const count = records().length
+    setAnswerScrollLine(Number.MAX_SAFE_INTEGER)
+    queueMicrotask(() => scheduleQuestionScroll(index, count))
   })
 
-  const hasError = () => Boolean(btw.state().error)
-  const hasAnswer = () => Boolean(btw.state().answer)
+  function scheduleQuestionScroll(index: number, count: number) {
+    scrollQuestionIntoView(index, count)
+    setTimeout(() => scrollQuestionIntoView(index, count), 0)
+  }
+
+  function scrollQuestionIntoView(index: number, count: number) {
+    const scroll = questionScrollRef
+    if (!scroll || scroll.isDestroyed) return
+    if (index === count - 1) {
+      scroll.scrollTo(Number.MAX_SAFE_INTEGER)
+      return
+    }
+    if (index < scroll.scrollTop) {
+      scroll.scrollTo(index)
+      return
+    }
+    if (index >= scroll.scrollTop + scroll.viewport.height) {
+      scroll.scrollTo(index - scroll.viewport.height + 1)
+    }
+  }
+
+  function scrollAnswer(delta: number) {
+    setAnswerScrollLine((line) => {
+      const next = line === Number.MAX_SAFE_INTEGER ? (delta < 0 ? answerContentHeight() : Number.MAX_SAFE_INTEGER) : line + delta
+      return Math.max(0, next)
+    })
+    queueMicrotask(() => scrollRef?.scrollTo?.(answerScrollLine()))
+  }
+
+  useBindings(() => ({
+    enabled: () => btw.state().open && currentDone(),
+    priority: 3,
+    bindings: [
+      { key: "up", cmd: () => scrollAnswer(-1) },
+      { key: "down", cmd: () => scrollAnswer(1) },
+    ],
+  }))
+
+  const hasError = () => Boolean(current()?.error)
+  const hasAnswer = () => Boolean(current()?.answer)
 
   return (
     <box
-      position="absolute"
-      zIndex={3000}
-      left={0}
-      top={0}
-      width={dimensions().width}
-      height={dimensions().height}
-      alignItems="center"
-      justifyContent="center"
-      backgroundColor={RGBA.fromInts(0, 0, 0, 180)}
+      flexShrink={0}
+      flexDirection="column"
+      backgroundColor={theme.backgroundPanel}
+      {...SplitBorder}
+      border={["left"]}
+      borderColor={theme.border}
+      paddingLeft={2}
+      paddingRight={1}
+      paddingTop={1}
+      paddingBottom={1}
     >
-      <box
-        flexDirection="column"
-        width={panelWidth()}
-        maxHeight={panelMaxHeight()}
-        backgroundColor={theme.backgroundPanel}
-        border={["top", "right", "bottom", "left"]}
-        borderStyle="rounded"
-        borderColor={theme.borderSubtle}
-        paddingLeft={2}
-        paddingRight={2}
-      >
-        {/* Title row */}
-        <box flexDirection="row" alignItems="center" paddingTop={1} paddingBottom={0}>
+      <box flexDirection="column" gap={1}>
+        <box flexDirection="row" alignItems="center" justifyContent="space-between" gap={1}>
           <text fg={theme.accent} attributes={TextAttributes.BOLD}>
             ✦ {t("btw.title")}
           </text>
-        </box>
-
-        {/* Question row */}
-        <box flexDirection="row" paddingTop={1} paddingBottom={1} gap={1}>
-          <text fg={theme.accent}>?</text>
-          <text fg={theme.text} wrapMode="word" width="100%">
-            {btw.state().question}
+          <text fg={theme.textMuted}>
+            {btw.state().index + 1}/{records().length}
           </text>
         </box>
 
-        {/* Answer area — fixed height, always renders a scrollbox so the dialog
-            height stays stable across loading / streaming / error states.
-            Prefix and content live in the same row inside the scrollbox so
-            they line up correctly. */}
-        <box flexDirection="row" gap={1} height={ANSWER_AREA_HEIGHT}>
+        <box height={questionListHeight()}>
+          <scrollbox
+            ref={(r: ScrollBoxRenderable) => (questionScrollRef = r)}
+            maxHeight={questionListHeight()}
+            scrollbarOptions={{ visible: false }}
+          >
+            <For each={records()}>
+              {(record, index) => {
+                const selected = () => index() === btw.state().index
+                return (
+                  <box flexDirection="row" gap={1}>
+                    <text fg={selected() ? theme.accent : theme.textMuted}>
+                      {selected() ? "›" : " "}
+                    </text>
+                    <text
+                      fg={selected() ? theme.text : theme.textMuted}
+                      attributes={selected() ? TextAttributes.BOLD : undefined}
+                      wrapMode="none"
+                      width="100%"
+                    >
+                      {index() + 1}. {record.question}
+                    </text>
+                    <Show when={record.loading}>
+                      <text fg={theme.textMuted}>…</text>
+                    </Show>
+                  </box>
+                )
+              }}
+            </For>
+          </scrollbox>
+        </box>
+
+        <box flexDirection="row" gap={1} height={answerContentHeight()}>
           <scrollbox
             ref={(r: ScrollBoxRenderable) => (scrollRef = r)}
             flexGrow={1}
-            maxHeight={ANSWER_AREA_HEIGHT}
+            maxHeight={answerContentHeight()}
             scrollbarOptions={{ visible: false }}
           >
             <Show
@@ -116,7 +173,7 @@ export function BtwOverlay() {
                 <box flexDirection="row" gap={1} alignItems="center">
                   <text fg={theme.error}>!</text>
                   <text fg={theme.error} wrapMode="word" width="100%">
-                    {btw.state().error}
+                    {current()?.error}
                   </text>
                 </box>
               }
@@ -124,15 +181,14 @@ export function BtwOverlay() {
               <Show
                 when={hasAnswer()}
                 fallback={
-                  <box flexDirection="row" alignItems="flex-start" height={ANSWER_AREA_HEIGHT}>
+                  <box flexDirection="row" alignItems="flex-start" height={answerContentHeight()}>
                     <text fg={theme.textMuted}>▎  {t("btw.loading_inline")}</text>
                   </box>
                 }
               >
-                <box flexDirection="row" gap={1} alignItems="center">
-                  <text fg={theme.text}>→</text>
+                <box flexDirection="row" alignItems="center">
                   <text fg={theme.text} wrapMode="word" width="100%">
-                    {btw.state().answer}
+                    {current()?.answer}
                   </text>
                 </box>
               </Show>
@@ -140,9 +196,10 @@ export function BtwOverlay() {
           </scrollbox>
         </box>
 
-        {/* Footer */}
-        <box flexDirection="row" justifyContent="flex-end" alignItems="center" paddingTop={1} paddingBottom={1}>
-          <text fg={theme.textMuted}>{t("btw.closeHint")}</text>
+        <box flexDirection="row" justifyContent="flex-start" gap={2}>
+          <For each={hintItems()}>
+            {(hint) => <text fg={theme.textMuted}>{hint}</text>}
+          </For>
         </box>
       </box>
     </box>

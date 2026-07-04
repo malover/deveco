@@ -2,7 +2,7 @@
   "btw": {
     "title": "By the way",
     "description": "Ask a quick side question without interrupting the main agent",
-    "closeHint": "Space / Enter / Esc to close",
+    "closeHint": "←/→ switch · c copy · x delete · f fork · esc close",
     "loading": "Thinking…",
     "loading_inline": "thinking…",
     "error_unknown": "Aside failed: {{message}}",

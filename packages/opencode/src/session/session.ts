@@ -269,6 +269,12 @@ export type CreateInput = Types.DeepMutable<Schema.Schema.Type<typeof CreateInpu
 export const ForkInput = Schema.Struct({
   sessionID: SessionID,
   messageID: Schema.optional(MessageID),
+  btw: Schema.optional(
+    Schema.Struct({
+      question: Schema.String,
+      answer: Schema.String,
+    }),
+  ),
 })
 export const GetInput = SessionID
 export const ChildrenInput = SessionID
@@ -477,7 +483,7 @@ export interface Interface {
     permission?: PermissionV1.Ruleset
     workspaceID?: WorkspaceV2.ID
   }) => Effect.Effect<Info>
-  readonly fork: (input: { sessionID: SessionID; messageID?: MessageID }) => Effect.Effect<Info, NotFound>
+  readonly fork: (input: typeof ForkInput.Type) => Effect.Effect<Info, NotFound>
   readonly touch: (sessionID: SessionID) => Effect.Effect<void>
   readonly get: (id: SessionID) => Effect.Effect<Info, NotFound>
   readonly setTitle: (input: { sessionID: SessionID; title: string }) => Effect.Effect<void>
@@ -737,7 +743,7 @@ export const layer: Layer.Layer<
       })
     })
 
-    const fork = Effect.fn("Session.fork")(function* (input: { sessionID: SessionID; messageID?: MessageID }) {
+    const fork = Effect.fn("Session.fork")(function* (input: typeof ForkInput.Type) {
       const ctx = yield* InstanceState.context
       const original = yield* get(input.sessionID)
       const title = getForkedTitle(original.title)
@@ -775,6 +781,62 @@ export const layer: Layer.Layer<
             p.tail_start_id = idMap.get(p.tail_start_id)
           }
           yield* updatePart(p)
+        }
+      }
+
+      if (input.btw) {
+        const lastAssistant = msgs.findLast((msg): msg is SessionV1.WithParts & { info: SessionV1.Assistant } => msg.info.role === "assistant")
+        const model = original.model
+          ? { providerID: original.model.providerID, modelID: original.model.id, variant: original.model.variant }
+          : lastAssistant
+            ? {
+                providerID: lastAssistant.info.providerID,
+                modelID: lastAssistant.info.modelID,
+              }
+            : undefined
+        if (model) {
+          const agent = original.agent ?? lastAssistant?.info.agent ?? "build"
+          const now = Date.now()
+          const user: SessionV1.User = {
+            id: MessageID.ascending(),
+            sessionID: session.id,
+            role: "user",
+            time: { created: now },
+            agent,
+            model,
+          }
+          yield* updateMessage(user)
+          yield* updatePart({
+            id: PartID.ascending(),
+            sessionID: session.id,
+            messageID: user.id,
+            type: "text",
+            text: input.btw.question,
+          } satisfies SessionV1.TextPart)
+
+          const assistant: SessionV1.Assistant = {
+            id: MessageID.ascending(),
+            sessionID: session.id,
+            parentID: user.id,
+            role: "assistant",
+            time: { created: now, completed: now },
+            finish: "stop",
+            modelID: model.modelID,
+            providerID: model.providerID,
+            mode: agent,
+            agent,
+            path: { cwd: ctx.directory, root: ctx.worktree },
+            cost: 0,
+            tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+          }
+          yield* updateMessage(assistant)
+          yield* updatePart({
+            id: PartID.ascending(),
+            sessionID: session.id,
+            messageID: assistant.id,
+            type: "text",
+            text: input.btw.answer,
+          } satisfies SessionV1.TextPart)
         }
       }
       return session

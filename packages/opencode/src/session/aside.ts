@@ -8,16 +8,7 @@ import { Agent } from "@/agent/agent"
 import { Config } from "@/config/config"
 import { SessionID, MessageID } from "@/session/schema"
 import { Cause, Context, Effect, Layer, Stream } from "effect"
-
-const BTW_SYSTEM_PROMPT = `You are a "by the way" assistant. You answer quick side questions while the user's main task continues in the background.
-
-Rules:
-- You have NO tools. You cannot read files, run commands, search, or access the internet.
-- Never promise to do anything ("let me check", "I'll look into it", "let me search"). You cannot take any action.
-- If you don't know the answer based on the conversation context, say so honestly. Never fabricate information.
-- Never claim the main assistant was interrupted or stopped. It continues running independently.
-- Give a single, concise answer. This is not a multi-turn conversation.
-- Keep answers brief and to the point.`
+import BTW_SYSTEM_PROMPT from "./prompt/btw.txt"
 
 export type BtwInput = {
   sessionID: SessionID

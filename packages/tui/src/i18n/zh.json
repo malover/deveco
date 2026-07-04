@@ -2,7 +2,7 @@
   "btw": {
     "title": "顺带一问",
     "description": "不打断主 agent，快速问一个无关小问题",
-    "closeHint": "空格 / 回车 / Esc 关闭",
+    "closeHint": "←/→ 切换 · c 复制 · x 删除 · f 分叉 · esc 关闭",
     "loading": "思考中…",
     "loading_inline": "思考中…",
     "error_unknown": "提问失败：{{message}}",

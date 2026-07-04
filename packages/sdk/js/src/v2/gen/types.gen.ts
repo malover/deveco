@@ -8103,6 +8103,10 @@ export type SessionMessageResponse = SessionMessageResponses[keyof SessionMessag
 
 export type SessionForkData = {
   body?: {
+    btw?: {
+      question: string
+      answer: string
+    }
     messageID?: string
   }
   path: {
