@@ -28,6 +28,12 @@ This document is the case map for live end-to-end tests. These tests may use the
 | `SKILL_DEVECO_CREATE_HELLO_WORLD` | 0-1构建项目 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-deveco-create-hello-world.case.ts` |
 | `SKILL_DEVECO_API17_FALLBACK` | SDK选择推荐 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-deveco-api17-fallback.case.ts` |
 | `INCREMENTAL_DEV_BUILD_PROJECT` | 增量开发触发build_project | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider`, `deveco-home` | `cases/incremental-dev-build-project.case.ts` |
+| `ARKTS_CHECK_ETS` | 指定ets文件进行语法检查check_ets_files | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/arkts-check-ets.case.ts` |
+| `SWITCH_CWD_BUILD` | 指定目录不存在项目代码构建switch_cwd | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/switch-cwd-build.case.ts` |
+| `SWITCH_CWD_PROJECT_BUILD` | 支持指定目录项目代码构建switch_cwd | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/switch-cwd-project-build.case.ts` |
+| `BUILD_PROJECT` | 支持鸿蒙项目代码构建build project | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/build-project.case.ts` |
+| `BUILD_FAILURE_CHECK` | 编译构建结果检查 | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/build-failure-check.case.ts` |
+| `PLAN_TO_BUILD` | 制定需求计划后跳转到build模式构建 | `slash` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/plan-to-build.case.ts` |
 
 ## LLM_BASIC_TEXT
 
@@ -383,6 +389,123 @@ Cleanup:
 
 The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
 
+## ARKTS_CHECK_ETS
+
+Purpose:
+
+Verify that the `check_ets_files` tool can perform ArkTS static syntax checking on a specified .ets file. Based on the HarmonyOS project template, construct an erroneous .ets file (using `any` type, violating the `arkts-no-any-unknown` rule), invoke the tool, and verify that diagnostic results are returned.
+
+Steps:
+
+1. Create a temporary workspace and copy the HarmonyOS project template.
+2. Overwrite `entry/src/main/ets/pages/Index.ets` with an erroneous version that uses the `any` type.
+3. Run `deveco run --format json --dir <tmp>` with a prompt instructing the agent to use `check_ets_files` to check the file.
+4. Parse JSON-line events from stdout.
+5. Verify the agent's text response contains diagnostic-related keywords.
+
+Expected result:
+
+1. The process exits with code `0`.
+2. At least one `text` event is emitted.
+3. The received text contains diagnostic keywords (错误/error/诊断/diagnostic/警告/warning).
+
+Cleanup:
+
+The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## SWITCH_CWD_BUILD
+
+Purpose:
+
+Verify that `switch_cwd` can switch to a directory that contains no HarmonyOS project, and `build_project` reports that no project exists.
+
+Steps:
+
+1. Create an empty temporary workspace (no `build-profile.json5`, no `oh-package.json5`, no `entry/` directory).
+2. Run `deveco run --format json --dir <tmp>` with a prompt instructing the agent to first use `switch_cwd` to switch to the empty directory, then use `build_project` to compile.
+3. Parse JSON-line events from stdout.
+4. Verify the agent's text response mentions the switch and indicates no project / build failure.
+
+Expected result:
+
+1. The process exits with code `0`.
+2. At least one `text` event is emitted.
+3. The received text mentions the switch (切换/switch) and indicates no project or build failure (无工程/失败/error).
+
+Cleanup:
+
+The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## SWITCH_CWD_PROJECT_BUILD
+
+Purpose:
+
+Verify that `switch_cwd` can switch to a directory containing a valid HarmonyOS project, and `build_project` completes the compilation build successfully.
+
+Steps:
+
+1. Create a temporary workspace and copy the HarmonyOS project template to it.
+2. Run `deveco run --format json --dir <tmp>` with a prompt instructing the agent to first use `switch_cwd` to switch to the project directory, then use `build_project` to compile.
+3. Parse JSON-line events from stdout.
+4. Verify the agent's text response mentions the switch and indicates build success (no failure keywords).
+
+Expected result:
+
+1. The process exits with code `0`.
+2. At least one `text` event is emitted.
+3. The received text mentions the switch (切换/switch) and indicates success (成功/success/完成/complete) with no failure keywords (失败/fail/报错/异常).
+
+Cleanup:
+
+The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## BUILD_PROJECT
+
+Purpose:
+
+Verify that the `build_project` tool can compile and build a HarmonyOS project. The user inputs "帮我用build project工具构建当前项目工程" and the agent calls `build_project` to successfully complete the build and return build results.
+
+Steps:
+
+1. Create a temporary workspace and copy the HarmonyOS project template to it.
+2. Run `deveco run --format json --dir <tmp>` with the prompt "帮我用build project工具构建当前项目工程".
+3. Parse JSON-line events from stdout.
+4. Verify the agent's text response indicates build success with no failure keywords.
+
+Expected result:
+
+1. The process exits with code `0`.
+2. At least one `text` event is emitted.
+3. The received text contains success keywords (成功/success/完成/complete) and no failure keywords (失败/fail/报错/异常).
+
+Cleanup:
+
+The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## BUILD_FAILURE_CHECK
+
+Purpose:
+
+Verify that `build_project` returns failure check results when building a project with compilation errors. The project's `Index.ets` is overwritten with a version containing `any` type usage and a type mismatch, causing ArkTS compilation failure.
+
+Steps:
+
+1. Create a temporary workspace and copy the HarmonyOS project template to it.
+2. Overwrite `entry/src/main/ets/pages/Index.ets` with an erroneous version (uses `any` type, type mismatch).
+3. Run `deveco run --format json --dir <tmp>` with the prompt "帮我用build project工具构建当前项目工程".
+4. Parse JSON-line events from stdout.
+5. Verify the agent's text response contains build failure keywords.
+
+Expected result:
+
+1. The process exits with code `0`.
+2. At least one `text` event is emitted.
+3. The received text contains failure keywords (失败/fail/错误/error/报错/异常).
+
+Cleanup:
+
+The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
 ## SKILL_DEVECO_API17_FALLBACK
 
 Purpose:
@@ -404,6 +527,30 @@ Expected result:
 1. `copy-template` script was executed.
 2. If API17 was out of range, the system fell back to SDK default or API22.
 3. `build-profile.json5` exists in the project directory.
+
+Cleanup:
+
+The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## PLAN_TO_BUILD
+
+Purpose:
+
+Verify that a refactoring plan created in plan mode can be accepted, causing a switch to build mode where refactoring begins. Uses a two-run approach: first run creates the plan in `--agent plan` mode, second run continues the session with `--session <id> --agent build` to start refactoring.
+
+Steps:
+
+1. Create a temporary workspace and copy the HarmonyOS project template to it.
+2. Step 1: Run `deveco run --agent plan --format json --dir <tmp>` with prompt "请帮我制定一下重构计划". Parse events and extract session ID.
+3. Step 2: Run `deveco run --session <id> --agent build --format json --dir <tmp>` with prompt "接受重构计划，开始重构". Parse events.
+4. Verify step 1 returned plan content, step 2 shows build mode refactoring activity.
+
+Expected result:
+
+1. Both steps exit with code `0`.
+2. Step 1 emits at least one `text` event with plan-related content (计划/plan/重构/refactor).
+3. Step 2 emits at least one `text` event with refactoring activity (重构/开始/修改/实现/完成).
+4. The `--agent plan` → `--agent build` switch via `--session` demonstrates plan-to-build mode transition.
 
 Cleanup:
 

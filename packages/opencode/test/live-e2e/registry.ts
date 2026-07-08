@@ -22,6 +22,12 @@ import startAppDeploy from "./cases/start-app-deploy.case"
 import hdcLogListDevices from "./cases/hdc-log-list-devices.case"
 import incrementalDevBuildProject from "./cases/incremental-dev-build-project.case"
 import commandExecution from "./cases/command-execution.case"
+import arktsCheckEts from "./cases/arkts-check-ets.case"
+import switchCwdBuild from "./cases/switch-cwd-build.case"
+import switchCwdProjectBuild from "./cases/switch-cwd-project-build.case"
+import buildProject from "./cases/build-project.case"
+import buildFailureCheck from "./cases/build-failure-check.case"
+import planToBuild from "./cases/plan-to-build.case"
 import type { LiveTestCase } from "./types"
 
 export const cases: LiveTestCase[] = [
@@ -49,6 +55,12 @@ export const cases: LiveTestCase[] = [
   hdcLogListDevices,
   incrementalDevBuildProject,
   commandExecution,
+  arktsCheckEts,
+  switchCwdBuild,
+  switchCwdProjectBuild,
+  buildProject,
+  buildFailureCheck,
+  planToBuild,
 ]
 
 export function getCaseByID(id: string) {
