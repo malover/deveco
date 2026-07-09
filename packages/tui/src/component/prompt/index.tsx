@@ -328,6 +328,9 @@ export function Prompt(props: PromptProps) {
     exitCount: {},
     exitKey: "",
   })
+  const [btwUsageVisible, setBtwUsageVisible] = createSignal(false)
+  let btwUsageTimer: ReturnType<typeof setTimeout> | undefined
+  let keepBtwUsageOnNextInputChange = false
 
   const exitTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
@@ -698,9 +701,21 @@ export function Prompt(props: PromptProps) {
     if (store.prompt.input) {
       stashed = { prompt: unwrap(store.prompt), cursor: input.cursorOffset }
     }
+    if (btwUsageTimer) clearTimeout(btwUsageTimer)
+    keepBtwUsageOnNextInputChange = false
     setInputTarget(undefined)
     props.ref?.(undefined)
   })
+
+  function showBtwUsage() {
+    if (btwUsageTimer) clearTimeout(btwUsageTimer)
+    setBtwUsageVisible(true)
+    btwUsageTimer = setTimeout(() => {
+      setBtwUsageVisible(false)
+      keepBtwUsageOnNextInputChange = false
+      btwUsageTimer = undefined
+    }, 4000)
+  }
 
   createEffect(() => {
     if (!input || input.isDestroyed) return
@@ -1035,6 +1050,19 @@ export function Prompt(props: PromptProps) {
       void exit()
       return true
     }
+    const BTW_PREFIX = "/btw"
+    const isBtwCommand = store.mode === "normal" && (trimmed === BTW_PREFIX || trimmed.startsWith(`${BTW_PREFIX} `))
+    const parsedBtwQuestion = isBtwCommand ? trimmed.slice(BTW_PREFIX.length).trim() : null
+    if (isBtwCommand && !parsedBtwQuestion) {
+      history.append({ ...store.prompt, mode: "normal" })
+      keepBtwUsageOnNextInputChange = true
+      input.clear()
+      input.extmarks.clear()
+      setStore("prompt", { input: "", parts: [] })
+      setStore("extmarkToPartIndex", new Map())
+      showBtwUsage()
+      return true
+    }
     const selectedModel = local.model.current()
     if (!selectedModel) {
       void promptModelWarning()
@@ -1061,23 +1089,7 @@ export function Prompt(props: PromptProps) {
     // of session.prompt / session.command / session.shell below. The home
     // route's `if (sessionID == null)` block still creates a session before
     // we dispatch.
-    const BTW_PREFIX = "/btw"
-    let btwQuestion: string | null = null
-    if (
-      store.mode === "normal" &&
-      store.prompt.input.trim().startsWith(BTW_PREFIX)
-    ) {
-      const trimmed = store.prompt.input.trim().slice(BTW_PREFIX.length).trim()
-      if (!trimmed) {
-        history.append({ ...store.prompt, mode: "normal" })
-        input.clear()
-        input.extmarks.clear()
-        setStore("prompt", { input: "", parts: [] })
-        setStore("extmarkToPartIndex", new Map())
-        return true
-      }
-      btwQuestion = trimmed
-    }
+    const btwQuestion = parsedBtwQuestion
     let sessionID = props.sessionID
     let finishMoveProgress = false
     if (sessionID == null) {
@@ -1540,6 +1552,11 @@ export function Prompt(props: PromptProps) {
             flexGrow={1}
             width="100%"
           >
+            <Show when={btwUsageVisible()}>
+              <box flexShrink={0} paddingBottom={1}>
+                <text fg={theme.textMuted}>{t("btw.usage")}</text>
+              </box>
+            </Show>
             <textarea
               width="100%"
               placeholder={placeholderText()}
@@ -1550,6 +1567,14 @@ export function Prompt(props: PromptProps) {
               maxHeight={isHomeRoute() ? homePromptRows() : maxHeight()}
               onContentChange={() => {
                 const value = input.plainText
+                if (btwUsageVisible()) {
+                  if (keepBtwUsageOnNextInputChange && value === "") {
+                    keepBtwUsageOnNextInputChange = false
+                  } else {
+                    keepBtwUsageOnNextInputChange = false
+                    setBtwUsageVisible(false)
+                  }
+                }
                 setStore("prompt", "input", value)
                 auto()?.onInput(value)
                 syncExtmarksWithPromptParts()

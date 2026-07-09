@@ -5,6 +5,7 @@
     "closeHint": "←/→ 切换 · c 复制 · x 删除 · f 分叉 · esc 关闭",
     "loading": "思考中…",
     "loading_inline": "思考中…",
+    "usage": "用法：/btw <你的问题>",
     "error_unknown": "提问失败：{{message}}",
     "copy_success": "已复制到剪贴板",
     "copy_failed": "复制失败",

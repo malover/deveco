@@ -6,11 +6,12 @@ import { useBtw } from "../context/btw"
 import { SplitBorder } from "../ui/border"
 import { useBindings } from "../keymap"
 import { useTerminalDimensions } from "@opentui/solid"
+import { countWrappedTerminalLines } from "../util/text-wrap"
 
-const ANSWER_AREA_MAX_HEIGHT = 9
+const ANSWER_AREA_MAX_HEIGHT = 6
 const QUESTION_LIST_MAX_HEIGHT = 3
 
-export function BtwPanel() {
+export function BtwPanel(props: { width?: number } = {}) {
   const btw = useBtw()
   const { theme } = useTheme()
   const { t } = useI18n()
@@ -24,16 +25,21 @@ export function BtwPanel() {
     const record = current()
     return Boolean(record && !record.loading)
   })
+  const currentAnswerText = createMemo(() => current()?.answer.trim() ?? "")
+  const currentErrorText = createMemo(() => current()?.error?.trim() ?? "")
+  const currentDisplayText = createMemo(() => currentErrorText() || currentAnswerText())
+  const panelWidth = createMemo(() => Math.max(1, props.width ?? dimensions().width))
+  const answerTextWidth = createMemo(() => Math.max(1, panelWidth() - 4 - (currentErrorText() ? 2 : 0)))
   const questionListHeight = createMemo(() => Math.max(1, Math.min(records().length, QUESTION_LIST_MAX_HEIGHT)))
-  const answerContentHeight = createMemo(() => {
+  const answerFullHeight = createMemo(() => {
     const record = current()
     if (!record) return 1
     if (record.loading && !record.answer && !record.error) return 1
-    const text = record.error || record.answer || ""
-    const contentWidth = Math.max(1, dimensions().width - 8)
-    const visualLines = text.split("\n").reduce((count, line) => count + Math.max(1, Math.ceil(line.length / contentWidth)), 0)
-    return Math.max(1, Math.min(visualLines, ANSWER_AREA_MAX_HEIGHT))
+    const text = currentDisplayText()
+    return Math.max(1, countWrappedTerminalLines(text, answerTextWidth()))
   })
+  const answerContentHeight = createMemo(() => Math.min(answerFullHeight(), ANSWER_AREA_MAX_HEIGHT))
+  const answerMaxScrollTop = createMemo(() => Math.max(0, answerFullHeight() - answerContentHeight()))
   const [answerScrollLine, setAnswerScrollLine] = createSignal(Number.MAX_SAFE_INTEGER)
   const hintItems = createMemo(() => {
     const record = current()
@@ -52,21 +58,35 @@ export function BtwPanel() {
 
   // Auto-scroll to the bottom as the answer streams in.
   createEffect(() => {
-    current()?.answer
+    currentDisplayText()
+    answerFullHeight()
     if (current()?.loading) setAnswerScrollLine(Number.MAX_SAFE_INTEGER)
-    queueMicrotask(() => scrollRef?.scrollTo?.(answerScrollLine()))
+    if (current()?.loading || answerScrollLine() === Number.MAX_SAFE_INTEGER) scheduleAnswerScroll()
   })
 
   createEffect(() => {
     const index = btw.state().index
     const count = records().length
     setAnswerScrollLine(Number.MAX_SAFE_INTEGER)
+    scheduleAnswerScroll()
     queueMicrotask(() => scheduleQuestionScroll(index, count))
   })
 
   function scheduleQuestionScroll(index: number, count: number) {
     scrollQuestionIntoView(index, count)
     setTimeout(() => scrollQuestionIntoView(index, count), 0)
+  }
+
+  function scheduleAnswerScroll() {
+    scrollAnswerTo(answerScrollLine())
+    queueMicrotask(() => scrollAnswerTo(answerScrollLine()))
+    setTimeout(() => scrollAnswerTo(answerScrollLine()), 0)
+  }
+
+  function scrollAnswerTo(line: number) {
+    const scroll = scrollRef
+    if (!scroll || scroll.isDestroyed) return
+    scroll.scrollTo(line)
   }
 
   function scrollQuestionIntoView(index: number, count: number) {
@@ -87,10 +107,13 @@ export function BtwPanel() {
 
   function scrollAnswer(delta: number) {
     setAnswerScrollLine((line) => {
-      const next = line === Number.MAX_SAFE_INTEGER ? (delta < 0 ? answerContentHeight() : Number.MAX_SAFE_INTEGER) : line + delta
+      const maxScrollTop = answerMaxScrollTop()
+      const currentLine = line === Number.MAX_SAFE_INTEGER ? maxScrollTop : line
+      const next = currentLine + delta
+      if (next >= maxScrollTop) return Number.MAX_SAFE_INTEGER
       return Math.max(0, next)
     })
-    queueMicrotask(() => scrollRef?.scrollTo?.(answerScrollLine()))
+    scheduleAnswerScroll()
   }
 
   useBindings(() => ({
@@ -102,8 +125,8 @@ export function BtwPanel() {
     ],
   }))
 
-  const hasError = () => Boolean(current()?.error)
-  const hasAnswer = () => Boolean(current()?.answer)
+  const hasError = () => Boolean(currentErrorText())
+  const hasAnswer = () => Boolean(currentAnswerText())
 
   return (
     <box
@@ -131,6 +154,7 @@ export function BtwPanel() {
         <box height={questionListHeight()}>
           <scrollbox
             ref={(r: ScrollBoxRenderable) => (questionScrollRef = r)}
+            height={questionListHeight()}
             maxHeight={questionListHeight()}
             scrollbarOptions={{ visible: false }}
           >
@@ -164,16 +188,19 @@ export function BtwPanel() {
           <scrollbox
             ref={(r: ScrollBoxRenderable) => (scrollRef = r)}
             flexGrow={1}
+            height={answerContentHeight()}
             maxHeight={answerContentHeight()}
             scrollbarOptions={{ visible: false }}
+            stickyScroll={true}
+            stickyStart="bottom"
           >
             <Show
               when={!hasError()}
               fallback={
-                <box flexDirection="row" gap={1} alignItems="center">
+                <box flexDirection="row" gap={1} alignItems="flex-start" height={answerFullHeight()}>
                   <text fg={theme.error}>!</text>
-                  <text fg={theme.error} wrapMode="word" width="100%">
-                    {current()?.error}
+                  <text fg={theme.error} wrapMode="word" width="100%" height={answerFullHeight()}>
+                    {currentErrorText()}
                   </text>
                 </box>
               }
@@ -186,9 +213,9 @@ export function BtwPanel() {
                   </box>
                 }
               >
-                <box flexDirection="row" alignItems="center">
-                  <text fg={theme.text} wrapMode="word" width="100%">
-                    {current()?.answer}
+                <box flexDirection="column" alignItems="flex-start" height={answerFullHeight()}>
+                  <text fg={theme.text} wrapMode="word" width="100%" height={answerFullHeight()}>
+                    {currentAnswerText()}
                   </text>
                 </box>
               </Show>

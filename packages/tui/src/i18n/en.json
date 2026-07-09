@@ -5,6 +5,7 @@
     "closeHint": "←/→ switch · c copy · x delete · f fork · esc close",
     "loading": "Thinking…",
     "loading_inline": "thinking…",
+    "usage": "Usage: /btw <your question>",
     "error_unknown": "Aside failed: {{message}}",
     "copy_success": "Copied to clipboard",
     "copy_failed": "Copy failed",

@@ -1323,7 +1323,7 @@ export function Session() {
                   </pluginRuntime.Slot>
                 </Show>
                 <Show when={btw.state().open}>
-                  <BtwPanel />
+                  <BtwPanel width={contentWidth()} />
                 </Show>
               </box>
             </Show>
