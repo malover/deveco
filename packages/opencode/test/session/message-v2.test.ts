@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
-import { APICallError } from "ai"
+import { APICallError, LoadAPIKeyError } from "ai"
 import { MessageV2 } from "../../src/session/message-v2"
 import { ProviderTransform } from "@/provider/transform"
 import type { Provider } from "@/provider/provider"
@@ -1649,5 +1649,317 @@ describe("session.message-v2.latest", () => {
     expect(state.user?.id).toBe(NEW_COMPACTION_USER)
     expect(state.tasks).toHaveLength(1)
     expect(state.tasks[0]).toMatchObject({ type: "compaction", auto: true })
+  })
+
+  test("returns all undefined and empty tasks for empty array", () => {
+    const state = MessageV2.latest([])
+    expect(state.user).toBeUndefined()
+    expect(state.assistant).toBeUndefined()
+    expect(state.finished).toBeUndefined()
+    expect(state.tasks).toEqual([])
+  })
+
+  test("returns user when only user messages exist", () => {
+    const u = userInfo("msg_u1")
+    const state = MessageV2.latest([
+      { info: u, parts: [{ ...basePart("msg_u1", "p1"), type: "text", text: "hi" }] as SessionV1.Part[] },
+    ])
+    expect(state.user?.id).toBe("msg_u1")
+    expect(state.assistant).toBeUndefined()
+    expect(state.finished).toBeUndefined()
+    expect(state.tasks).toEqual([])
+  })
+
+  test("returns assistant when only assistant messages exist", () => {
+    const a = assistantInfo("msg_a1", "msg_parent")
+    const state = MessageV2.latest([
+      { info: a, parts: [{ ...basePart("msg_a1", "p1"), type: "text", text: "hi" }] as SessionV1.Part[] },
+    ])
+    expect(state.user).toBeUndefined()
+    expect(state.assistant?.id).toBe("msg_a1")
+    expect(state.finished).toBeUndefined()
+    expect(state.tasks).toEqual([])
+  })
+
+  test("returns last user and last assistant for multiple messages", () => {
+    const msgs: SessionV1.WithParts[] = [
+      { info: userInfo("msg_001"), parts: [] },
+      { info: assistantInfo("msg_002", "msg_001"), parts: [] },
+      { info: userInfo("msg_003"), parts: [] },
+      { info: assistantInfo("msg_004", "msg_003"), parts: [] },
+    ]
+    const state = MessageV2.latest(msgs)
+    expect(state.user?.id).toBe("msg_003")
+    expect(state.assistant?.id).toBe("msg_004")
+  })
+
+  test("picks chronologically last finished assistant", () => {
+    const a1 = { ...assistantInfo("msg_a1", "msg_p"), finish: "stop" } as SessionV1.Assistant
+    const a2 = { ...assistantInfo("msg_a2", "msg_p"), finish: "stop" } as SessionV1.Assistant
+    const state = MessageV2.latest([
+      { info: a1, parts: [] },
+      { info: a2, parts: [] },
+    ])
+    expect(state.finished?.id).toBe("msg_a2")
+  })
+
+  test("excludes finished message parts from tasks", () => {
+    const finishedID = MessageID.make("msg_fin")
+    const a = { ...assistantInfo(finishedID, "msg_p"), finish: "stop" } as SessionV1.Assistant
+    const later = userInfo("msg_later")
+    const state = MessageV2.latest([
+      { info: a, parts: [{ ...basePart(finishedID, "p1"), type: "text", text: "x" }] as SessionV1.Part[] },
+      {
+        info: later,
+        parts: [{ ...basePart("msg_later", "p1"), type: "subtask", prompt: "p", description: "d", agent: "a" }] as SessionV1.Part[],
+      },
+    ])
+    expect(state.finished?.id).toBe(finishedID)
+    expect(state.tasks).toHaveLength(1)
+    expect(state.tasks[0].type).toBe("subtask")
+  })
+
+  test("extracts both compaction and subtask tasks after finished", () => {
+    const finishedID = MessageID.make("msg_a_finished")
+    const a = { ...assistantInfo(finishedID, "msg_p"), finish: "stop" } as SessionV1.Assistant
+    const after1 = userInfo("msg_z_after1")
+    const after2 = userInfo("msg_z_after2")
+    const state = MessageV2.latest([
+      { info: a, parts: [] },
+      {
+        info: after1,
+        parts: [{ ...basePart("msg_z_after1", "p1"), type: "compaction", auto: true }] as SessionV1.Part[],
+      },
+      {
+        info: after2,
+        parts: [{ ...basePart("msg_z_after2", "p1"), type: "subtask", prompt: "p", description: "d", agent: "a" }] as SessionV1.Part[],
+      },
+    ])
+    expect(state.tasks).toHaveLength(2)
+    expect(state.tasks[0].type).toBe("compaction")
+    expect(state.tasks[1].type).toBe("subtask")
+  })
+})
+
+describe("session.message-v2.filterCompacted", () => {
+  test("returns reversed array for messages without compaction", () => {
+    const m1: SessionV1.WithParts = { info: userInfo("msg_001"), parts: [] }
+    const m2: SessionV1.WithParts = { info: userInfo("msg_002"), parts: [] }
+    const m3: SessionV1.WithParts = { info: userInfo("msg_003"), parts: [] }
+    // Input is reverse chronological (as returned by page)
+    const result = MessageV2.filterCompacted([m3, m2, m1])
+    expect(result.map((m) => m.info.id)).toEqual(["msg_001", "msg_002", "msg_003"])
+  })
+
+  test("breaks on compaction without tail_start_id", () => {
+    const tailID = MessageID.make("msg_001")
+    const overflowID = MessageID.make("msg_002")
+    const compactionID = MessageID.make("msg_003")
+    const oldID = MessageID.make("msg_000")
+
+    const tailUser: SessionV1.WithParts = { info: userInfo(tailID), parts: [] }
+    const overflowAssistant: SessionV1.WithParts = {
+      info: {
+        ...assistantInfo(overflowID, compactionID),
+        summary: true,
+        finish: "stop",
+      } as SessionV1.Assistant,
+      parts: [],
+    }
+    const compactionUser: SessionV1.WithParts = {
+      info: userInfo(compactionID),
+      parts: [{ ...basePart(compactionID, "p1"), type: "compaction", auto: true }] as SessionV1.Part[],
+    }
+    const oldMsg: SessionV1.WithParts = { info: userInfo(oldID), parts: [] }
+    // assistant must appear before compaction user in input so completed set gets populated
+    const result = MessageV2.filterCompacted([overflowAssistant, compactionUser, tailUser, oldMsg])
+    // completed has compactionID → compaction user triggers break (no tail_start_id)
+    // tailUser and oldMsg never get pushed
+    expect(result.map((m) => m.info.id)).toEqual([String(compactionID), String(overflowID)])
+  })
+
+  test("retains tail messages with tail_start_id compaction", () => {
+    const tailID = MessageID.make("msg_tail")
+    const compactionID = MessageID.make("msg_comp")
+    const summaryID = MessageID.make("msg_summary")
+    const continueID = MessageID.make("msg_continue")
+
+    const tailUser: SessionV1.WithParts = {
+      info: userInfo(tailID),
+      parts: [{ ...basePart(tailID, "p1"), type: "text", text: "original" }] as SessionV1.Part[],
+    }
+    const overflowAssistant: SessionV1.WithParts = {
+      info: {
+        ...assistantInfo("msg_overflow", tailID),
+        finish: "tool-calls",
+      } as SessionV1.Assistant,
+      parts: [],
+    }
+    const compactionUser: SessionV1.WithParts = {
+      info: userInfo(compactionID),
+      parts: [
+        { ...basePart(compactionID, "p1"), type: "compaction", auto: true, tail_start_id: tailID },
+      ] as SessionV1.Part[],
+    }
+    const summaryAssistant: SessionV1.WithParts = {
+      info: {
+        ...assistantInfo(summaryID, compactionID),
+        summary: true,
+        finish: "stop",
+      } as SessionV1.Assistant,
+      parts: [],
+    }
+    const continueUser: SessionV1.WithParts = {
+      info: userInfo(continueID),
+      parts: [{ ...basePart(continueID, "p1"), type: "text", text: "continue" }] as SessionV1.Part[],
+    }
+
+    // reverse chronological
+    const result = MessageV2.filterCompacted([continueUser, summaryAssistant, compactionUser, overflowAssistant, tailUser])
+    // All messages should be retained + reordered
+    const ids = result.map((m) => m.info.id)
+    expect(ids).toContain(String(tailID))
+    expect(ids).toContain(String(compactionID))
+    expect(ids).toContain(String(summaryID))
+    expect(ids).toContain(String(continueID))
+  })
+
+  test("returns result as-is when no compaction part with tail_start_id exists", () => {
+    const m1: SessionV1.WithParts = { info: userInfo("msg_001"), parts: [] }
+    const m2: SessionV1.WithParts = { info: userInfo("msg_002"), parts: [] }
+    const result = MessageV2.filterCompacted([m2, m1])
+    expect(result.map((m) => m.info.id)).toEqual(["msg_001", "msg_002"])
+  })
+
+  test("handles empty input", () => {
+    const result = MessageV2.filterCompacted([])
+    expect(result).toEqual([])
+  })
+})
+
+describe("session.message-v2.fromError (additional branches)", () => {
+  test("converts DOMException AbortError to AbortedError", () => {
+    const abort = new DOMException("The user aborted a request.", "AbortError")
+    const result = MessageV2.fromError(abort, { providerID })
+    expect(result.name).toBe("MessageAbortedError")
+    expect((result as any).data.message).toBe("The user aborted a request.")
+  })
+
+  test("returns OutputLengthError as-is", () => {
+    const err = new SessionV1.OutputLengthError({}).toObject() as SessionV1.OutputLengthError
+    const result = MessageV2.fromError(err, { providerID })
+    expect(SessionV1.OutputLengthError.isInstance(result)).toBe(true)
+  })
+
+  test("converts LoadAPIKeyError to AuthError", () => {
+    const err = new LoadAPIKeyError({ message: "API key not found" })
+    const result = MessageV2.fromError(err, { providerID })
+    expect(result.name).toBe("ProviderAuthError")
+    expect((result as any).data.providerID).toBe(providerID)
+    expect((result as any).data.message).toBe("API key not found")
+  })
+
+  test("converts ECONNRESET to retryable APIError", () => {
+    const err = Object.assign(new Error("read ECONNRESET"), {
+      code: "ECONNRESET",
+      syscall: "read",
+    })
+    const result = MessageV2.fromError(err, { providerID })
+    expect(SessionV1.APIError.isInstance(result)).toBe(true)
+    expect((result as SessionV1.APIError).data.isRetryable).toBe(true)
+    expect((result as SessionV1.APIError).data.message).toBe("Connection reset by server")
+    expect((result as SessionV1.APIError).data.metadata?.code).toBe("ECONNRESET")
+  })
+
+  test("converts ProviderError.HeaderTimeoutError to retryable APIError", () => {
+    const { HeaderTimeoutError } = require("@/provider/error")
+    const err = new HeaderTimeoutError(30000)
+    const result = MessageV2.fromError(err, { providerID })
+    expect(SessionV1.APIError.isInstance(result)).toBe(true)
+    expect((result as SessionV1.APIError).data.isRetryable).toBe(true)
+    expect((result as SessionV1.APIError).data.metadata?.timeoutMs).toBe("30000")
+  })
+
+  test("converts ProviderError.ResponseStreamError to retryable APIError", () => {
+    const { ResponseStreamError } = require("@/provider/error")
+    const err = new ResponseStreamError("Stream ended unexpectedly")
+    const result = MessageV2.fromError(err, { providerID })
+    expect(SessionV1.APIError.isInstance(result)).toBe(true)
+    expect((result as SessionV1.APIError).data.isRetryable).toBe(true)
+  })
+
+  test("detects Chinese queue error string as QueueError", () => {
+    const result = MessageV2.fromError("当前排队中，第5位", { providerID })
+    expect(SessionV1.QueueError.isInstance(result)).toBe(true)
+    expect((result as any).data.position).toBe(5)
+  })
+
+  test("detects English queue error string as QueueError", () => {
+    const result = MessageV2.fromError("position 3 of the queue - high demand", { providerID })
+    expect(SessionV1.QueueError.isInstance(result)).toBe(true)
+    expect((result as any).data.position).toBe(3)
+  })
+
+  test("detects queue error with 'high demand' pattern", () => {
+    const result = MessageV2.fromError("high demand service queue, try again later", { providerID })
+    expect(SessionV1.QueueError.isInstance(result)).toBe(true)
+  })
+
+  test("wraps generic Error as NamedError.Unknown with errorMessage", () => {
+    const err = new Error("Something went wrong")
+    const result = MessageV2.fromError(err, { providerID })
+    expect(result.name).toBe("UnknownError")
+    expect((result as any).data.message).toBe("Something went wrong")
+  })
+
+  test("wraps non-error unknown as NamedError.Unknown with JSON", () => {
+    const result = MessageV2.fromError({ foo: "bar" }, { providerID })
+    expect(result.name).toBe("UnknownError")
+    expect((result as any).data.message).toBe(JSON.stringify({ foo: "bar" }))
+  })
+})
+
+describe("session.message-v2.cursor", () => {
+  test("encodes cursor to base64url string", () => {
+    const mid = MessageID.make("msg_test")
+    const encoded = MessageV2.cursor.encode({ id: mid, time: 1000 })
+    expect(typeof encoded).toBe("string")
+    expect(encoded.length).toBeGreaterThan(0)
+  })
+
+  test("decodes valid base64url cursor", () => {
+    const mid = MessageID.make("msg_test")
+    const encoded = MessageV2.cursor.encode({ id: mid, time: 1000 })
+    const decoded = MessageV2.cursor.decode(encoded)
+    expect(decoded.id).toBe(mid)
+    expect(decoded.time).toBe(1000)
+  })
+
+  test("round-trips with time = 0", () => {
+    const mid = MessageID.make("msg_zero")
+    const encoded = MessageV2.cursor.encode({ id: mid, time: 0 })
+    const decoded = MessageV2.cursor.decode(encoded)
+    expect(decoded.id).toBe(mid)
+    expect(decoded.time).toBe(0)
+  })
+
+  test("rejects negative time", () => {
+    expect(() => {
+      const encoded = Buffer.from(JSON.stringify({ id: "msg_neg", time: -1 })).toString("base64url")
+      MessageV2.cursor.decode(encoded)
+    }).toThrow()
+  })
+
+  test("rejects Infinity time", () => {
+    expect(() => {
+      const encoded = Buffer.from(JSON.stringify({ id: "msg_inf", time: Infinity })).toString("base64url")
+      MessageV2.cursor.decode(encoded)
+    }).toThrow()
+  })
+
+  test("rejects invalid base64url input", () => {
+    expect(() => {
+      MessageV2.cursor.decode("not-valid-json!!!")
+    }).toThrow()
   })
 })

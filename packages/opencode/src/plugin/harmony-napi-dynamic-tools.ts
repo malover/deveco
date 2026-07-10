@@ -79,8 +79,9 @@ function jsonSchemaPropertyToEffectSchema(prop: Record<string, unknown>): Schema
 /**
  * Converts a JSON Schema to an Effect.Schema for validation.
  * Handles the top-level object schema with properties and required fields.
+ * @internal Exported for testing
  */
-function jsonSchemaToEffectSchema(inputSchema: unknown): Schema.Decoder<unknown> | null {
+export function jsonSchemaToEffectSchema(inputSchema: unknown): Schema.Decoder<unknown> | null {
   if (!inputSchema || typeof inputSchema !== 'object' || Array.isArray(inputSchema)) {
     return null
   }
@@ -125,8 +126,9 @@ function jsonSchemaToEffectSchema(inputSchema: unknown): Schema.Decoder<unknown>
 
 /**
  * Formats an Effect.Schema parse error into a human-readable string.
+ * @internal Exported for testing
  */
-function formatSchemaError(error: unknown): string {
+export function formatSchemaError(error: unknown): string {
   if (error && typeof error === 'object') {
     const err = error as { message?: string; _tag?: string }
     if (err.message) return err.message
@@ -161,7 +163,8 @@ function parseArgsJson(input?: string, inputSchema?: unknown): Record<string, un
   return value as Record<string, unknown>;
 }
 
-function parseToolArgs(args: unknown, inputSchema?: unknown): Record<string, unknown> {
+/** @internal Exported for testing */
+export function parseToolArgs(args: unknown, inputSchema?: unknown): Record<string, unknown> {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return parseArgsJson(undefined, inputSchema);
 
   const record = args as Record<string, unknown>;
@@ -192,8 +195,9 @@ function parseToolArgs(args: unknown, inputSchema?: unknown): Record<string, unk
  * @param worktree - The allowed base directory
  * @returns The validated absolute path
  * @throws Error if path traversal is detected
+ * @internal Exported for testing
  */
-function sanitizeFilePath(filePath: string, worktree: string): string {
+export function sanitizeFilePath(filePath: string, worktree: string): string {
   // Resolve the path relative to worktree
   const resolved = path.resolve(worktree, filePath);
 
@@ -234,8 +238,9 @@ function sanitizeFilePath(filePath: string, worktree: string): string {
 /**
  * Validates file path parameters in tool arguments.
  * Checks for known path parameter names and validates them against the worktree.
+ * @internal Exported for testing
  */
-function validatePathParameters(args: Record<string, unknown>, worktree: string): void {
+export function validatePathParameters(args: Record<string, unknown>, worktree: string): void {
   // Known path parameter names that need validation
   const pathParams = ['log_path', 'dirname', 'filePath', 'filepath', 'path'];
 
@@ -248,7 +253,8 @@ function validatePathParameters(args: Record<string, unknown>, worktree: string)
   }
 }
 
-function textFromCallResult(result: unknown): string {
+/** @internal Exported for testing */
+export function textFromCallResult(result: unknown): string {
   if (!result || typeof result !== 'object') return JSON.stringify(result, null, 2);
   const maybe = result as { content?: unknown };
   const content = maybe.content;
@@ -300,8 +306,9 @@ function normalizeToolList(
 }
 
 
-function buildProxiedToolDescription(name: string, description: string | undefined): string {
-  return description?.trim() ?? `HarmonyOS N-API tool: ${name}.`;
+/** @internal Exported for testing */
+export function buildProxiedToolDescription(name: string, description: string | undefined): string {
+  return description?.trim() ?? `Harmony N-API tool: ${name}.`;
 }
 
 /**
@@ -344,15 +351,9 @@ function jsonSchemaPropertyToZod(prop: Record<string, unknown>): z.ZodTypeAny {
     }
     case 'object': {
       const properties = prop.properties as Record<string, Record<string, unknown>> | undefined;
-      if (properties && typeof properties === 'object') {
-        const shape: Record<string, z.ZodTypeAny> = {};
-        for (const [key, value] of Object.entries(properties)) {
-          shape[key] = jsonSchemaPropertyToZod(value);
-        }
-        zodType = z.object(shape);
-      } else {
-        zodType = z.record(z.string(), z.unknown());
-      }
+      zodType = properties && typeof properties === 'object'
+        ? z.object(Object.fromEntries(Object.entries(properties).map(([k, v]) => [k, jsonSchemaPropertyToZod(v)])))
+        : z.record(z.string(), z.unknown());
       break;
     }
     default:
@@ -368,8 +369,9 @@ function jsonSchemaPropertyToZod(prop: Record<string, unknown>): z.ZodTypeAny {
 
 /**
  * Converts a JSON Schema inputSchema to Zod args for the plugin tool() API.
+ * @internal Exported for testing
  */
-function inputSchemaToZodArgs(inputSchema: unknown): Record<string, z.ZodTypeAny> {
+export function inputSchemaToZodArgs(inputSchema: unknown): Record<string, z.ZodTypeAny> {
   if (!inputSchema || typeof inputSchema !== 'object' || Array.isArray(inputSchema)) return {};
   const schema = inputSchema as Record<string, unknown>;
   if (schema.type !== 'object') return {};

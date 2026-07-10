@@ -374,19 +374,23 @@ export const defaultLayer = Layer.suspend(() =>
     .pipe(Layer.provide(Database.defaultLayer), Layer.provide(RuntimeFlags.defaultLayer)),
 )
 
-function isZodType(value: unknown): value is z.ZodType {
+/** @internal Exported for testing */
+export function isZodType(value: unknown): value is z.ZodType {
   return typeof value === "object" && value !== null && "_zod" in value
 }
 
-function isPluginTool(value: unknown): value is ToolDefinition {
+/** @internal Exported for testing */
+export function isPluginTool(value: unknown): value is ToolDefinition {
   return typeof value === "object" && value !== null && "args" in value && "description" in value && "execute" in value
 }
 
-function isJsonSchemaDefinition(value: unknown): value is JSONSchema7Definition {
+/** @internal Exported for testing */
+export function isJsonSchemaDefinition(value: unknown): value is JSONSchema7Definition {
   return typeof value === "boolean" || (typeof value === "object" && value !== null && !Array.isArray(value))
 }
 
-function legacyJsonSchema(entries: [string, unknown][]): JSONSchema7 {
+/** @internal Exported for testing */
+export function legacyJsonSchema(entries: [string, unknown][]): JSONSchema7 {
   const properties = Object.fromEntries(
     entries.filter((entry): entry is [string, JSONSchema7Definition] => isJsonSchemaDefinition(entry[1])),
   )
@@ -397,7 +401,8 @@ function legacyJsonSchema(entries: [string, unknown][]): JSONSchema7 {
   }
 }
 
-function zodJsonSchema(schema: z.ZodType): JSONSchema7 {
+/** @internal Exported for testing */
+export function zodJsonSchema(schema: z.ZodType): JSONSchema7 {
   const result = normalizeZodJsonSchema(z.toJSONSchema(schema, { io: "input", metadata: zodMetadataRegistry(schema) }))
   if (!isJsonSchemaObject(result)) throw new Error("plugin tool Zod schema produced a non-object JSON Schema")
   const { $defs, ...rest } = result
@@ -432,7 +437,8 @@ function zodMetadataRegistry(schema: z.ZodType) {
   return registry
 }
 
-function normalizeZodJsonSchema(value: unknown): unknown {
+/** @internal Exported for testing */
+export function normalizeZodJsonSchema(value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => normalizeZodJsonSchema(item))
   if (typeof value !== "object" || value === null) return value
   return Object.fromEntries(

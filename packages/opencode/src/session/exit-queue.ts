@@ -8,7 +8,8 @@ import path from "path"
 
 const authFilePath = path.join(Global.Path.data, "auth.json")
 
-function loadAccessTokenFromDisk(): string {
+/** @internal Exported for testing */
+export function loadAccessTokenFromDisk(): string {
   try {
     if (!fs.existsSync(authFilePath)) return ""
     const raw = JSON.parse(fs.readFileSync(authFilePath, "utf-8")) as Record<string, unknown>

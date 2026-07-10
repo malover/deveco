@@ -6,6 +6,8 @@ import {
   buildEnv,
   clearSavedDevEcoHome,
   findDevEcoHome,
+  findDevEcoHomes,
+  hasConfiguredDevEcoHome,
   hdcPath,
   hvigorPath,
   isDevEcoHome,
@@ -245,6 +247,132 @@ describe("DEVECO_HOME recognition", () => {
       expect(env.DEVECO_HOME).toBe(home)
       expect(env.DEVECO_SDK_HOME).toBe(sdk)
       expect(env.PATH).toContain(path.join(home, "tools", "hvigor", "bin"))
+    })
+
+    test("win32 includes SystemRoot, ComSpec, and Path keys", async () => {
+      if (process.platform !== "win32") return
+      await using tmp = await tmpdir()
+      const home = path.join(tmp.path, "deveco-env-win32")
+      const sdk = path.join(home, "sdk")
+      const env = buildEnv(home, sdk)
+      expect(env).toHaveProperty("SystemRoot")
+      expect(env).toHaveProperty("SYSTEMROOT")
+      expect(env).toHaveProperty("ComSpec")
+      expect(env).toHaveProperty("COMSPEC")
+      expect(env).toHaveProperty("Path")
+      expect(env.Path).toBe(env.PATH)
+    })
+
+    test("non-win32 excludes Windows-specific keys", async () => {
+      if (process.platform === "win32") return
+      await using tmp = await tmpdir()
+      const home = path.join(tmp.path, "deveco-env-unix")
+      const sdk = path.join(home, "sdk")
+      const env = buildEnv(home, sdk)
+      expect(env).not.toHaveProperty("SystemRoot")
+      expect(env).not.toHaveProperty("ComSpec")
+      expect(env).not.toHaveProperty("Path")
+    })
+
+    test("win32 uses semicolon separator in PATH", async () => {
+      if (process.platform !== "win32") return
+      await using tmp = await tmpdir()
+      const home = path.join(tmp.path, "deveco-env-sep")
+      const sdk = path.join(home, "sdk")
+      const env = buildEnv(home, sdk)
+      expect(env.PATH).toContain(";")
+    })
+
+    test("non-win32 uses colon separator in PATH", async () => {
+      if (process.platform === "win32") return
+      await using tmp = await tmpdir()
+      const home = path.join(tmp.path, "deveco-env-sep")
+      const sdk = path.join(home, "sdk")
+      const env = buildEnv(home, sdk)
+      expect(env.PATH).toContain(":")
+      expect(env.PATH).not.toContain(";")
+    })
+  })
+
+  describe("findDevEcoHomes()", () => {
+    test("returns empty array when no default paths exist", async () => {
+      const result = await findDevEcoHomes()
+      expect(Array.isArray(result)).toBe(true)
+    })
+
+    test("deduplicates identical resolved paths", async () => {
+      await using tmp = await tmpdir()
+      const home = path.join(tmp.path, "dedup")
+      await scaffoldDevEcoHome(home)
+      const result = await findDevEcoHomes()
+      const seen = new Set(result)
+      expect(seen.size).toBe(result.length)
+    })
+  })
+
+  describe("clearSavedDevEcoHome()", () => {
+    test("does not throw when file does not exist", async () => {
+      await using tmp = await tmpdir()
+      const stateDir = path.join(tmp.path, "state")
+      await fs.mkdir(stateDir, { recursive: true })
+      const previous = Global.Path.state
+      try {
+        Global.Path.state = stateDir
+        await expect(clearSavedDevEcoHome()).resolves.toBeUndefined()
+      } finally {
+        Global.Path.state = previous
+      }
+    })
+
+    test("removes file when it exists", async () => {
+      await using tmp = await tmpdir()
+      const stateDir = path.join(tmp.path, "state")
+      await fs.mkdir(stateDir, { recursive: true })
+      const previous = Global.Path.state
+      try {
+        Global.Path.state = stateDir
+        const file = path.join(stateDir, "deveco-home.json")
+        await fs.writeFile(file, JSON.stringify({ deveco_home: "/fake" }), "utf8")
+        await clearSavedDevEcoHome()
+        expect(await Bun.file(file).exists()).toBe(false)
+      } finally {
+        Global.Path.state = previous
+      }
+    })
+  })
+
+  describe("hasConfiguredDevEcoHome()", () => {
+    test("returns true when DEVECO_HOME env var is set", async () => {
+      await using tmp = await tmpdir()
+      await useStateDir(tmp.path)
+      await withDevecoHome("/some/path", async () => {
+        expect(await hasConfiguredDevEcoHome()).toBe(true)
+      })
+    })
+
+    test("returns true when saved home is valid", async () => {
+      await using tmp = await tmpdir()
+      const home = path.join(tmp.path, "has-configured")
+      await scaffoldDevEcoHome(home)
+      await useStateDir(tmp.path)
+      await saveDevEcoHome(home)
+      await withDevecoHome(undefined, async () => {
+        expect(await hasConfiguredDevEcoHome()).toBe(true)
+      })
+    })
+
+    test("returns false when neither env nor saved path is valid", async () => {
+      await using tmp = await tmpdir()
+      await useStateDir(tmp.path)
+      await withDevecoHome(undefined, async () => {
+        expect(await hasConfiguredDevEcoHome()).toBe(false)
+      })
+    })
+  })
+
+  describe("MIN_DEVECO_STUDIO_VERSION", () => {
+    test("is exactly 6.0.0", () => {
+      expect(MIN_DEVECO_STUDIO_VERSION).toBe("6.0.0")
     })
   })
 

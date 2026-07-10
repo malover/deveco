@@ -21,7 +21,8 @@ import { assertExternalDirectoryEffect } from "./external-directory"
 import { setSessionCwd } from "./lib/session-cwd"
 import DESCRIPTION from "./switch-cwd.txt"
 
-function resolveTarget(projectPath: string) {
+/** @internal Exported for testing */
+export function resolveTarget(projectPath: string) {
   const trimmed = projectPath.trim()
   if (!trimmed) {
     throw new Error("project_path must not be empty")

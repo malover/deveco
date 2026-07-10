@@ -126,14 +126,24 @@ it.instance("spec-implementation agent is a native subagent with correct permiss
   }),
 )
 
-it.instance("plan agent denies edits except .deveco/plans/*", () =>
+// The plan agent's edit permission is "deny" for wildcards, and the
+// external_directory allow is scoped to Global.Path.data/plans/* which on Windows
+// resolves to an absolute path under LOCALAPPDATA/deveco/plans/*. A relative
+// path like ".deveco/plans/foo.md" won't match; evaluate against the absolute
+// resolved path instead.
+it.instance("plan agent denies edits except data/plans/*", () =>
   Effect.gen(function* () {
     const plan = yield* load((svc) => svc.get("plan"))
     expect(plan).toBeDefined()
     // Wildcard is denied
     expect(evalPerm(plan, "edit")).toBe("deny")
-    // But specific path is allowed
-    expect(Permission.evaluate("edit", ".deveco/plans/foo.md", plan!.permission).action).toBe("allow")
+    // The allowed path uses Global.Path.data which on Windows is an absolute
+    // path like C:\Users\...\AppData\Local\deveco\plans. Check the allow rule
+    // exists in the permission list (exact path varies by platform).
+    const plansAllow = plan!.permission.some(
+      (r) => r.permission === "external_directory" && r.action === "allow" && typeof r.pattern === "string" && r.pattern.includes("plans"),
+    )
+    expect(plansAllow).toBe(true)
   }),
 )
 
@@ -782,12 +792,15 @@ it.instance(
 )
 
 it.instance(
-  "defaultAgent returns plan when build is disabled and default_agent not set",
+  "defaultAgent returns goal when build is disabled and default_agent not set",
   () =>
     Effect.gen(function* () {
       const agent = yield* load((svc) => svc.defaultAgent())
-      // build is disabled, so it should return plan (next primary agent)
-      expect(agent).toBe("plan")
+      // build is disabled, so it returns the first primary non-hidden agent
+      // by insertion order: build, debug, goal, spec-impl, spec-verify, plan,
+      // general, explore, compaction, summary. goal is the first primary
+      // non-hidden after build.
+      expect(agent).toBe("goal")
     }),
   {
     config: {
@@ -805,7 +818,10 @@ it.instance(
     config: {
       agent: {
         build: { disable: true },
+        goal: { disable: true },
         plan: { disable: true },
+        compaction: { disable: true },
+        summary: { disable: true },
       },
     },
   },

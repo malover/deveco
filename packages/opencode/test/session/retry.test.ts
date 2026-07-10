@@ -513,3 +513,346 @@ describe("session.message-v2.fromError", () => {
     })
   })
 })
+
+describe("session.retry.delay edge cases", () => {
+  test("returns queue retry delay when isQueue is true", () => {
+    const d = SessionRetry.delay(1, undefined, true)
+    expect(d).toBe(SessionRetry.QUEUE_RETRY_DELAY)
+  })
+
+  test("returns queue delay even with error and headers present", () => {
+    const error = apiError({ "retry-after-ms": "100" })
+    const d = SessionRetry.delay(1, error, true)
+    expect(d).toBe(SessionRetry.QUEUE_RETRY_DELAY)
+  })
+
+  test("computes exponential backoff when no error provided", () => {
+    expect(SessionRetry.delay(1)).toBe(2000)
+    expect(SessionRetry.delay(2)).toBe(4000)
+    expect(SessionRetry.delay(3)).toBe(8000)
+    expect(SessionRetry.delay(4)).toBe(16000)
+    expect(SessionRetry.delay(5)).toBe(30000)
+    expect(SessionRetry.delay(6)).toBe(30000)
+  })
+
+  test("uses retry-after-ms when retry-after-ms and retry-after both present", () => {
+    const error = apiError({ "retry-after-ms": "1000", "retry-after": "50" })
+    expect(SessionRetry.delay(1, error)).toBe(1000)
+  })
+
+  test("falls back to exponential when retry-after-ms is garbage and no retry-after", () => {
+    const error = apiError({ "retry-after-ms": "garbage" })
+    expect(SessionRetry.delay(1, error)).toBe(2000)
+  })
+
+  test("falls back to exponential when retry-after is garbage", () => {
+    const error = apiError({ "retry-after": "garbage" })
+    expect(SessionRetry.delay(1, error)).toBe(2000)
+  })
+
+  test("caps retry-after seconds based delay to max int32", () => {
+    const error = apiError({ "retry-after": "99999999" })
+    expect(SessionRetry.delay(1, error)).toBe(SessionRetry.RETRY_MAX_DELAY)
+  })
+})
+
+describe("session.retry.retryable queue and rate limit errors", () => {
+  test("returns queue error message", () => {
+    const error = new SessionV1.QueueError({
+      position: 3,
+      message: "Queued for processing",
+    }).toObject()
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toEqual({ message: "Queued for processing" })
+  })
+
+  test("returns model service rate limit with fixed delays", () => {
+    const error = new SessionV1.ModelServiceRateLimitError({
+      message: "Model rate limited",
+    }).toObject()
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toEqual({
+      message: "Model rate limited",
+      maxAttempts: 3,
+      delays: [10_000, 20_000, 30_000],
+    })
+  })
+})
+
+describe("session.retry.retryable 403 UserRateLimit", () => {
+  test("returns maxAttempts and delays for 403 UserRateLimit", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Rate limit exceeded",
+        isRetryable: false,
+        statusCode: 403,
+        responseBody: JSON.stringify({ error: { type: "UserRateLimit", message: "Rate limit exceeded" } }),
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toEqual({
+      message: "Rate limit exceeded",
+      maxAttempts: 3,
+      delays: [10_000, 20_000, 30_000],
+    })
+  })
+
+  test("falls back to default message when body.error.message is missing", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Default msg",
+        isRetryable: false,
+        statusCode: 403,
+        responseBody: JSON.stringify({ error: { type: "UserRateLimit" } }),
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toEqual({
+      message: "Default msg",
+      maxAttempts: 3,
+      delays: [10_000, 20_000, 30_000],
+    })
+  })
+
+  test("does not match 403 when body is not JSON", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Forbidden",
+        isRetryable: false,
+        statusCode: 403,
+        responseBody: "not json",
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toBeUndefined()
+  })
+
+  test("does not match 403 when error type is not UserRateLimit", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Other 403",
+        isRetryable: false,
+        statusCode: 403,
+        responseBody: JSON.stringify({ error: { type: "OtherError" } }),
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toBeUndefined()
+  })
+
+  test("does not match 403 when responseBody is empty", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Forbidden",
+        isRetryable: false,
+        statusCode: 403,
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toBeUndefined()
+  })
+})
+
+describe("session.retry.retryable GoUsageLimitError resetIn branches", () => {
+  const makeGoLimitError = (retryAfterSeconds: number, workspace = "wrk_test", limitName = "Daily") =>
+    Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Quota exceeded",
+        isRetryable: true,
+        statusCode: 429,
+        responseHeaders: { "retry-after": String(retryAfterSeconds) },
+        responseBody: JSON.stringify({
+          type: "error",
+          error: { type: "GoUsageLimitError" },
+          metadata: { workspace, limitName },
+        }),
+      }).toObject(),
+    )
+
+  test("returns days and hours when retryAfter exceeds 1 day with hours", () => {
+    const error = makeGoLimitError(90000, "wrk_a", "Weekly")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.reason).toBe("account_rate_limit")
+    expect(result?.action?.message).toBe(
+      "Weekly usage limit reached. It will reset in 1 day 1 hour. To continue using this model now, enable usage from your available balance",
+    )
+  })
+
+  test("returns days only when retryAfter is exactly 1 day", () => {
+    const error = makeGoLimitError(86400, "wrk_b", "Monthly")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("1 day")
+    expect(result?.action?.message).not.toContain("hour")
+  })
+
+  test("returns hours and minutes when retryAfter exceeds 1 hour with minutes", () => {
+    const error = makeGoLimitError(5400, "wrk_c", "Hourly")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("1 hour 30 minutes")
+  })
+
+  test("returns hours only when minutes are zero", () => {
+    const error = makeGoLimitError(3600, "wrk_d", "Hourly")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("1 hour")
+    expect(result?.action?.message).not.toContain("minute")
+  })
+
+  test("returns minutes only when under 1 hour", () => {
+    const error = makeGoLimitError(300, "wrk_e", "15 min")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("5 minutes")
+  })
+
+  test("returns 'less than a minute' when retryAfter rounds to zero seconds", () => {
+    const error = makeGoLimitError(1, "wrk_f", "Short")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("1 minute")
+  })
+
+  test("returns 'less than a minute' when retryAfter exceeds zero but rounds to zero minutes", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Quota exceeded",
+        isRetryable: true,
+        statusCode: 429,
+        responseHeaders: { "retry-after": "0.5" },
+        responseBody: JSON.stringify({
+          type: "error",
+          error: { type: "GoUsageLimitError" },
+          metadata: { workspace: "wrk_g", limitName: "Tiny" },
+        }),
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("1 minute")
+  })
+
+  test("handles missing retry-after header by returning empty resetIn", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Quota exceeded",
+        isRetryable: true,
+        statusCode: 429,
+        responseBody: JSON.stringify({
+          type: "error",
+          error: { type: "GoUsageLimitError" },
+          metadata: { workspace: "wrk_h", limitName: "X" },
+        }),
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toBe(
+      "X usage limit reached. It will reset in . To continue using this model now, enable usage from your available balance",
+    )
+  })
+
+  test("uses plural for days when value > 1", () => {
+    const error = makeGoLimitError(172800, "wrk_i", "BiWeekly")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("2 days")
+  })
+
+  test("uses plural for hours when value > 1", () => {
+    const error = makeGoLimitError(7200, "wrk_j", "Long")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("2 hours")
+  })
+
+  test("uses 'Generic usage limit' when limitName is empty", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Quota exceeded",
+        isRetryable: true,
+        statusCode: 429,
+        responseHeaders: { "retry-after": "60" },
+        responseBody: JSON.stringify({
+          type: "error",
+          error: { type: "GoUsageLimitError" },
+          metadata: { workspace: "wrk_k" },
+        }),
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.message).toContain("Usage limit reached")
+  })
+
+  test("builds correct workspace link", () => {
+    const error = makeGoLimitError(300, "wrk_xyz", "Daily")
+    const result = SessionRetry.retryable(error, "opencode")
+    expect(result?.action?.link).toBe("https://opencode.ai/workspace/wrk_xyz/go")
+  })
+})
+
+describe("session.retry.retryable Overloaded branch", () => {
+  test("returns 'Provider is overloaded' when message contains Overloaded", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Overloaded server",
+        isRetryable: true,
+        statusCode: 503,
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toEqual({ message: "Provider is overloaded" })
+  })
+
+  test("returns original message when Overloaded is not present", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Something else",
+        isRetryable: true,
+        statusCode: 500,
+      }).toObject(),
+    )
+    const result = SessionRetry.retryable(error, retryProvider)
+    expect(result).toEqual({ message: "Something else" })
+  })
+})
+
+describe("session.retry.retryable JSON error codes", () => {
+  test("matches error type too_many_requests", () => {
+    const error = wrap(JSON.stringify({ type: "error", error: { type: "too_many_requests" } }))
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Too Many Requests" })
+  })
+
+  test("matches exhausted code in code field", () => {
+    const error = wrap(JSON.stringify({ code: "resource_exhausted" }))
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Provider is overloaded" })
+  })
+
+  test("matches unavailable code in code field", () => {
+    const error = wrap(JSON.stringify({ code: "service_unavailable" }))
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Provider is overloaded" })
+  })
+
+  test("matches rate_limit in nested error.code", () => {
+    const error = wrap(JSON.stringify({ type: "error", error: { code: "api_rate_limit_exceeded" } }))
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Rate Limited" })
+  })
+
+  test("returns undefined for unrecognized json objects", () => {
+    const error = wrap(JSON.stringify({ code: "random_error" }))
+    expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
+  })
+
+  test("returns undefined for array JSON", () => {
+    const error = wrap(JSON.stringify([1, 2, 3]))
+    expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
+  })
+
+  test("returns undefined for null JSON value", () => {
+    const error = wrap(JSON.stringify(null))
+    expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
+  })
+
+  test("returns undefined for non-string message", () => {
+    const error = wrap(12345)
+    expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
+  })
+
+  test("returns undefined for undefined message", () => {
+    const error = wrap(undefined)
+    expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
+  })
+})
