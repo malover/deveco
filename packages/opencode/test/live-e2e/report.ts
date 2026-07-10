@@ -23,6 +23,41 @@ export async function writeReports(report: SuiteReport, reportDir: string) {
   await fs.writeFile(path.join(reportDir, "index.html"), html(report, reportDir))
 }
 
+export async function writeJUnitXml(report: SuiteReport, reportDir: string) {
+  await fs.mkdir(reportDir, { recursive: true })
+  await fs.writeFile(path.join(reportDir, "junit.xml"), junit(report))
+}
+
+function escapeXml(str: string) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+}
+
+function junit(report: SuiteReport) {
+  const cases = report.cases
+    .map((item) => {
+      const time = (item.durationMs / 1000).toFixed(3)
+      const name = escapeXml(item.case.id)
+      const classname = escapeXml(item.case.category)
+      if (item.status === "skipped") {
+        return `    <testcase name="${name}" classname="${classname}" time="${time}"><skipped>${escapeXml(item.skipReason ?? "")}</skipped></testcase>`
+      }
+      if (item.status === "failed") {
+        return `    <testcase name="${name}" classname="${classname}" time="${time}"><failure message="${escapeXml((item.error ?? "").split("\n")[0])}">${escapeXml(item.error ?? "")}</failure></testcase>`
+      }
+      return `    <testcase name="${name}" classname="${classname}" time="${time}"/>`
+    })
+    .join("\n")
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Live E2E" tests="${report.summary.total}" failures="${report.summary.failed}" skipped="${report.summary.skipped}" time="${(report.summary.durationMs / 1000).toFixed(3)}">
+${cases}
+</testsuite>`
+}
+
 function markdown(report: SuiteReport) {
   const lines = [
     "# Live E2E Report",

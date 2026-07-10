@@ -77,7 +77,7 @@ const testCase: LiveTestCase = {
     "用例创建临时工作目录并可能复制 arkui-knowledge skill 到 deveco 数据目录；执行结束后删除临时目录和复制的 skill。真实 auth/config 只读不清理。",
   async run(ctx) {
     const skillCopied = await ensureArkuiSkillAvailable()
-    const sentMessage = "实现一个垂直排列，包含一个图片和一个按钮的页面布局。"
+    const sentMessage = "请用ArkTS代码示例说明如何实现一个垂直排列，包含一个图片和一个按钮的页面布局。只需提供代码示例和简要说明，不需要创建项目或生成文件。"
     const workspace = await ctx.createTempWorkspace("skill-arkui-layout-")
 
     try {

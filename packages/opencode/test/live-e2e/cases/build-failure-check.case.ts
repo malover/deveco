@@ -50,6 +50,7 @@ const testCase: LiveTestCase = {
   category: "cli",
   priority: "P0",
   timeoutMs: 240_000,
+  stallMs: 180_000,
   requires: ["huawei-auth", "real-llm", "deveco-provider"],
   description:
     "验证对包含编译错误的鸿蒙项目调用build_project工具进行编译构建时，能够返回失败检查结果。",

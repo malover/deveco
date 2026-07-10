@@ -44,7 +44,7 @@ const testCase: LiveTestCase = {
     "模型返回文本包含不能或不可关闭类型检查的表述。",
   ],
   code: "packages/opencode/test/live-e2e/cases/skill-error-check-disable.case.ts",
-  parallel: false,
+  parallel: true,
   cleanup: "用例只创建临时工作目录；执行结束后删除临时目录。真实 auth/config 只读不清理。",
   async run(ctx) {
     const sentMessage = "在 ArkTS 中，是否可以通过关闭类型检查来保留动态属性写法，例如 obj[dynamicKey] = value？"

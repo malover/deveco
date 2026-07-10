@@ -44,7 +44,7 @@ const testCase: LiveTestCase = {
     "模型返回文本包含类型声明、函数差异等相关说明。",
   ],
   code: "packages/opencode/test/live-e2e/cases/skill-grammar-diff-query.case.ts",
-  parallel: false,
+  parallel: true,
   cleanup: "用例只创建临时工作目录；执行结束后删除临时目录。真实 auth/config 只读不清理。",
   async run(ctx) {
     const sentMessage = "ArkTS和TS在函数声明上有什么不同？"

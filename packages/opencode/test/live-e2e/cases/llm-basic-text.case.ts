@@ -30,7 +30,7 @@ const testCase: LiveTestCase = {
     "模型返回文本包含 LIVE_TEST_OK。",
   ],
   code: "packages/opencode/test/live-e2e/cases/llm-basic-text.case.ts",
-  parallel: false,
+  parallel: true,
   cleanup: "用例只创建临时工作目录；执行结束后删除临时目录。真实 auth/config 只读不清理。",
   async run(ctx) {
     const sentMessage = "Reply with exactly this text and nothing else: LIVE_TEST_OK"

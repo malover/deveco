@@ -206,6 +206,7 @@ const testCase: LiveTestCase = {
   category: "skill",
   priority: "P1",
   timeoutMs: 900_000,
+  stallMs: 180_000,
   requires: ["huawei-auth", "real-llm", "deveco-provider", "deveco-home"],
   description:
     "验证在已有鸿蒙工程上进行增量开发：先创建最小工程，再让 AI 添加'我的'页面和'清除缓存'菜单项，随后用 build_project 编译通过。",

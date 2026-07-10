@@ -9,6 +9,7 @@ const testCase: LiveTestCase = {
   category: "slash",
   priority: "P0",
   timeoutMs: 150_000,
+  stallMs: 120_000,
   requires: ["huawei-auth", "real-llm", "deveco-provider"],
   description:
     "验证通过--agent plan参数切换到plan模式，发送请求并收到真实LLM响应确认当前模式。",
@@ -25,7 +26,7 @@ const testCase: LiveTestCase = {
     "模型返回文本包含计划相关内容。",
   ],
   code: "packages/opencode/test/live-e2e/cases/plan-mode-enter.case.ts",
-  parallel: false,
+  parallel: true,
   cleanup: "用例只创建临时工作目录；执行结束后删除临时目录。真实 auth/config 只读不清理。",
   async run(ctx) {
     const sentMessage = "你是什么模式？"

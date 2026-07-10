@@ -22,7 +22,8 @@ const testCase: LiveTestCase = {
   category: "cli",
   priority: "P0",
   timeoutMs: 900_000,
-  requires: ["huawei-auth", "deveco-provider", "deveco-home"],
+  stallMs: 300_000,
+  requires: ["huawei-auth", "deveco-provider", "deveco-home", "harmony-emulator-installed"],
   description:
     "验证预置最小 HarmonyOS 工程模板可通过 build_project 生成本机 debug 产物，并通过 start_app 推包到运行中或可启动的模拟器。",
   steps: [

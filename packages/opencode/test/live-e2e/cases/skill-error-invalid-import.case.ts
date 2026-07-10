@@ -48,7 +48,7 @@ const testCase: LiveTestCase = {
   cleanup: "用例只创建临时工作目录；执行结束后删除临时目录。真实 auth/config 只读不清理。",
   async run(ctx) {
     const sentMessage = [
-      "以下ArkTS代码引用了未导入的router模块，请修复：",
+      "以下ArkTS代码引用了未导入的router模块，请直接分析代码并给出修复方案（代码已在消息中提供，无需搜索工作目录文件）：",
       "@Entry",
       "@Component",
       "struct MyPage {",

@@ -41,6 +41,7 @@ const testCase: LiveTestCase = {
   category: "skill",
   priority: "P0",
   timeoutMs: 650_000,
+  stallMs: 120_000,
   requires: ["huawei-auth", "real-llm", "deveco-provider"],
   description:
     "验证通过自然语言指令创建鸿蒙工程时，参数完整且不指定自定义 apiLevel，系统能自动检测 SDK apiLevel，成功创建工程、输出完整信息、生成 build-profile.json5 并切换 cwd。",

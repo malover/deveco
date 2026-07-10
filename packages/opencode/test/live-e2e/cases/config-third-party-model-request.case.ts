@@ -21,7 +21,7 @@ const testCase: LiveTestCase = {
   category: "llm",
   priority: "P1",
   timeoutMs: 300_000,
-  requires: ["real-llm"],
+  requires: ["real-llm", "third-party-model"],
   description:
     "验证从通用测试配置文件读取三方模型配置并写入临时全局配置后，模型可通过 deveco models 查询，并可成功发起请求。",
   steps: [

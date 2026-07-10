@@ -135,7 +135,7 @@ const testCase: LiveTestCase = {
     "步骤6输出仅包含三方模型A，不包含模型B和模型C。",
   ],
   code: "packages/opencode/test/live-e2e/cases/config-third-party-models.case.ts",
-  parallel: false,
+  parallel: true,
   cleanup:
     "用例创建临时全局配置文件和两个临时工程目录；执行结束后全部删除。不修改用户真实auth/config文件。",
   async run(ctx) {

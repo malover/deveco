@@ -39,6 +39,11 @@ import agentCreate from "./cases/agent-create.case"
 import sessionList from "./cases/session-list.case"
 import acpStartup from "./cases/acp-startup.case"
 import devecoTuiStart from "./cases/deveco-tui-start.case"
+import skillArkuiCardGrid from "./cases/skill-arkui-card-grid.case"
+import skillArkuiOverlayStack from "./cases/skill-arkui-overlay-stack.case"
+import skillArkuiImageTextMix from "./cases/skill-arkui-image-text-mix.case"
+import skillArkuiVerticalList from "./cases/skill-arkui-vertical-list.case"
+import skillArkuiHorizontalNavbar from "./cases/skill-arkui-horizontal-navbar.case"
 import type { LiveTestCase } from "./types"
 
 export const cases: LiveTestCase[] = [
@@ -83,6 +88,11 @@ export const cases: LiveTestCase[] = [
   sessionList,
   acpStartup,
   devecoTuiStart,
+  skillArkuiCardGrid,
+  skillArkuiOverlayStack,
+  skillArkuiImageTextMix,
+  skillArkuiVerticalList,
+  skillArkuiHorizontalNavbar,
 ]
 
 export function getCaseByID(id: string) {

@@ -36,13 +36,40 @@ export async function resetReportDir() {
   await fs.mkdir(artifactDir, { recursive: true })
 }
 
+// The deveco-create-project skill may be partially installed in the user's
+// config directory (~/.config/deveco/skills/) — SKILL.md is present but the
+// scripts/ and application/ template directories are empty. The skill system
+// discovers the skill from the config directory and resolves script paths
+// relative to that base, so the AI gets MODULE_NOT_FOUND when it tries to
+// run copy-template.mjs following the skill's instructions.
+//
+// This syncs the missing files from the bundled resources directory before
+// running live tests so the AI can reliably find and execute the script.
+export async function ensureBundledSkillScriptsAvailable() {
+  const configSkillDir = path.join(os.homedir(), ".config", "deveco", "skills", "deveco-create-project")
+  const configScript = path.join(configSkillDir, "scripts", "copy-template.mjs")
+
+  // Scripts already present — no sync needed
+  const scriptExists = await fs.stat(configScript).then(() => true).catch(() => false)
+  if (scriptExists) return false
+
+  // Only sync if the config dir has a partial install (SKILL.md present)
+  const skillMdExists = await fs.stat(path.join(configSkillDir, "SKILL.md")).then(() => true).catch(() => false)
+  if (!skillMdExists) return false
+
+  // Copy complete skill from bundled resources, overwriting the partial install
+  const resourcesSkillDir = path.join(opencodeRoot, "resources", "skills", "deveco-create-project")
+  await fs.cp(resourcesSkillDir, configSkillDir, { recursive: true, force: true })
+  return true
+}
+
 export async function createTempWorkspace(prefix = "deveco-live-e2e-") {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix))
 }
 
 export async function runDeveco(
   args: string[],
-  options: { timeoutMs?: number; cwd?: string; stdin?: string; env?: Record<string, string | undefined>; entry?: string } = {},
+  options: { timeoutMs?: number; cwd?: string; stdin?: string; env?: Record<string, string | undefined>; entry?: string; stallMs?: number } = {},
 ): Promise<RunCommandResult> {
   const start = Date.now()
   const entry = options.entry ?? cliEntry
@@ -72,14 +99,46 @@ export async function runDeveco(
     stdin.end()
   }
 
-  const timeout = setTimeout(() => proc.kill(), options.timeoutMs ?? 120_000)
-  const [exitCode, stdout, stderr] = await Promise.all([
-    proc.exited,
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]).finally(() => clearTimeout(timeout))
+  const effectiveTimeout = options.timeoutMs ?? 120_000
+  const stallMs = options.stallMs ?? 60_000
 
-  return { exitCode, stdout, stderr, durationMs: Date.now() - start }
+  // Read stdout incrementally to support stall detection.
+  // If no new data arrives for stallMs, kill the process early instead of
+  // waiting the full timeout. This turns a 120-190s hang into a ~30s fast-fail.
+  const decoder = new TextDecoder()
+  let stdout = ""
+  let stallTimer: ReturnType<typeof setTimeout> | undefined
+  const armStall = () => {
+    if (stallTimer) clearTimeout(stallTimer)
+    stallTimer = setTimeout(() => proc.kill(), stallMs)
+  }
+  armStall()
+
+  const stdoutReader = proc.stdout.getReader()
+  const readStdout = (async () => {
+    while (true) {
+      const { done, value } = await stdoutReader.read()
+      if (done) break
+      stdout += decoder.decode(value, { stream: true })
+      armStall()
+    }
+  })()
+
+  const timeout = setTimeout(() => proc.kill(), effectiveTimeout)
+  try {
+    const stderrPromise = new Response(proc.stderr).text()
+    const [exitCode, , stderr] = await Promise.all([proc.exited, readStdout, stderrPromise])
+    return {
+      exitCode,
+      stdout,
+      stderr,
+      durationMs: Date.now() - start,
+      suspectedRateLimit: stdout.length === 0 && stderr.length === 0,
+    }
+  } finally {
+    if (stallTimer) clearTimeout(stallTimer)
+    clearTimeout(timeout)
+  }
 }
 
 export async function runDevecoPrompt(
@@ -130,6 +189,55 @@ function isEmulatorTarget(target: string) {
   return /^127\.0\.0\.1:\d+/.test(target)
 }
 
+// DevEco Studio persists installed (not running) emulator definitions under
+// <user-local-data>/Huawei/Emulator/deployed/. Each emulator has a `.ini` file
+// whose basename is the emulator name (e.g. `Pura 90.ini`). The start_app tool
+// reads this directory to list startable emulators; we replicate the lookup
+// here so the runner can skip emulator-dependent cases when none are installed.
+function emulatorDeployedDir() {
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "Huawei", "Emulator", "deployed")
+  }
+  const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local")
+  return path.join(localAppData, "Huawei", "Emulator", "deployed")
+}
+
+async function listInstalledEmulators(): Promise<string[]> {
+  try {
+    const entries = await fs.readdir(emulatorDeployedDir(), { withFileTypes: true })
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".ini"))
+      .map((entry) => entry.name.replace(/\.ini$/, ""))
+  } catch {
+    return []
+  }
+}
+
+type ThirdPartyModelEnv = {
+  available: boolean
+  models: string[]
+}
+
+// Reads the shared live-e2e fixture config and reports whether a third-party
+// provider/model is configured. Cases that actually issue a model request can
+// declare the `third-party-model` requirement so the runner skips them when the
+// fixture is left empty (the default skeleton ships with an empty provider).
+async function collectThirdPartyModelConfig(): Promise<ThirdPartyModelEnv> {
+  try {
+    const configPath = path.join(import.meta.dir, "fixtures", "live-e2e.config.json")
+    const raw = (await Bun.file(configPath).json()) as {
+      thirdPartyModel?: { provider?: Record<string, { models?: Record<string, unknown> }> }
+    }
+    const provider = raw.thirdPartyModel?.provider ?? {}
+    const models = Object.entries(provider).flatMap(([providerName, value]) =>
+      Object.keys(value.models ?? {}).map((model) => `${providerName}/${model}`),
+    )
+    return { available: models.length > 0, models }
+  } catch {
+    return { available: false, models: [] }
+  }
+}
+
 async function runProcess(cmd: string[], timeoutMs = 30_000) {
   const proc = Bun.spawn(cmd, {
     stdout: "pipe",
@@ -145,6 +253,7 @@ async function runProcess(cmd: string[], timeoutMs = 30_000) {
 }
 
 async function collectDevEcoEnvironment() {
+  const installedEmulators = await listInstalledEmulators()
   const home = await findDevEcoHome()
   if (!home) {
     return {
@@ -152,6 +261,7 @@ async function collectDevEcoEnvironment() {
       hdc: undefined,
       devices: [] as string[],
       emulators: [] as string[],
+      installedEmulators,
       hdcList: undefined,
     }
   }
@@ -163,6 +273,7 @@ async function collectDevEcoEnvironment() {
       hdc,
       devices: [] as string[],
       emulators: [] as string[],
+      installedEmulators,
       hdcList: {
         exitCode: undefined,
         stdout: "",
@@ -184,15 +295,17 @@ async function collectDevEcoEnvironment() {
     hdc,
     devices,
     emulators: devices.filter(isEmulatorTarget),
+    installedEmulators,
     hdcList,
   }
 }
 
 export async function collectEnvironment() {
-  const [paths, auth, toolchain] = await Promise.all([
+  const [paths, auth, toolchain, thirdPartyModel] = await Promise.all([
     runDeveco(["debug", "paths"], { timeoutMs: 30_000 }),
     runDeveco(["auth", "list"], { timeoutMs: 30_000 }),
     collectDevEcoEnvironment(),
+    collectThirdPartyModelConfig(),
   ])
 
   const authStdout = auth.stdout.toLowerCase()
@@ -203,6 +316,7 @@ export async function collectEnvironment() {
     opencodeRoot,
     reportDir: latestReportDir,
     deveco: toolchain,
+    thirdPartyModel,
     paths: {
       exitCode: paths.exitCode,
       stdout: paths.stdout,

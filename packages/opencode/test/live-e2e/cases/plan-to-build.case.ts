@@ -19,6 +19,7 @@ const testCase: LiveTestCase = {
   category: "slash",
   priority: "P0",
   timeoutMs: 500_000,
+  stallMs: 180_000,
   requires: ["huawei-auth", "real-llm", "deveco-provider"],
   description:
     "验证在plan模式下制定重构计划后，接受计划并跳转到build模式进行重构。通过两步实现：第一步在plan模式下制定计划，第二步通过--session继续会话并切换到build模式开始重构。",

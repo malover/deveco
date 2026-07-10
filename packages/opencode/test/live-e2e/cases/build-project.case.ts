@@ -19,6 +19,7 @@ const testCase: LiveTestCase = {
   category: "cli",
   priority: "P0",
   timeoutMs: 360_000,
+  stallMs: 180_000,
   requires: ["huawei-auth", "real-llm", "deveco-provider"],
   description:
     "验证通过build_project工具对鸿蒙项目工程进行编译构建，输入构建指令后agent调用build_project工具成功完成构建并返回构建结果。",
@@ -86,40 +87,46 @@ const testCase: LiveTestCase = {
         throw new Error("No text event was emitted")
       }
 
-      const lowerText = receivedText.toLowerCase()
+      // Verify build_project tool was called and completed (not keyword-matching LLM text)
+      const buildToolEvents = events.filter((event) => {
+        if (event.type !== "tool_use") return false
+        const part = event.part
+        if (!part || typeof part !== "object") return false
+        const partRecord = part as Record<string, unknown>
+        if (typeof partRecord.tool !== "string") return false
+        return partRecord.tool.includes("build_project")
+      })
 
-      // Verify the response indicates build success
-      const successKeywords = [
-        "成功",
-        "success",
-        "完成",
-        "complete",
-        "build successful",
-      ]
-      const hasSuccess = successKeywords.some((kw) => lowerText.includes(kw.toLowerCase()))
-      if (!hasSuccess) {
-        throw new Error(
-          `Expected response to indicate build success, got: ${receivedText.substring(0, 300)}...`,
-        )
+      if (buildToolEvents.length === 0) {
+        throw new Error("build_project tool was not called by the agent")
       }
 
-      // Verify the response does NOT contain build failure keywords
-      const failureKeywords = [
-        "失败",
-        "fail",
-        "报错",
-        "异常",
-        "无法",
-        "cannot",
-        "not found",
-        "找不到",
-        "不存在",
-      ]
-      const hasFailure = failureKeywords.some((kw) => lowerText.includes(kw.toLowerCase()))
-      if (hasFailure) {
-        throw new Error(
-          `Expected build to succeed but response contains failure keywords, got: ${receivedText.substring(0, 400)}...`,
-        )
+      const completedBuild = buildToolEvents.find((event) => {
+        const part = (event.part as Record<string, unknown>) ?? {}
+        const state = part.state as Record<string, unknown> | undefined
+        return state?.status === "completed"
+      })
+
+      if (!completedBuild) {
+        throw new Error("build_project tool was called but did not complete")
+      }
+
+      // Check the TOOL OUTPUT (not LLM text) for failure indicators.
+      // Checking LLM text for "报错"/"失败" causes false positives when the
+      // agent says "没有报错" (no errors) in a successful summary.
+      const buildState = ((completedBuild.part as Record<string, unknown>).state ?? {}) as Record<string, unknown>
+      const buildOutput = typeof buildState.output === "string" ? buildState.output : ""
+      const lowerOutput = buildOutput.toLowerCase()
+      const outputFailureMarkers = ["失败", "failed", "failure"]
+      if (outputFailureMarkers.some((kw) => lowerOutput.includes(kw.toLowerCase()))) {
+        throw new Error(`build_project tool output indicates failure: ${buildOutput.substring(0, 400)}...`)
+      }
+
+      // Also check LLM text for success indicators (relaxed — no failure keyword check on text)
+      const lowerText = receivedText.toLowerCase()
+      const successKeywords = ["成功", "success", "完成", "complete", "构建完毕", "已构建"]
+      if (!successKeywords.some((kw) => lowerText.includes(kw.toLowerCase())) && !lowerOutput.includes("success")) {
+        throw new Error(`Expected response to indicate build success, got: ${receivedText.substring(0, 300)}...`)
       }
 
       return {

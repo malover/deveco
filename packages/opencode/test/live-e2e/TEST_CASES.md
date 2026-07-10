@@ -45,6 +45,11 @@ This document is the case map for live end-to-end tests. These tests may use the
 | `SESSION_LIST`                     | 列出所有会话                           | `cli`    | `P1`     | —                                                           | `cases/session-list.case.ts`                     |
 | `ACP_STARTUP`                      | ACP 服务启动与握手                     | `cli`    | `P0`     | 无                                                          | `cases/acp-startup.case.ts`                      |
 | `DEVECO_TUI_START`                 | TUI 启动命令可用                       | `cli`    | `P1`     | 无                                                          | `cases/deveco-tui-start.case.ts`                 |
+| `SKILL_ARKUI_CARD_GRID`            | 卡片式网格布局                         | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-card-grid.case.ts`             |
+| `SKILL_ARKUI_OVERLAY_STACK`        | 叠加层布局                             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-overlay-stack.case.ts`         |
+| `SKILL_ARKUI_IMAGE_TEXT_MIX`       | 图文混排                               | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-image-text-mix.case.ts`        |
+| `SKILL_ARKUI_VERTICAL_LIST`        | 垂直列表布局                           | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-vertical-list.case.ts`         |
+| `SKILL_ARKUI_HORIZONTAL_NAVBAR`    | 水平导航栏                             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-horizontal-navbar.case.ts`     |
 
 ## LLM_BASIC_TEXT
 
@@ -721,6 +726,131 @@ Expected result:
 Cleanup:
 
 The temporary user home and workspace are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## SKILL_ARKUI_CARD_GRID
+
+Purpose:
+
+Verify that selecting the arkui-knowledge skill via /skill and requesting a card-style grid layout (e.g., a product showcase page with two cards per row, each containing an image and a title) returns code using `Grid` or `Row`+`Column` with `GridRow` or `Flex`/`FlexWrap` settings.
+
+Steps:
+
+1. Copy arkui-knowledge skill from opencode config to deveco data directory if not already present.
+2. Create a temporary workspace.
+3. Run `deveco run --format json --dir <tmp>` with the prompt: "创建一个商品展示页，网格布局，每行两个商品卡片，每个卡片包含图片和标题".
+4. Parse JSON-line events from stdout.
+5. Verify text events contain `Grid` or `Row`+`Column` layout, `GridRow`/`Flex`/`GridItem` settings, and `Image`+`Text` card content.
+6. Clean up copied skill and temporary workspace.
+
+Expected result:
+
+1. At least one text event is emitted.
+2. The response contains `Grid` or `Row`+`Column` for layout, and `GridRow`/`Flex`/`GridItem` for grid settings.
+3. The response contains `Image` and `Text` for card content.
+
+Cleanup:
+
+The temporary workspace and any copied skill files are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## SKILL_ARKUI_OVERLAY_STACK
+
+Purpose:
+
+Verify that selecting the arkui-knowledge skill via /skill and requesting an overlay layout (e.g., a floating tooltip bubble with semi-transparent black background and centered text) returns code using `Stack` to stack a background layer and a content layer.
+
+Steps:
+
+1. Copy arkui-knowledge skill from opencode config to deveco data directory if not already present.
+2. Create a temporary workspace.
+3. Run `deveco run --format json --dir <tmp>` with the prompt: "创建一个悬浮的提示气泡，背景是半透明黑色，文字居中".
+4. Parse JSON-line events from stdout.
+5. Verify text events contain `Stack` component, semi-transparent background settings (opacity/rgba/backgroundColor), and center alignment.
+6. Clean up copied skill and temporary workspace.
+
+Expected result:
+
+1. At least one text event is emitted.
+2. The response contains `Stack` for layer overlay.
+3. The response mentions semi-transparent background (opacity, rgba, or backgroundColor) and center alignment.
+
+Cleanup:
+
+The temporary workspace and any copied skill files are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## SKILL_ARKUI_IMAGE_TEXT_MIX
+
+Purpose:
+
+Verify that selecting the arkui-knowledge skill via /skill and requesting a mixed text-and-image layout (e.g., a notification card with an image on the left and text content on the right) returns code using `Row`+`Flex`(align-items) with `Image` and `Text` vertically centered.
+
+Steps:
+
+1. Copy arkui-knowledge skill from opencode config to deveco data directory if not already present.
+2. Create a temporary workspace.
+3. Run `deveco run --format json --dir <tmp>` with the prompt: "创建一个通知卡片，左边是图片，右边是文字内容".
+4. Parse JSON-line events from stdout.
+5. Verify text events contain `Row` component, `Flex` or `alignItems` alignment setting, and `Image`+`Text` components.
+6. Clean up copied skill and temporary workspace.
+
+Expected result:
+
+1. At least one text event is emitted.
+2. The response contains `Row` and `Flex` or `alignItems` for alignment.
+3. The response contains `Image` and `Text` for mixed content.
+
+Cleanup:
+
+The temporary workspace and any copied skill files are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## SKILL_ARKUI_VERTICAL_LIST
+
+Purpose:
+
+Verify that selecting the arkui-knowledge skill via /skill and requesting a vertical list layout (e.g., a user list page with avatar, nickname, and status, arranged vertically) returns code using `List` or `ForEach`+`Column` for vertical arrangement.
+
+Steps:
+
+1. Copy arkui-knowledge skill from opencode config to deveco data directory if not already present.
+2. Create a temporary workspace.
+3. Run `deveco run --format json --dir <tmp>` with the prompt: "创建一个用户列表页面，包含头像、昵称和状态，垂直排列".
+4. Parse JSON-line events from stdout.
+5. Verify text events contain `List` or `ForEach`+`Column` for vertical layout, and `Image`+`Text` for list items.
+6. Clean up copied skill and temporary workspace.
+
+Expected result:
+
+1. At least one text event is emitted.
+2. The response contains `List` or `ForEach`+`Column` for vertical layout.
+3. The response contains `Image` and `Text` for list item content.
+
+Cleanup:
+
+The temporary workspace and any copied skill files are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## SKILL_ARKUI_HORIZONTAL_NAVBAR
+
+Purpose:
+
+Verify that selecting the arkui-knowledge skill via /skill and requesting a horizontal navigation bar (e.g., top navbar with back button on the left, title in the center, and search icon on the right) returns code using `Row`+`Flex`(space-between) with three elements aligned.
+
+Steps:
+
+1. Copy arkui-knowledge skill from opencode config to deveco data directory if not already present.
+2. Create a temporary workspace.
+3. Run `deveco run --format json --dir <tmp>` with the prompt: "创建一个顶部导航栏，左侧有返回按钮，中间是标题，右侧是搜索图标".
+4. Parse JSON-line events from stdout.
+5. Verify text events contain `Row` component, `Flex` or `justifyContent` with space-between alignment, and `Button`/`Image`+`Text` for the three elements.
+6. Clean up copied skill and temporary workspace.
+
+Expected result:
+
+1. At least one text event is emitted.
+2. The response contains `Row` and `Flex` or `justifyContent` with space-between alignment.
+3. The response contains `Button`/`Image` for back button and search icon, and `Text` for title.
+
+Cleanup:
+
+The temporary workspace and any copied skill files are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
 
 ## PROJECT_CREATE_DEFAULT_API
 

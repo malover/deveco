@@ -19,6 +19,7 @@ const testCase: LiveTestCase = {
   category: "cli",
   priority: "P0",
   timeoutMs: 360_000,
+  stallMs: 120_000,
   requires: ["huawei-auth", "real-llm", "deveco-provider"],
   description:
     "验证使用switch_cwd工具切换到包含完整鸿蒙工程的目录后，调用build_project工具能够正常切换并完成编译构建。",

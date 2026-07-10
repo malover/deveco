@@ -47,6 +47,7 @@ const testCase: LiveTestCase = {
   category: "skill",
   priority: "P1",
   timeoutMs: 650_000,
+  stallMs: 120_000,
   requires: ["huawei-auth", "real-llm", "deveco-provider"],
   description:
     "验证输入生成 hello world 工程并完成编译，AI 能自动加载 deveco-create-project skill，完成初始工程拷贝，正常调用 build project 检查构建结果信息，build project 失败后能够修复问题，最终修复完成无编译报错后流程结束。",
