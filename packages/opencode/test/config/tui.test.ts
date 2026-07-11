@@ -198,7 +198,7 @@ it.instance("migrates tui-specific keys from deveco.json when tui.json does not 
       const config = yield* getTuiConfig(test.directory)
       expect(config.theme).toBe("migrated-theme")
       expect(config.scroll_speed).toBe(5)
-      expect(config.keybinds.get("app.exit")?.[0]?.key).toBe("ctrl+q")
+      expect(config.keybinds.get("app.exitConfirm")?.[0]?.key).toBe("ctrl+q")
       expect(JSON.parse(yield* fs.readFileString(path.join(test.directory, "tui.json")))).toMatchObject({
         theme: "migrated-theme",
         scroll_speed: 5,
@@ -438,7 +438,7 @@ it.instance("merges keybind overrides across precedence layers", () =>
       yield* fs.writeJson(path.join(test.directory, "tui.json"), { keybinds: { theme_list: "ctrl+k" } })
 
       const config = yield* getTuiConfig(test.directory)
-      expect(config.keybinds.get("app.exit")?.[0]?.key).toBe("ctrl+q")
+      expect(config.keybinds.get("app.exitConfirm")?.[0]?.key).toBe("ctrl+q")
       expect(config.keybinds.get("theme.switch")?.[0]?.key).toBe("ctrl+k")
     }),
   ),
@@ -689,7 +689,7 @@ it.instance("applies env and file substitutions in tui.json", () =>
 
         const config = yield* getTuiConfig(test.directory)
         expect(config.theme).toBe("env-theme")
-        expect(config.keybinds.get("app.exit")?.[0]?.key).toBe("ctrl+q")
+        expect(config.keybinds.get("app.exitConfirm")?.[0]?.key).toBe("ctrl+q")
       }),
     ),
   ),

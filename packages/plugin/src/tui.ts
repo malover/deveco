@@ -206,6 +206,8 @@ export type TuiPromptRef = {
   blur(): void
   focus(): void
   submit(): void
+  armExit(key: string): void
+  isExitArmed(key: string): boolean
 }
 
 export type TuiPromptProps = {

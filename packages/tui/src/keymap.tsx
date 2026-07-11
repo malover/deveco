@@ -27,6 +27,7 @@ export const OpencodeKeymapProvider = KeymapProvider
 export const useOpencodeKeymap = useKeymap
 
 export { useBindings, useKeymapSelector }
+export { stringifyKeyStroke } from "@opentui/keymap"
 
 export type OpenTuiKeymap = ReturnType<typeof useKeymap>
 type OpencodeModeStack = ReturnType<typeof createOpencodeModeStack>

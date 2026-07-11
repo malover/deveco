@@ -335,6 +335,7 @@
     "choose_from_all_workspaces": "从所有工作区选择",
     "workspace_type_label": "({{type}})",
     "delete_press_again": "删除 {{name}}？请再次按下删除键",
+    "exit_press_again": "再次按 {{key}} 退出",
     "deleting": "正在删除…",
     "workspace_unavailable_desc": "此会话已附加到不可用的工作区。",
     "workspace_unavailable_prompt": "是否要将此会话恢复到新工作区？",

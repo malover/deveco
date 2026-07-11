@@ -103,6 +103,8 @@ export type PromptRef = {
   blur(): void
   focus(): void
   submit(): void
+  armExit(key: string): void
+  isExitArmed(key: string): boolean
 }
 
 const money = new Intl.NumberFormat("en-US", {
@@ -309,6 +311,8 @@ export function Prompt(props: PromptProps) {
     mode: "normal" | "shell"
     extmarkToPartIndex: Map<number, number>
     interrupt: number
+    exitCount: Record<string, number>
+    exitKey: string
     placeholder: number
   }>({
     placeholder: randomIndex(list().length),
@@ -319,7 +323,11 @@ export function Prompt(props: PromptProps) {
     mode: "normal",
     extmarkToPartIndex: new Map(),
     interrupt: 0,
+    exitCount: {},
+    exitKey: "",
   })
+
+  const exitTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   createEffect(
     on(
@@ -632,6 +640,26 @@ export function Prompt(props: PromptProps) {
     submit() {
       void submit()
     },
+    armExit(key) {
+      setStore("exitCount", key, (v) => (v ?? 0) + 1)
+      setStore("exitKey", key)
+      clearTimeout(exitTimers.get(key))
+      exitTimers.set(
+        key,
+        setTimeout(() => {
+          batch(() => {
+            setStore("exitCount", produce((s) => { delete s[key] }))
+            if (!Object.values(store.exitCount).some((v) => v > 0)) {
+              setStore("exitKey", "")
+            }
+          })
+          exitTimers.delete(key)
+        }, 3000),
+      )
+    },
+    isExitArmed(key) {
+      return (store.exitCount[key] ?? 0) > 0
+    },
   }
 
   onMount(() => {
@@ -647,6 +675,8 @@ export function Prompt(props: PromptProps) {
   })
 
   onCleanup(() => {
+    for (const timer of exitTimers.values()) clearTimeout(timer)
+    exitTimers.clear()
     if (store.prompt.input) {
       stashed = { prompt: unwrap(store.prompt), cursor: input.cursorOffset }
     }
@@ -1590,7 +1620,7 @@ export function Prompt(props: PromptProps) {
             />
           </box>
         </Show>
-        <box width="100%" flexDirection="column" gap={1} position="relative">
+        <box width="100%" flexDirection="column">
           <box width="100%" flexDirection="row" justifyContent="space-between" alignItems="flex-start">
             <box flexGrow={1} minWidth={0}>
               <Switch>
@@ -1683,6 +1713,24 @@ export function Prompt(props: PromptProps) {
                     {store.interrupt > 0 ? "again to interrupt" : "interrupt"}
                   </span>
                 </text>
+                <Show when={store.exitKey !== ""}>
+                  <text fg={theme.primary}>
+                    {store.exitKey}{" "}
+                    <span style={{ fg: theme.textMuted }}>
+                      {t("dialog.exit_press_again", { key: store.exitKey })}
+                    </span>
+                  </text>
+                </Show>
+              </box>
+            </Match>
+            <Match when={store.exitKey !== "" && !(isHomeRoute() && status().type === "idle")}>
+              <box paddingLeft={1}>
+                <text fg={theme.primary}>
+                  {store.exitKey}{" "}
+                  <span style={{ fg: theme.textMuted }}>
+                    {t("dialog.exit_press_again", { key: store.exitKey })}
+                  </span>
+                </text>
               </box>
             </Match>
             <Match when={workspace.notice()}>
@@ -1721,7 +1769,7 @@ export function Prompt(props: PromptProps) {
               )}
             </Match>
             <Match when={isHomeRoute() && status().type === "idle"}>
-              <box flexDirection="column" width="100%" gap={1} alignItems="stretch">
+              <box flexDirection="column" width="100%" alignItems="stretch">
                 <Show when={props.hint}>
                   <box flexShrink={0} alignSelf="flex-start">
                     {props.hint}
@@ -1735,18 +1783,20 @@ export function Prompt(props: PromptProps) {
                   alignItems="center"
                   flexShrink={0}
                 >
-                  <box gap={2} flexDirection="row" flexShrink={0}>
-                    <Show when={editorContextLabelState() !== "none" ? editorFileLabelDisplay() : undefined}>
-                      {(file) => (
-                        <text fg={editorContextLabelState() === "pending" ? theme.secondary : theme.textMuted}>{file()}</text>
-                      )}
+                  <IdleKeybindHintRow />
+                  <Show when={store.exitKey !== ""} fallback={
+                    <Show when={props.footerRight}>
+                      <box flexShrink={1} minWidth={0} maxWidth={homeTipsMaxWidth()}>
+                        {props.footerRight}
+                      </box>
                     </Show>
-                    <IdleKeybindHintRow />
-                  </box>
-                  <Show when={props.footerRight}>
-                    <box flexShrink={1} minWidth={0} maxWidth={homeTipsMaxWidth()}>
-                      {props.footerRight}
-                    </box>
+                  }>
+                    <text fg={theme.primary}>
+                      {store.exitKey}{" "}
+                      <span style={{ fg: theme.textMuted }}>
+                        {t("dialog.exit_press_again", { key: store.exitKey })}
+                      </span>
+                    </text>
                   </Show>
                 </box>
               </box>
@@ -1776,7 +1826,7 @@ export function Prompt(props: PromptProps) {
                 status().type !== "retry" && !(isHomeRoute() && status().type === "idle")
               }
             >
-            <box gap={2} flexDirection="row">
+            <box gap={2} flexDirection="row" flexShrink={1} minWidth={0}>
               <Show when={editorContextLabelState() !== "none" ? editorFileLabelDisplay() : undefined}>
                 {(file) => (
                   <text fg={editorContextLabelState() === "pending" ? theme.secondary : theme.textMuted}>{file()}</text>

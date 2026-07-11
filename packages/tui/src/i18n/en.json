@@ -335,6 +335,7 @@
     "choose_from_all_workspaces": "Choose from all workspaces",
     "workspace_type_label": "({{type}})",
     "delete_press_again": "Delete {{name}}? Press delete again",
+    "exit_press_again": "Press {{key}} again to exit",
     "deleting": "Deleting...",
     "workspace_unavailable_desc": "This session is attached to a workspace that is no longer available.",
     "workspace_unavailable_prompt": "Would you like to restore this session into a new workspace?",

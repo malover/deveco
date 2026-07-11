@@ -74,6 +74,7 @@ import {
   DEVECO_BASE_MODE,
   OpencodeKeymapProvider,
   registerOpencodeKeymap,
+  stringifyKeyStroke,
   useBindings,
   useOpencodeKeymap,
 } from "./keymap"
@@ -819,6 +820,19 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         category: t("category.system"),
       },
       {
+        name: "app.exitConfirm",
+        title: t("command.exit_app"),
+        hidden: true,
+        run: (ctx: { event: { name: string; ctrl: boolean; shift: boolean; meta: boolean } }) => {
+          const current = promptRef.current
+          if (!current) return exit()
+          const key = stringifyKeyStroke(ctx.event)
+          if (current.isExitArmed(key)) return exit()
+          current.armExit(key)
+        },
+        category: t("category.system"),
+      },
+      {
         name: "app.debug",
         title: t("command.toggle_debug_panel"),
         category: t("category.system"),
@@ -1010,7 +1024,18 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       if (!current?.focused) return true
       return current.current.input === ""
     },
-    bindings: tuiConfig.keybinds.gather("app_exit", ["app.exit"]),
+    bindings: tuiConfig.keybinds.gather("app_exit", ["app.exitConfirm"]),
+  }))
+
+  useBindings(() => ({
+    mode: DEVECO_BASE_MODE,
+    bindings: [
+      {
+        key: "<leader>q",
+        desc: t("command.exit_app"),
+        cmd: () => exit(),
+      },
+    ],
   }))
 
   event.on("tui.command.execute", (evt, { workspace }) => {

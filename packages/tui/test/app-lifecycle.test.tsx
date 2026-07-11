@@ -114,7 +114,7 @@ test("app.exit prints the session epilogue after scoped cleanup", async () => {
     await ready
     await setup.renderOnce()
     await setup.renderOnce()
-    api?.keymap.dispatchCommand("app.exit")
+    api?.keymap.dispatchCommand("app.exitConfirm")
     await task
 
     expect(stdout).toContain("Demo session")
