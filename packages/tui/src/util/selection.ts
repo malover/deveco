@@ -1,3 +1,4 @@
+import i18next from "i18next"
 import type { ClipboardService } from "../context/clipboard"
 
 type Toast = {
@@ -23,7 +24,12 @@ type SelectionKeyEvent = {
   stopPropagation: () => void
 }
 
-export function copy(renderer: Renderer, toast: Toast, clipboard: ClipboardService): boolean {
+export function copy(
+  renderer: Renderer,
+  toast: Toast,
+  clipboard: ClipboardService,
+  options?: { clearSelection?: boolean },
+): boolean {
   const selection = renderer.getSelection()
   if (!selection) return false
 
@@ -36,13 +42,12 @@ export function copy(renderer: Renderer, toast: Toast, clipboard: ClipboardServi
 
   clipboard
     ?.write?.(clipboardText)
-    // TODO(i18n): "Copied to clipboard" should be translated via t("toast.copied_to_clipboard").
-    // This is a utility function, not a component, so useI18n() is unavailable here.
-    // The calling component (app.tsx, dialog.tsx) should pass the translated string in.
-    .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
+    .then(() => toast.show({ message: i18next.t("toast.copied_chars_to_clipboard", { count: clipboardText.length }), variant: "info" }))
     .catch(toast.error)
 
-  renderer.clearSelection()
+  if (options?.clearSelection !== false) {
+    renderer.clearSelection()
+  }
   return true
 }
 

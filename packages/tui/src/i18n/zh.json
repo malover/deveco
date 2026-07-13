@@ -1,6 +1,7 @@
 {
   "toast": {
     "copied_to_clipboard": "已复制到剪贴板",
+    "copied_chars_to_clipboard": "已复制 {{count}} 个字符到剪贴板",
     "copy_failed": "复制失败",
     "session_fork_failed": "分叉会话失败",
     "no_assistant_messages": "没有找到 AI 回复",

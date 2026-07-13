@@ -1,6 +1,7 @@
 {
   "toast": {
     "copied_to_clipboard": "Copied to clipboard",
+    "copied_chars_to_clipboard": "Copied {{count}} characters to clipboard",
     "copy_failed": "Failed to copy to clipboard",
     "session_fork_failed": "Failed to fork session",
     "no_assistant_messages": "No assistant messages found",

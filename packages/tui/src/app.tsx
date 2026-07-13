@@ -88,6 +88,8 @@ import * as TuiAudio from "./audio"
 import { win32DisableProcessedInput, win32FlushInputBuffer } from "./terminal-win32"
 import { destroyRenderer } from "./util/renderer"
 import { cliErrorMessage, errorFormat } from "./util/error"
+import { createDoubleClickDetector } from "./util/double-click"
+import { selectWordAt } from "./util/word-select"
 
 const appGlobalBindingCommands = [
   "session.list",
@@ -1165,6 +1167,9 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
     return render({ params: route.data.data })
   })
 
+  const doubleClickDetector = createDoubleClickDetector()
+  let wordSelectActive = false
+
   return (
     <box
       width={dimensions().width}
@@ -1172,15 +1177,28 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       flexDirection="column"
       backgroundColor={theme.background}
       onMouseDown={(evt) => {
-        if (!Flag.DEVECO_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
-        if (evt.button !== MouseButton.RIGHT) return
+        if (evt.button === MouseButton.LEFT && doubleClickDetector.isDoubleClick(evt.x, evt.y)) {
+          if (selectWordAt(renderer, evt.target, evt.x, evt.y)) {
+            Selection.copy(renderer, toast, clipboard, { clearSelection: false })
+            wordSelectActive = true
+          }
+          evt.preventDefault()
+          evt.stopPropagation()
+          return
+        }
 
-        if (!Selection.copy(renderer, toast, clipboard)) return
-        evt.preventDefault()
-        evt.stopPropagation()
+        wordSelectActive = false
+
+        if (Flag.DEVECO_EXPERIMENTAL_DISABLE_COPY_ON_SELECT && evt.button === MouseButton.RIGHT) {
+          if (!Selection.copy(renderer, toast, clipboard)) return
+          evt.preventDefault()
+          evt.stopPropagation()
+        }
       }}
       onMouseUp={
-        !Flag.DEVECO_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? () => Selection.copy(renderer, toast, clipboard) : undefined
+        !Flag.DEVECO_EXPERIMENTAL_DISABLE_COPY_ON_SELECT
+          ? () => { if (!wordSelectActive) Selection.copy(renderer, toast, clipboard) }
+          : undefined
       }
     >
       <Show when={Flag.DEVECO_SHOW_TTFD}>
