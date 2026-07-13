@@ -448,4 +448,52 @@ describe("auth-plugin fetch interceptor — jwtToken 刷新后请求处理", () 
     expect(headers.get("lang")).toBe("en")
     expect(headers.get("Chat-Id")).toBeTruthy()
   })
+
+  describe("ensureValidToken — auth.json edge cases", () => {
+    test("returns null when auth.json exists but has no deveco key", async () => {
+      await using tmp = await tmpdir()
+      Global.Path.data = tmp.path
+
+      // Seed auth.json with a different provider only
+      const encrypted = LocalCrypto.encryptAuthData({ "other-provider": { type: "api_key", key: "k" } })
+      await Bun.write(authPath(), JSON.stringify(encrypted, null, 2))
+
+      const result = await ensureValidToken()
+      expect(result).toBeNull()
+    })
+
+    test("returns null when auth.json has deveco key with non-oauth type", async () => {
+      await using tmp = await tmpdir()
+      Global.Path.data = tmp.path
+
+      const encrypted = LocalCrypto.encryptAuthData({ deveco: { type: "api_key", key: "some-key" } })
+      await Bun.write(authPath(), JSON.stringify(encrypted, null, 2))
+
+      const result = await ensureValidToken()
+      expect(result).toBeNull()
+    })
+
+    test("post-refresh expires is in the future", async () => {
+      setSystemTime(1_000_000)
+      await using tmp = await tmpdir()
+      Global.Path.data = tmp.path
+
+      // Seed expired token
+      await seedAuth({ type: "oauth", access: "old", refresh: "old-r", expires: Date.now() - 1000 })
+
+      const spy = mockDevecoRefresh(async () => ({
+        accessToken: "new-access",
+        refreshToken: "new-refresh",
+      }))
+
+      const result = await ensureValidToken()
+      expect(result).toBe("new-access")
+      expect(spy.mock.calls).toHaveLength(1)
+
+      // Read back persisted auth.json and verify expires is in the future
+      const deveco = await readAuth()
+      expect(deveco.expires).toBeGreaterThan(Date.now())
+      expect(deveco.access).toBe("new-access")
+    })
+  })
 })
