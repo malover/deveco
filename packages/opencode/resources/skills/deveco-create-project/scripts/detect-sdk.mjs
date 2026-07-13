@@ -70,10 +70,11 @@ function apiConfigForLevel(apiLevel, metadata) {
     return mapped;
   }
   if (apiLevel === metadata.apiVersion) {
-    return {
-      sdkVersion: `${metadata.platformVersion}(${apiLevel})`,
-      modelVersion: metadata.platformVersion,
-    };
+    const platformVersion = metadata.platformVersion;
+    if (apiLevel >= 26) {
+      return { sdkVersion: platformVersion, modelVersion: platformVersion };
+    }
+    return { sdkVersion: `${platformVersion}(${apiLevel})`, modelVersion: platformVersion };
   }
   throw new SkillError({
     code: 'API_CONFIG_MISSING',
