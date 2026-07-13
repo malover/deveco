@@ -199,6 +199,33 @@ describe("OpenAI-compatible Chat route", () => {
     }),
   )
 
+  it.effect("includes user_id from providerOptions in request body", () =>
+    Effect.gen(function* () {
+      const modelWithUserId = OpenAICompatibleChat.route
+        .with({
+          provider: "deepseek",
+          endpoint: { baseURL: "https://api.deepseek.test/v1/" },
+          auth: Auth.bearer("test-key"),
+          providerOptions: { openaiCompatible: { userId: "my-org-user-123" } },
+        })
+        .model({ id: "deepseek-chat" })
+
+      const prepared = yield* LLMClient.prepare(
+        LLM.request({
+          id: "req_user_id",
+          model: modelWithUserId,
+          prompt: "Hello.",
+          generation: { maxTokens: 20 },
+        }),
+      )
+
+      expect(prepared.body).toMatchObject({
+        model: "deepseek-chat",
+        user_id: "my-org-user-123",
+      })
+    }),
+  )
+
   it.effect("posts to the configured compatible endpoint and parses text usage", () =>
     Effect.gen(function* () {
       const response = yield* LLMClient.generate(request).pipe(

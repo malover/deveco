@@ -111,13 +111,17 @@ const bedrock: Lowerer = {
 
 const openaiCompatible: Lowerer = {
   provider(options) {
-    return { ...direct(options, ["baseURL"]), url: string(options.baseURL) }
+    return { ...direct(options, ["baseURL", "userId"]), url: string(options.baseURL) }
   },
   request(options) {
     const result = clone(options)
     if (options.reasoningEffort !== undefined) {
       result.reasoning_effort = options.reasoningEffort
       delete result.reasoningEffort
+    }
+    if (typeof options.userId === "string") {
+      result.user_id = options.userId
+      delete result.userId
     }
     return result
   },

@@ -1125,6 +1125,10 @@ export function options(input: {
     }
   }
 
+  if (typeof input.providerOptions?.userId === "string") {
+    result["user_id"] = input.providerOptions.userId
+  }
+
   if (input.model.providerID === "openai" || input.providerOptions?.setCacheKey) {
     result["promptCacheKey"] = input.sessionID
   }

@@ -162,6 +162,7 @@ describe("ConfigProviderOptionsV1", () => {
         headers: { "x-test": "1" },
         body: { trace: true },
         apiKey: "secret",
+        userId: "user-456",
       }),
     ).toEqual({
       url: "https://compatible.example/v1",
@@ -169,9 +170,10 @@ describe("ConfigProviderOptionsV1", () => {
       body: { trace: true },
       settings: { apiKey: "secret" },
     })
-    expect(lowerer.request({ reasoningEffort: "high", serviceTier: "priority" })).toEqual({
+    expect(lowerer.request({ reasoningEffort: "high", serviceTier: "priority", userId: "user-456" })).toEqual({
       reasoning_effort: "high",
       serviceTier: "priority",
+      user_id: "user-456",
     })
   })
 
@@ -195,6 +197,22 @@ describe("ConfigProviderOptionsV1", () => {
       settings: { apiKey: "secret" },
     })
     expect(lowerer.request({ reasoningEffort: "high" })).toEqual({ reasoning_effort: "high" })
+  })
+
+  test("lowers OpenAI-compatible userId to user_id in request body", () => {
+    const lowerer = ConfigProviderOptionsV1.get("@ai-sdk/openai-compatible")
+    expect(lowerer.request({ userId: "my-org-user-123" })).toEqual({ user_id: "my-org-user-123" })
+  })
+
+  test("excludes userId from OpenAI-compatible SDK settings", () => {
+    const lowerer = ConfigProviderOptionsV1.get("@ai-sdk/openai-compatible")
+    const result = lowerer.provider({
+      baseURL: "https://api.deepseek.test/v1",
+      apiKey: "secret",
+      userId: "my-org-user-123",
+    })
+    expect(result.settings).toEqual({ apiKey: "secret" })
+    expect(result.settings).not.toHaveProperty("userId")
   })
 
   test.each(["@ai-sdk/google-vertex", "@ai-sdk/google-vertex/anthropic"])(

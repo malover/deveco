@@ -21,8 +21,9 @@ import * as Tool from "./tool"
 import { findDevEcoHome, nodePath } from "./lib/env"
 import { getSessionCwd } from "./lib/session-cwd"
 import DESCRIPTION from "./arkts-check.txt"
+import ARKTS_CHECK_SCRIPT_RAW from "./arkts-check.cjs" with { type: "text" }
 
-const ARKTS_CHECK_SCRIPT = fs.readFileSync(path.join(import.meta.dir, "arkts-check.cjs"), "utf-8")
+const ARKTS_CHECK_SCRIPT = ARKTS_CHECK_SCRIPT_RAW as unknown as string
 
 const Parameters = Schema.Struct({
   files: Schema.Array(Schema.String).annotate({
