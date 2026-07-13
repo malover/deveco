@@ -1470,6 +1470,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   const ctx = use()
   const local = useLocal()
   const { theme, subtleSyntax } = useTheme()
+  const { t } = useI18n()
   const sync = useSync()
   const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
   const model = createMemo(() => Model.name(ctx.providers(), props.message.providerID, props.message.modelID))
@@ -1597,7 +1598,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
                   filetype="markdown"
                   drawUnstyledText={false}
                   syntaxStyle={subtleSyntax()}
-                  content="⚠︎ AI-generated content. For reference only"
+                  content={t("prompt.ai_generated_content")}
                   fg={theme.textMuted}
                 />
               </box>

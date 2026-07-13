@@ -573,7 +573,8 @@
       "noMatchingItems": "No matching items"
     },
     "slow_response_tip_before": "Model resources are strained. Use ",
-    "slow_response_tip_after": " to switch providers for better experience."
+    "slow_response_tip_after": " to switch providers for better experience.",
+    "ai_generated_content": "✧ AI-generated content. For reference only"
   },
   "tip": {
     "label": "● Tip",

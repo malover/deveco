@@ -573,7 +573,8 @@
       "noMatchingItems": "没有匹配项"
     },
     "slow_response_tip_before": "模型资源紧张，可使用 ",
-    "slow_response_tip_after": " 切换供应商以优化体验"
+    "slow_response_tip_after": " 切换供应商以优化体验",
+    "ai_generated_content": "✧ AI生成内容，仅供参考"
   },
   "tip": {
     "label": "● 提示",
