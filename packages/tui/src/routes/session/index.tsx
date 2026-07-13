@@ -26,7 +26,7 @@ import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
 import { Spinner } from "../../component/spinner"
 import { createSyntaxStyleMemo, generateSubtleSyntax, selectedForeground, useTheme } from "../../context/theme"
 import { BoxRenderable, ScrollBoxRenderable, addDefaultParsers, TextAttributes, RGBA } from "@opentui/core"
-import { Prompt, type PromptRef } from "../../component/prompt"
+import { Prompt, fullCancelSessions, type PromptRef } from "../../component/prompt"
 import type {
   AssistantMessage,
   Part,
@@ -1188,6 +1188,16 @@ export function Session() {
                 scrollAcceleration={scrollAcceleration()}
               >
                 <box height={1} />
+                <Show when={messages().length === 0}>
+                  <box width="100%" paddingTop={2} paddingLeft={2} paddingRight={2} flexDirection="column" gap={1}>
+                    <text fg={theme.warning} wrapMode="word">
+                      {t("session.fresh_start")}
+                    </text>
+                    <text fg={theme.textMuted} wrapMode="word">
+                      {"  "}{t("session.help_prompt")}
+                    </text>
+                  </box>
+                </Show>
                 <For each={messages()}>
                   {(message, index) => (
                     <Switch>
@@ -1625,7 +1635,12 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
               <Show when={duration()}>
                 <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
               </Show>
-              <Show when={props.message.error?.name === "MessageAbortedError"}>
+              <Show
+                when={
+                  props.message.error?.name === "MessageAbortedError" &&
+                  !fullCancelSessions.has(props.message.sessionID)
+                }
+              >
                 <span style={{ fg: theme.textMuted }}> · interrupted</span>
               </Show>
             </text>

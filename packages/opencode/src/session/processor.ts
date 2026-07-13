@@ -880,11 +880,21 @@ export const layer = Layer.effect(
 
         yield* Effect.forEach(
           Object.values(ctx.toolcalls),
-          (call) => Deferred.await(call.done).pipe(Effect.timeout("250 millis"), Effect.ignore),
+          (call) => Deferred.await(call.done).pipe(Effect.timeout("2 seconds"), Effect.ignore),
           { concurrency: "unbounded" },
         )
 
-        for (const toolCallID of Object.keys(ctx.toolcalls)) {
+        const unsettled = Object.keys(ctx.toolcalls)
+        if (unsettled.length > 0) {
+          yield* Effect.logWarning("cleanup", {
+            "session.id": ctx.sessionID,
+            "tool.unsettled.count": unsettled.length,
+            "tool.unsettled.ids": unsettled,
+            message: `${unsettled.length} tool(s) did not settle within timeout, marking as interrupted`,
+          })
+        }
+
+        for (const toolCallID of unsettled) {
           const match = yield* readToolCall(toolCallID)
           if (!match) continue
           const part = match.part

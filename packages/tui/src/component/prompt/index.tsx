@@ -62,6 +62,11 @@ import { readLocalAttachment } from "./local-attachment"
 
 registerSpinner()
 
+// Tracks sessions undergoing full cancel+delete (single Esc with no substantive output).
+// The rendering layer uses this to suppress the "interrupted" label during the brief
+// window between the server setting MessageAbortedError and the client deleting the messages.
+export const fullCancelSessions = new Set<string>()
+
 export type PromptProps = {
   sessionID?: string
   visible?: boolean
@@ -151,6 +156,8 @@ function formatEditorContext(selection: EditorSelection) {
 }
 
 let stashed: { prompt: PromptInfo; cursor: number } | undefined
+let lastSubmittedPrompt: PromptInfo | undefined
+let interruptTimer: ReturnType<typeof setTimeout> | null = null
 
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
@@ -334,6 +341,59 @@ export function Prompt(props: PromptProps) {
 
   const exitTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
+  function hasSubstantiveOutput(): boolean {
+    const sid = props.sessionID
+    if (!sid) return false
+    const msgs = sync.data.message[sid] ?? []
+    const completed = msgs.findLast((x) => x.role === "assistant" && x.time.completed)?.id
+    const pendingMsg = msgs.findLast(
+      (x) => x.role === "assistant" && !x.time.completed && (!completed || x.id > completed),
+    )
+    if (!pendingMsg) return false
+    const parts = sync.data.part[pendingMsg.id] ?? []
+    return parts.some((p) => {
+      if (p.type === "text" || p.type === "reasoning") return p.text.trim().length > 0
+      if (p.type === "tool") return p.state.status !== "pending"
+      return false
+    })
+  }
+
+  // Latch: once output is seen as substantive during a turn, stay "interrupt"
+  // until a new user prompt is submitted. Prevents flickering between "cancel"
+  // and "interrupt" during streaming and multi-turn tool calls (where pending
+  // assistant messages come and go between tool executions).
+  let outputSeen = false
+  let lastLatchUserMsgID: string | undefined
+  const hadOutput = createMemo(() => {
+    const sid = props.sessionID
+    if (!sid) {
+      outputSeen = false
+      lastLatchUserMsgID = undefined
+      return false
+    }
+    const msgs = sync.data.message[sid] ?? []
+    const lastUserMsg = msgs.findLast((x) => x.role === "user")
+    const currentUserMsgID = lastUserMsg?.id
+    if (currentUserMsgID !== lastLatchUserMsgID) {
+      outputSeen = false
+      lastLatchUserMsgID = currentUserMsgID
+    }
+    if (outputSeen) return true
+    const completed = msgs.findLast((x) => x.role === "assistant" && x.time.completed)?.id
+    const hasSubstantive = msgs
+      .filter((x) => x.role === "assistant" && (!completed || x.id > completed))
+      .some((msg) => {
+        const parts = sync.data.part[msg.id] ?? []
+        return parts.some((p) => {
+          if (p.type === "text" || p.type === "reasoning") return p.text.trim().length > 0
+          if (p.type === "tool") return p.state.status !== "pending"
+          return false
+        })
+      })
+    if (hasSubstantive) outputSeen = true
+    return outputSeen
+  })
+
   createEffect(
     on(
       () => props.sessionID,
@@ -434,22 +494,70 @@ export function Prompt(props: PromptProps) {
         run: () => {
           if (auto()?.visible) return
           if (!input.focused) return
-          // TODO: this should be its own command
           if (store.mode === "shell") {
             setStore("mode", "normal")
             return
           }
           if (!props.sessionID) return
 
+          const sessionID = props.sessionID
+
+          if (!hadOutput()) {
+            const savedPrompt = lastSubmittedPrompt
+            fullCancelSessions.add(sessionID)
+            void sdk.client.session
+              .abort({ sessionID })
+              .then(async () => {
+                const msgs = sync.data.message[sessionID] ?? []
+                const lastUserIdx = msgs.findLastIndex((x) => x.role === "user")
+                if (lastUserIdx < 0) return
+                const toDelete = msgs.slice(lastUserIdx)
+                await Promise.all(
+                  toDelete.map((msg) =>
+                    sdk.client.session.deleteMessage({ sessionID, messageID: msg.id }).catch(() => {}),
+                  ),
+                )
+              })
+              .catch((err) => {
+                toast.show({
+                  variant: "error",
+                  message: err instanceof Error ? err.message : "Failed to interrupt session",
+                  duration: 3000,
+                })
+              })
+              .finally(() => {
+                fullCancelSessions.delete(sessionID)
+              })
+
+            if (savedPrompt && !store.prompt.input) {
+              ref.set(savedPrompt)
+            }
+
+            lastSubmittedPrompt = undefined
+            setStore("interrupt", 0)
+            dialog.clear()
+            return
+          }
+
           setStore("interrupt", store.interrupt + 1)
 
-          setTimeout(() => {
+          if (interruptTimer) clearTimeout(interruptTimer)
+          interruptTimer = setTimeout(() => {
             setStore("interrupt", 0)
-          }, 5000)
+            interruptTimer = null
+          }, tuiConfig.interrupt_timeout)
 
           if (store.interrupt >= 2) {
-            void sdk.client.session.abort({
-              sessionID: props.sessionID,
+            if (interruptTimer) {
+              clearTimeout(interruptTimer)
+              interruptTimer = null
+            }
+            void sdk.client.session.abort({ sessionID }).catch((err) => {
+              toast.show({
+                variant: "error",
+                message: err instanceof Error ? err.message : "Failed to interrupt session",
+                duration: 3000,
+              })
             })
             setStore("interrupt", 0)
           }
@@ -1249,6 +1357,10 @@ export function Prompt(props: PromptProps) {
           })
         })
       if (editorParts.length > 0) editor.markSelectionSent()
+      lastSubmittedPrompt = {
+        ...store.prompt,
+        mode: currentMode,
+      }
     }
     history.append({
       ...store.prompt,
@@ -1802,7 +1914,11 @@ export function Prompt(props: PromptProps) {
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
                   <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
-                    {store.interrupt > 0 ? "again to interrupt" : "interrupt"}
+                    {store.interrupt > 0
+                      ? "again to interrupt"
+                      : hadOutput()
+                        ? "interrupt"
+                        : "cancel"}
                   </span>
                 </text>
                 <Show when={store.exitKey !== ""}>

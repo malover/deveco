@@ -23,6 +23,11 @@ export const LeaderTimeout = Schema.Int.check(Schema.isGreaterThan(0)).annotate(
   description: "Leader key timeout in milliseconds",
 })
 
+export const InterruptTimeoutDefault = 5000
+export const InterruptTimeout = Schema.Int.check(Schema.isGreaterThan(0)).annotate({
+  description: "Double-press interrupt timeout in milliseconds",
+})
+
 export const ScrollSpeed = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0.001))
 export const ScrollAcceleration = Schema.Struct({
   enabled: Schema.Boolean.annotate({ description: "Enable scroll acceleration" }),
@@ -57,6 +62,7 @@ export const Info = Schema.Struct({
   plugin: Schema.optional(Schema.Array(PluginSpec)),
   plugin_enabled: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
   leader_timeout: Schema.optional(LeaderTimeout),
+  interrupt_timeout: Schema.optional(InterruptTimeout),
   attention: Schema.optional(Attention),
   prompt: Schema.optional(Prompt),
   scroll_speed: Schema.optional(ScrollSpeed).annotate({ description: "TUI scroll speed" }),
@@ -66,7 +72,7 @@ export const Info = Schema.Struct({
 })
 export type Info = Schema.Schema.Type<typeof Info>
 
-export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | "mouse"> & {
+export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | "interrupt_timeout" | "mouse"> & {
   attention: {
     enabled: boolean
     notifications: boolean
@@ -77,6 +83,7 @@ export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | 
   }
   keybinds: TuiKeybind.BindingLookupView
   leader_timeout: number
+  interrupt_timeout: number
   mouse: boolean
 }
 
@@ -112,6 +119,7 @@ export function resolve(input: Info, options: ResolveOptions): Resolved {
       bindingDefaults: TuiKeybind.bindingDefaults(),
     }),
     leader_timeout: input.leader_timeout ?? LeaderTimeoutDefault,
+    interrupt_timeout: input.interrupt_timeout ?? InterruptTimeoutDefault,
     mouse: input.mouse ?? true,
   }
 }

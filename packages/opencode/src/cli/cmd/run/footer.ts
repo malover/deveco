@@ -937,7 +937,7 @@ export class RunFooter implements FooterApi {
       }
 
       this.patch({ interrupt: 0 })
-    }, 5000)
+    }, this.options.tuiConfig.interrupt_timeout)
   }
 
   private clearExitTimer(): void {
@@ -958,7 +958,7 @@ export class RunFooter implements FooterApi {
       }
 
       this.patch({ exit: 0 })
-    }, 5000)
+    }, this.options.tuiConfig.interrupt_timeout)
   }
 
   // Two-press interrupt: first press shows a hint ("esc again to interrupt"),

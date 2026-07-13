@@ -343,12 +343,22 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
       }
 
       state.aborting = true
+      const abortTimeout = setTimeout(() => {
+        state.aborting = false
+        log?.write("interrupt.timeout", { sessionID: state.sessionID })
+      }, 10_000)
       void ctx.sdk.session
         .abort({
           sessionID: state.sessionID,
         })
-        .catch(() => {})
+        .catch((err) => {
+          log?.write("interrupt.error", {
+            sessionID: state.sessionID,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
         .finally(() => {
+          clearTimeout(abortTimeout)
           state.aborting = false
         })
     },

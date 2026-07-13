@@ -1,4 +1,8 @@
 {
+  "session": {
+    "fresh_start": "✧ Fresh start!",
+    "help_prompt": "What can I help you with?"
+  },
   "btw": {
     "title": "By the way",
     "description": "Ask a quick side question without interrupting the main agent",
