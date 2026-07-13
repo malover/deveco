@@ -198,7 +198,7 @@ export class LoginService {
       jwtToken: jwtToken,
       countryCode: "CN",
       language: "zh_CN",
-      isRealName: tokenInfo.userInfo.realName === "true",
+      isRealName: String(tokenInfo.userInfo.realName) === "true",
     }
 
     return userInfo
@@ -250,7 +250,7 @@ export class LoginService {
    * @param jwtToken 当前的 jwtToken
    * @returns 新的 accessToken 和 refreshToken，如果失败返回 null
    */
-  async refreshToken(jwtToken: string): Promise<{ accessToken: string; refreshToken: string } | null> {
+  async refreshToken(jwtToken: string): Promise<{ accessToken: string; refreshToken: string; isRealName: boolean } | null> {
     const url = `${this.config.baseUrl}/${this.config.jwtTokenCheckUrl}`
     try {
       const headers: Record<string, string> = {
@@ -279,11 +279,40 @@ export class LoginService {
       return {
         accessToken: result.userInfo.accessToken,
         refreshToken: result.userInfo.refreshToken ?? "",
+        isRealName: String(result.userInfo.realName) === "true",
       }
     } catch (err) {
       await log(Effect.logError(`refreshToken error: ${err}`, { service: "deveco", url }))
       return null
     }
+  }
+
+  /**
+   * Reconstruct userInfo from a refresh response and the existing JWT.
+   * Used on cold start when no userInfo is in memory but a token refresh succeeded.
+   */
+  setUserInfoFromTokens(tokens: { accessToken: string; refreshToken: string; isRealName: boolean }, jwtToken: string): void {
+    const parsed = this.parseJwt(jwtToken)
+    this.userInfo = {
+      userId: parsed.userId,
+      userName: parsed.userName ?? "",
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      jwtToken,
+      countryCode: "",
+      language: "",
+      isRealName: tokens.isRealName,
+    }
+  }
+
+  /**
+   * Check whether the user has completed real-name verification.
+   * @returns true if verified, false if not, null if check failed
+   */
+  async checkRealName(jwtToken: string): Promise<boolean | null> {
+    const tokenInfo = await this.checkJwtToken(jwtToken).catch(() => null)
+    if (!tokenInfo?.status || !tokenInfo.userInfo) return null
+    return String(tokenInfo.userInfo.realName) === "true"
   }
 }
 

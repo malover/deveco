@@ -146,6 +146,7 @@ export class AnalyticsUploader {
             access: newTokens.accessToken,
             refresh: newTokens.refreshToken,
             expires: Date.now() + ACCESS_TOKEN_EXPIRES_MS,
+            isRealName: newTokens.isRealName,
           })
           return newTokens.accessToken
         }

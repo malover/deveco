@@ -31,9 +31,15 @@ async function doRefreshToken(): Promise<string | null> {
     access: newTokens.accessToken,
     refresh: newTokens.refreshToken,
     expires: Date.now() + ACCESS_TOKEN_EXPIRES_MS,
+    isRealName: newTokens.isRealName,
   })
 
   await log(Effect.logInfo("ensureValidToken: token refreshed successfully", { service: "deveco" }))
+
+  if (!newTokens.isRealName) {
+    await log(Effect.logWarning("ensureValidToken: real-name verification not completed", { service: "deveco" }))
+  }
+
   return newTokens.accessToken
 }
 

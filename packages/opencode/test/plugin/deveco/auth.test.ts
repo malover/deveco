@@ -18,7 +18,8 @@ let mockLoginServiceMethods: {
   cancel: () => void
   logout: () => Promise<void>
   parseJwt: (token: string) => JwtPayload
-  refreshToken: (jwtToken: string) => Promise<{ accessToken: string; refreshToken: string } | null>
+  refreshToken: (jwtToken: string) => Promise<{ accessToken: string; refreshToken: string; isRealName: boolean } | null>
+  setUserInfoFromTokens: (tokens: { accessToken: string; refreshToken: string; isRealName: boolean }, jwtToken: string) => void
 }
 
 let mockTokenStorageLoadToken: Mock<() => Promise<string | null>>
@@ -34,6 +35,7 @@ mock.module("@/plugin/deveco/login-service", () => ({
     logout: () => mockLoginServiceMethods.logout(),
     parseJwt: (token: string) => mockLoginServiceMethods.parseJwt(token),
     refreshToken: (jwtToken: string) => mockLoginServiceMethods.refreshToken(jwtToken),
+    setUserInfoFromTokens: (tokens: { accessToken: string; refreshToken: string; isRealName: boolean }, jwtToken: string) => mockLoginServiceMethods.setUserInfoFromTokens(tokens, jwtToken),
   },
 }))
 
@@ -48,6 +50,7 @@ mock.module("@/plugin/deveco/token-storage", () => ({
 
 mock.module("@/plugin/deveco/storage", () => ({
   loadAccessTokenFromDisk: () => mockLoadAccessTokenFromDisk(),
+  loadIsRealNameFromDisk: () => null,
   saveAuthToDisk: async () => {},
   authFilePath: () => "/tmp/mock-auth.json",
   hasDevecoOAuthEntry: () => false,
@@ -82,6 +85,7 @@ function resetMocks() {
     logout: mock(() => Promise.resolve()),
     parseJwt: mock(defaultParseJwt),
     refreshToken: mock(() => Promise.resolve(null)),
+    setUserInfoFromTokens: mock(() => {}),
   }
   mockTokenStorageLoadToken = mock(() => Promise.resolve(null as string | null))
   mockLoadAccessTokenFromDisk = mock(() => "")
@@ -156,7 +160,7 @@ describe("DevEcoAuth.getSession", () => {
 describe("DevEcoAuth.refreshToken", () => {
   test("updates userInfo tokens when userInfo exists and refresh succeeds", async () => {
     const userInfo: UserInfo = { ...sampleUserInfo }
-    const newTokens = { accessToken: "new-access", refreshToken: "new-refresh" }
+    const newTokens = { accessToken: "new-access", refreshToken: "new-refresh", isRealName: true }
     mockLoginServiceMethods.getUserInfo = mock(() => userInfo)
     mockLoginServiceMethods.refreshToken = mock(() => Promise.resolve(newTokens))
     const auth = new DevEcoAuth()
@@ -177,7 +181,7 @@ describe("DevEcoAuth.refreshToken", () => {
 
   test("returns new tokens from storage jwtToken when userInfo is null", async () => {
     const jwtToken = createJwt({ userId: "user-2", userName: "StorageUser" })
-    const newTokens = { accessToken: "new-access-2", refreshToken: "new-refresh-2" }
+    const newTokens = { accessToken: "new-access-2", refreshToken: "new-refresh-2", isRealName: true }
     mockLoginServiceMethods.getUserInfo = mock(() => null)
     mockTokenStorageLoadToken = mock(() => Promise.resolve(jwtToken))
     mockLoginServiceMethods.refreshToken = mock(() => Promise.resolve(newTokens))

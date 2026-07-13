@@ -42,7 +42,7 @@ import { HomeSessionDestinationProvider } from "@opencode-ai/tui/routes/home/ses
 import { Toast } from "@opencode-ai/tui/ui/toast"
 import type { SyncObject } from "@opencode-ai/tui/deveco-extensions"
 import { agreementService, AgreementStatus } from "@/cli/deveco-agreement"
-import { devecoAuth, hasDevecoOAuthEntry, ensureValidToken } from "@/plugin/deveco"
+import { devecoAuth, hasDevecoOAuthEntry, ensureValidToken, loadIsRealNameFromDisk } from "@/plugin/deveco"
 import { hasConfiguredDevEcoHome } from "@/tool/lib/env"
 import type { AgreementConfig } from "@/cli/deveco-legal"
 import { DevEcoOnboarding } from "./onboarding"
@@ -69,6 +69,7 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
   const [authCanEnter, setAuthCanEnter] = createSignal(false)
   const [authCheckDone, setAuthCheckDone] = createSignal(false)
   let devecoChecked = false
+  const [devecoRealName, setDevecoRealName] = createSignal(false)
 
   const bodySlotHeight = createMemo(() => homeBodySlotRows(dimensions().height))
 
@@ -100,23 +101,27 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
     }
 
     let accessToken = session.accessToken
-    // ensureValidToken reads auth.json, checks expiry, and refreshes if needed.
-    // If the stored token is still valid, it returns it; if expired, it attempts
-    // a refresh.  Falls back to session.accessToken when no stored entry exists.
+
+    // Ensure token is valid — use cached token if not expired, refresh if needed.
     const validToken = await ensureValidToken()
     if (validToken) {
       accessToken = validToken
     } else if (!accessToken) {
-      // No valid token and no stored accessToken — check if the JWT itself is
-      // expired so we can show the "credentials expired" message instead of the
-      // generic first-time login prompt.
       return finishCheck(await devecoAuth.isJwtExpired() === true)
     } else if (await devecoAuth.isJwtExpired() === true) {
-      // ensureValidToken() returned null (refresh failed) but an old accessToken
-      // is still available from the session.  If the JWT has already expired, the
-      // agreement check below will certainly fail with SESSION_EXPIRED — skip it
-      // and show the credential-expired prompt immediately.
       return finishCheck(true)
+    }
+
+    // Check real-name status from disk cache first; only call API if uncertain.
+    let isRealName = loadIsRealNameFromDisk()
+    if (isRealName !== true) {
+      isRealName = await devecoAuth.checkRealName() ?? false
+    }
+    if (!isRealName) {
+      setDevecoRealName(true)
+      setDevecoReady(false)
+      setAuthCheckDone(true)
+      return
     }
 
     const userId = session.userId || (await devecoAuth.getUserId()) || ""
@@ -327,6 +332,7 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
                   bodySlotHeight={bodySlotHeight()}
                   initialStep={devecoInitialStep()}
                   sessionExpired={devecoSessionExpired()}
+                  initialRealName={devecoRealName()}
                 />
               </Show>
             </box>

@@ -22,7 +22,9 @@ export async function saveAuthToDisk(key: string, info: Record<string, unknown> 
     if (info === null) {
       delete data[key]
     } else {
-      data[key] = info
+      // Shallow merge to preserve fields (e.g. isRealName) not included by every caller
+      const existing = data[key]
+      data[key] = typeof existing === "object" && existing !== null ? { ...existing as Record<string, unknown>, ...info } : info
     }
     const dir = path.dirname(authFilePath())
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -67,4 +69,20 @@ export function hasDevecoOAuthEntry(): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * Read the cached real-name verification flag from auth.json.
+ * Returns true/false if the field exists, or null if not yet cached.
+ */
+export function loadIsRealNameFromDisk(): boolean | null {
+  try {
+    if (!fs.existsSync(authFilePath())) return null
+    const raw = JSON.parse(fs.readFileSync(authFilePath(), "utf-8")) as Record<string, unknown>
+    const data = LocalCrypto.decryptAuthData(raw) as Record<string, unknown>
+    const deveco = data.deveco as Record<string, unknown> | undefined
+    if (typeof deveco?.isRealName === "boolean") return deveco.isRealName
+  } catch {
+  }
+  return null
 }

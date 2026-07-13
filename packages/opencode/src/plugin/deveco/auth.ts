@@ -6,7 +6,7 @@ async function log(effect: Effect.Effect<void>) {
 }
 import { loginService } from "./login-service"
 import { tokenStorage } from "./token-storage"
-import { loadAccessTokenFromDisk } from "./storage"
+import { loadAccessTokenFromDisk, loadIsRealNameFromDisk, saveAuthToDisk } from "./storage"
 import type { DevEcoSession, LoginResult } from "./types"
 
 export class DevEcoAuth {
@@ -17,10 +17,11 @@ export class DevEcoAuth {
   async getSession(): Promise<DevEcoSession | null> {
     const userInfo = loginService.getUserInfo()
     if (userInfo) {
+      const now = Date.now()
       return {
         ...userInfo,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        createdAt: now,
+        expiresAt: now + 30 * 24 * 60 * 60 * 1000,
       }
     }
     const jwtToken = await tokenStorage.loadToken()
@@ -39,9 +40,8 @@ export class DevEcoAuth {
             jwtToken,
             countryCode: "",
             language: "",
-            isRealName: false,
-            createdAt: Date.now(),
-            expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+            isRealName: loadIsRealNameFromDisk() ?? false,
+            ...(() => { const now = Date.now(); return { createdAt: now, expiresAt: now + 30 * 24 * 60 * 60 * 1000 } })(),
           }
         }
       } catch (err) {
@@ -97,7 +97,7 @@ export class DevEcoAuth {
    * 刷新 accessToken
    * @returns 刷新成功返回新的 token 信息，失败返回 null
    */
-  async refreshToken(): Promise<{ accessToken: string; refreshToken: string } | null> {
+  async refreshToken(): Promise<{ accessToken: string; refreshToken: string; isRealName: boolean } | null> {
     const userInfo = this.getUserInfo()
     const jwtToken = userInfo?.jwtToken ?? (await tokenStorage.loadToken())
     if (!jwtToken) return null
@@ -115,11 +115,37 @@ export class DevEcoAuth {
     }
 
     const newTokens = await loginService.refreshToken(jwtToken)
-    if (newTokens && userInfo) {
+    if (!newTokens) return null
+
+    if (userInfo) {
       userInfo.accessToken = newTokens.accessToken
       userInfo.refreshToken = newTokens.refreshToken
+      userInfo.isRealName = newTokens.isRealName
+    } else {
+      // Cold start: no userInfo in memory — reconstruct from refresh response + JWT
+      try {
+        loginService.setUserInfoFromTokens(newTokens, jwtToken)
+      } catch {
+        // JWT parse failure — isRealName still available via loadIsRealNameFromDisk() or checkRealName()
+      }
     }
+
     return newTokens
+  }
+
+  /**
+   * Check real-name verification status via API.
+   * Persists the result to auth.json when verified (one-way: false → true).
+   * @returns true if verified, false if not, null if no token or check failed
+   */
+  async checkRealName(): Promise<boolean | null> {
+    const jwtToken = await tokenStorage.loadToken()
+    if (!jwtToken) return null
+    const result = await loginService.checkRealName(jwtToken)
+    if (result === true) {
+      await saveAuthToDisk("deveco", { isRealName: true })
+    }
+    return result
   }
 
   private getUserInfo() {

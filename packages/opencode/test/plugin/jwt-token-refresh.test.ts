@@ -17,7 +17,7 @@ const originalLoginRefresh = loginService.refreshToken
 const originalLoadToken = tokenStorage.loadToken
 const originalUserInfo = (loginService as any).userInfo
 
-type RefreshResult = { accessToken: string; refreshToken: string } | null
+type RefreshResult = { accessToken: string; refreshToken: string; isRealName: boolean } | null
 type AuthState = { type: string; access: string; refresh: string; expires: number }
 
 function makeJwt(payload: Record<string, unknown>): string {
@@ -78,6 +78,7 @@ describe("DevEcoAuth.refreshToken — 使用 jwtToken 刷新 accessToken", () =>
     const spy = mockLoginRefresh(async (_jwt) => ({
       accessToken: "new-access",
       refreshToken: "new-refresh",
+      isRealName: true,
     }))
     ;(loginService as any).userInfo = {
       userId: "u1",
@@ -92,11 +93,12 @@ describe("DevEcoAuth.refreshToken — 使用 jwtToken 刷新 accessToken", () =>
 
     const result = await devecoAuth.refreshToken()
 
-    expect(result).toEqual({ accessToken: "new-access", refreshToken: "new-refresh" })
+    expect(result).toEqual({ accessToken: "new-access", refreshToken: "new-refresh", isRealName: true })
     expect(spy.mock.calls).toHaveLength(1)
     expect(spy.mock.calls[0][0]).toBe("jwt-from-memory")
     expect((loginService as any).userInfo.accessToken).toBe("new-access")
     expect((loginService as any).userInfo.refreshToken).toBe("new-refresh")
+    expect((loginService as any).userInfo.isRealName).toBe(true)
     ;(loginService as any).userInfo = null
   })
 
@@ -105,18 +107,19 @@ describe("DevEcoAuth.refreshToken — 使用 jwtToken 刷新 accessToken", () =>
     const spy = mockLoginRefresh(async (_jwt) => ({
       accessToken: "disk-refreshed",
       refreshToken: "disk-refresh-new",
+      isRealName: true,
     }))
     ;(loginService as any).userInfo = null
 
     const result = await devecoAuth.refreshToken()
 
-    expect(result).toEqual({ accessToken: "disk-refreshed", refreshToken: "disk-refresh-new" })
+    expect(result).toEqual({ accessToken: "disk-refreshed", refreshToken: "disk-refresh-new", isRealName: true })
     expect(spy.mock.calls[0][0]).toBe("jwt-from-disk")
   })
 
   test("内存和磁盘均无 jwtToken 时返回 null", async () => {
     mockLoadToken(async () => null)
-    const spy = mockLoginRefresh(async () => ({ accessToken: "x", refreshToken: "y" }))
+    const spy = mockLoginRefresh(async () => ({ accessToken: "x", refreshToken: "y", isRealName: true }))
     ;(loginService as any).userInfo = null
 
     const result = await devecoAuth.refreshToken()
@@ -136,7 +139,7 @@ describe("DevEcoAuth.refreshToken — 使用 jwtToken 刷新 accessToken", () =>
   })
 
   test("刷新成功后更新内存中 userInfo 的 accessToken 和 refreshToken", async () => {
-    mockLoginRefresh(async () => ({ accessToken: "updated-access", refreshToken: "updated-refresh" }))
+    mockLoginRefresh(async () => ({ accessToken: "updated-access", refreshToken: "updated-refresh", isRealName: true }))
     ;(loginService as any).userInfo = {
       userId: "u1",
       userName: "test",
@@ -152,6 +155,7 @@ describe("DevEcoAuth.refreshToken — 使用 jwtToken 刷新 accessToken", () =>
 
     expect((loginService as any).userInfo.accessToken).toBe("updated-access")
     expect((loginService as any).userInfo.refreshToken).toBe("updated-refresh")
+    expect((loginService as any).userInfo.isRealName).toBe(true)
     ;(loginService as any).userInfo = null
   })
 
@@ -168,7 +172,7 @@ describe("DevEcoAuth.refreshToken — 使用 jwtToken 刷新 accessToken", () =>
   test("JWT 已过期时跳过 refresh 请求，直接返回 null", async () => {
     const expiredJwt = makeJwt({ userId: "u1", userName: "test", exp: Math.floor(Date.now() / 1000) - 86400 })
     mockLoadToken(async () => expiredJwt)
-    const spy = mockLoginRefresh(async () => ({ accessToken: "should-not-reach", refreshToken: "x" }))
+    const spy = mockLoginRefresh(async () => ({ accessToken: "should-not-reach", refreshToken: "x", isRealName: true }))
     ;(loginService as any).userInfo = null
 
     const result = await devecoAuth.refreshToken()
@@ -180,24 +184,24 @@ describe("DevEcoAuth.refreshToken — 使用 jwtToken 刷新 accessToken", () =>
   test("JWT 未过期时正常发起 refresh 请求", async () => {
     const validJwt = makeJwt({ userId: "u1", userName: "test", exp: Math.floor(Date.now() / 1000) + 3600 })
     mockLoadToken(async () => validJwt)
-    const spy = mockLoginRefresh(async () => ({ accessToken: "new-access", refreshToken: "new-refresh" }))
+    const spy = mockLoginRefresh(async () => ({ accessToken: "new-access", refreshToken: "new-refresh", isRealName: true }))
     ;(loginService as any).userInfo = null
 
     const result = await devecoAuth.refreshToken()
 
-    expect(result).toEqual({ accessToken: "new-access", refreshToken: "new-refresh" })
+    expect(result).toEqual({ accessToken: "new-access", refreshToken: "new-refresh", isRealName: true })
     expect(spy.mock.calls).toHaveLength(1)
   })
 
   test("JWT 无 exp 字段时不拦截，正常发起 refresh 请求", async () => {
     const noExpJwt = makeJwt({ userId: "u1", userName: "test" })
     mockLoadToken(async () => noExpJwt)
-    const spy = mockLoginRefresh(async () => ({ accessToken: "new-access", refreshToken: "new-refresh" }))
+    const spy = mockLoginRefresh(async () => ({ accessToken: "new-access", refreshToken: "new-refresh", isRealName: true }))
     ;(loginService as any).userInfo = null
 
     const result = await devecoAuth.refreshToken()
 
-    expect(result).toEqual({ accessToken: "new-access", refreshToken: "new-refresh" })
+    expect(result).toEqual({ accessToken: "new-access", refreshToken: "new-refresh", isRealName: true })
     expect(spy.mock.calls).toHaveLength(1)
   })
 })
@@ -218,7 +222,7 @@ describe("ensureValidToken — accessToken 过期时通过 jwtToken 刷新", () 
     setSystemTime(1_000_000)
     await using tmp = await tmpdir()
     Global.Path.data = tmp.path
-    mockDevecoRefresh(async () => ({ accessToken: "refreshed-access", refreshToken: "refreshed-token" }))
+    mockDevecoRefresh(async () => ({ accessToken: "refreshed-access", refreshToken: "refreshed-token", isRealName: true }))
 
     await seedAuth({ type: "oauth", access: "expired", refresh: "r", expires: 1 })
 
@@ -258,7 +262,7 @@ describe("ensureValidToken — accessToken 过期时通过 jwtToken 刷新", () 
     setSystemTime(1_000_000)
     await using tmp = await tmpdir()
     Global.Path.data = tmp.path
-    mockDevecoRefresh(async () => ({ accessToken: "", refreshToken: "new-refresh" }))
+    mockDevecoRefresh(async () => ({ accessToken: "", refreshToken: "new-refresh", isRealName: true }))
 
     await seedAuth({ type: "oauth", access: "old", refresh: "r", expires: 1 })
 
@@ -277,7 +281,7 @@ describe("ensureValidToken — accessToken 过期时通过 jwtToken 刷新", () 
     const spy = mockDevecoRefresh(
       () =>
         new Promise<RefreshResult>((resolve) => {
-          setTimeout(() => resolve({ accessToken: "new", refreshToken: "new-r" }), 50)
+          setTimeout(() => resolve({ accessToken: "new", refreshToken: "new-r", isRealName: true }), 50)
         }),
     )
 
@@ -317,7 +321,7 @@ describe("ensureValidToken — accessToken 过期时通过 jwtToken 刷新", () 
   test("auth.json 不存在时直接返回 null", async () => {
     await using tmp = await tmpdir()
     Global.Path.data = tmp.path
-    const spy = mockDevecoRefresh(async () => ({ accessToken: "x", refreshToken: "y" }))
+    const spy = mockDevecoRefresh(async () => ({ accessToken: "x", refreshToken: "y", isRealName: true }))
 
     expect(await ensureValidToken()).toBeNull()
     expect(spy.mock.calls).toHaveLength(0)
@@ -329,7 +333,7 @@ describe("auth-plugin fetch interceptor — jwtToken 刷新后请求处理", () 
     setSystemTime(1_000_000)
     await using tmp = await tmpdir()
     Global.Path.data = tmp.path
-    mockDevecoRefresh(async () => ({ accessToken: "new-access-token", refreshToken: "new-refresh" }))
+    mockDevecoRefresh(async () => ({ accessToken: "new-access-token", refreshToken: "new-refresh", isRealName: true }))
 
     await seedAuth({ type: "oauth", access: "expired", refresh: "r", expires: 1 })
 
@@ -388,7 +392,7 @@ describe("auth-plugin fetch interceptor — jwtToken 刷新后请求处理", () 
   test("token 未过期 → 直接使用现有 Bearer token", async () => {
     await using tmp = await tmpdir()
     Global.Path.data = tmp.path
-    const refreshSpy = mockDevecoRefresh(async () => ({ accessToken: "should-not-use", refreshToken: "x" }))
+    const refreshSpy = mockDevecoRefresh(async () => ({ accessToken: "should-not-use", refreshToken: "x", isRealName: true }))
 
     await seedAuth({ type: "oauth", access: "still-valid", refresh: "r", expires: Date.now() + 60_000 })
 
@@ -420,7 +424,7 @@ describe("auth-plugin fetch interceptor — jwtToken 刷新后请求处理", () 
     setSystemTime(1_000_000)
     await using tmp = await tmpdir()
     Global.Path.data = tmp.path
-    mockDevecoRefresh(async () => ({ accessToken: "refreshed", refreshToken: "r" }))
+    mockDevecoRefresh(async () => ({ accessToken: "refreshed", refreshToken: "r", isRealName: true }))
 
     await seedAuth({ type: "oauth", access: "expired", refresh: "r", expires: 1 })
 
@@ -484,6 +488,7 @@ describe("auth-plugin fetch interceptor — jwtToken 刷新后请求处理", () 
       const spy = mockDevecoRefresh(async () => ({
         accessToken: "new-access",
         refreshToken: "new-refresh",
+        isRealName: true,
       }))
 
       const result = await ensureValidToken()

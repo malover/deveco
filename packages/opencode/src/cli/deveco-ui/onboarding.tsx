@@ -26,7 +26,7 @@ import { BANNER_HOME_CONTENT_INSET, HOME_CONTENT_MAX_WIDTH, homeContentPadX } fr
 declare const DEVECO_SKIP_AGREEMENT: boolean | undefined
 import type { ProviderAuthAuthorization, ProviderAuthMethod } from '@opencode-ai/sdk/v2';
 
-type OnboardingStep = 'privacy' | 'entry' | 'auth' | 'deveco-home' | 'providers' | 'key';
+type OnboardingStep = 'privacy' | 'entry' | 'auth' | 'deveco-home' | 'providers' | 'key' | 'realname';
 
 const LIST_HELP = 'Use Enter to Select';
 
@@ -257,7 +257,7 @@ async function runProviderOAuth(
   }
 }
 
-export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight?: number; initialStep?: OnboardingStep; sessionExpired?: boolean }) {
+export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight?: number; initialStep?: OnboardingStep; sessionExpired?: boolean; initialRealName?: boolean }) {
   const { theme } = useTheme();
   const sync = useSync();
   const exit = useExit();
@@ -281,6 +281,7 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
   const [networkErrorNoCache, setNetworkErrorNoCache] = createSignal(false);
   const [sessionExpired, setSessionExpired] = createSignal(props.sessionExpired ?? false);
   const [entryIndex, setEntryIndex] = createSignal(0);
+  const [realnameIndex, setRealnameIndex] = createSignal(0);
   const [authMessage, setAuthMessage] = createSignal<string | null>(null);
   const [authBusy, setAuthBusy] = createSignal(false);
   const [providerIndex, setProviderIndex] = createSignal(0);
@@ -412,6 +413,10 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
 
   // Kick off detection on mount when initial step requires it
   onMount(() => {
+    if (props.initialRealName) {
+      setStep('realname')
+      return
+    }
     if (props.sessionExpired) {
       // Caller already determined the session is expired — show the re-login prompt
       // without making another API call that would fail with the same expired token.
@@ -606,10 +611,16 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
         access,
         refresh,
         expires: Date.now() + ACCESS_TOKEN_EXPIRES_MS,
+        isRealName: result.userInfo?.isRealName ?? false,
       });
       await sdk.client.instance.dispose();
       await sync.bootstrap();
       setAuthBusy(false);
+      // Check real-name verification status
+      if (result.userInfo && !result.userInfo.isRealName) {
+        setStep('realname');
+        return;
+      }
       // Login success → skip agreement check if built with --skip-agreement or runtime env var
       if ((typeof DEVECO_SKIP_AGREEMENT !== "undefined" && DEVECO_SKIP_AGREEMENT) || process.env.DEVECO_SKIP_AGREEMENT === "1") {
         props.onComplete();
@@ -712,6 +723,33 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
     }
 
     const st = step();
+
+    if (st === 'realname') {
+      if (evt.ctrl && evt.name === 'c') {
+        evt.preventDefault();
+        void exit();
+        return;
+      }
+      if (evt.name === 'up') {
+        evt.preventDefault();
+        setRealnameIndex(0);
+        return;
+      }
+      if (evt.name === 'down') {
+        evt.preventDefault();
+        setRealnameIndex(1);
+        return;
+      }
+      if (evt.name === 'return') {
+        evt.preventDefault();
+        if (realnameIndex() === 0) {
+          setStep('entry');
+        } else {
+          void exit();
+        }
+      }
+      return;
+    }
 
     if (st === 'privacy') {
       if (evt.ctrl && evt.name === 'c') {
@@ -989,7 +1027,7 @@ if (st === 'entry') {
         </Show>
         <Show when={!checkingStatus() && sessionExpired()}>
           <OnboardingContent>
-            <text fg={theme.error} selectable={false} marginBottom={2}>
+            <text fg={theme.warning} selectable={false} marginBottom={2}>
               Your login session has expired. Please sign in again.
             </text>
             <box flexDirection='column'>
@@ -1201,6 +1239,35 @@ if (st === 'entry') {
               Use Enter to submit, Esc to go back
             </text>
           </Show>
+        </OnboardingContent>
+      </Show>
+      <Show when={step() === 'realname'}>
+        <OnboardingContent>
+          <text fg={theme.warning} attributes={1} selectable={false} marginBottom={1}>
+            Real-name authentication required
+          </text>
+          <text fg={theme.text} selectable={false} wrapMode='word'>
+            Please complete real-name authentication on HUAWEI official website to continue:
+          </text>
+          <Link
+            href='https://developer.huawei.com/consumer/cn/personalcenter/myInfo/personalInfo'
+            fg={theme.primary}
+          >
+            Complete Real-name Authentication
+          </Link>
+          <box flexDirection='column' marginTop={1}>
+            <text fg={realnameIndex() === 0 ? theme.success : theme.text} selectable={false}>
+              {selectionLead(realnameIndex() === 0)}
+              1. Sign in again
+            </text>
+            <text fg={realnameIndex() === 1 ? theme.success : theme.text} selectable={false}>
+              {selectionLead(realnameIndex() === 1)}
+              2. Exit
+            </text>
+          </box>
+          <text fg={theme.textMuted} selectable={false} marginTop={1}>
+            Use Enter to Select, Up/Down to navigate
+          </text>
         </OnboardingContent>
       </Show>
       <Show when={step() === 'providers'}>

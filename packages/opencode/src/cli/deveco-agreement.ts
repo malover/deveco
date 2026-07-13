@@ -176,6 +176,7 @@ async function handleSessionTimeoutAndRetry<T>(
       access: newTokens.accessToken,
       refresh: newTokens.refreshToken,
       expires: Date.now() + ACCESS_TOKEN_EXPIRES_MS,
+      isRealName: newTokens.isRealName,
     })
 
     const retryRaw = await retryApiCall(newTokens.accessToken)

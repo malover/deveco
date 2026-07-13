@@ -25,7 +25,7 @@ export interface TokenCheckResponse {
     accessToken: string
     refreshToken?: string
     nationalCode: string
-    realName: string
+    realName: boolean | string
   }
 }
 
