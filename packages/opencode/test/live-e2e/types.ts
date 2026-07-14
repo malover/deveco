@@ -1,4 +1,4 @@
-export type Requirement = "huawei-auth" | "real-llm" | "deveco-provider"
+export type Requirement = "huawei-auth" | "real-llm" | "deveco-provider" | "deveco-home" | "harmony-emulator"
 
 export type TestStatus = "passed" | "failed" | "skipped"
 
@@ -24,7 +24,7 @@ export type CaseContext = {
   artifactDir: string
   createTempWorkspace: (prefix?: string) => Promise<string>
   writeArtifact: (caseID: string, filename: string, content: string) => Promise<string>
-  runDeveco: (args: string[], options?: { timeoutMs?: number; cwd?: string; stdin?: string }) => Promise<RunCommandResult>
+  runDeveco: (args: string[], options?: { timeoutMs?: number; cwd?: string; stdin?: string; env?: Record<string, string | undefined>; entry?: string }) => Promise<RunCommandResult>
   runDevecoPrompt: (
     message: string,
     options?: { timeoutMs?: number; model?: string; workspace?: string },

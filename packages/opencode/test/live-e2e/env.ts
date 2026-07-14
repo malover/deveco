@@ -1,6 +1,7 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { findDevEcoHome, hdcPath } from "../../src/tool/lib/env"
 import type { CaseContext, RunCommandResult } from "./types"
 
 export const opencodeRoot = path.resolve(import.meta.dir, "../..")
@@ -41,12 +42,14 @@ export async function createTempWorkspace(prefix = "deveco-live-e2e-") {
 
 export async function runDeveco(
   args: string[],
-  options: { timeoutMs?: number; cwd?: string; stdin?: string } = {},
+  options: { timeoutMs?: number; cwd?: string; stdin?: string; env?: Record<string, string | undefined>; entry?: string } = {},
 ): Promise<RunCommandResult> {
   const start = Date.now()
-  const proc = Bun.spawn(["bun", "run", "--conditions=browser", cliEntry, ...args], {
+  const entry = options.entry ?? cliEntry
+  const env = options.env ?? realUserEnv()
+  const proc = Bun.spawn(["bun", "run", "--conditions=browser", entry, ...args], {
     cwd: options.cwd ?? opencodeRoot,
-    env: realUserEnv(),
+    env,
     stdin: options.stdin ? "pipe" : "ignore",
     stdout: "pipe",
     stderr: "pipe",
@@ -112,10 +115,73 @@ export function makeContext(): CaseContext {
   }
 }
 
+function isEmulatorTarget(target: string) {
+  return /^127\.0\.0\.1:\d+/.test(target)
+}
+
+async function runProcess(cmd: string[], timeoutMs = 30_000) {
+  const proc = Bun.spawn(cmd, {
+    stdout: "pipe",
+    stderr: "pipe",
+  })
+  const timeout = setTimeout(() => proc.kill(), timeoutMs)
+  const [exitCode, stdout, stderr] = await Promise.all([
+    proc.exited,
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]).finally(() => clearTimeout(timeout))
+  return { exitCode, stdout, stderr }
+}
+
+async function collectDevEcoEnvironment() {
+  const home = await findDevEcoHome()
+  if (!home) {
+    return {
+      home: undefined,
+      hdc: undefined,
+      devices: [] as string[],
+      emulators: [] as string[],
+      hdcList: undefined,
+    }
+  }
+
+  const hdc = hdcPath(home)
+  if (!(await Bun.file(hdc).exists())) {
+    return {
+      home,
+      hdc,
+      devices: [] as string[],
+      emulators: [] as string[],
+      hdcList: {
+        exitCode: undefined,
+        stdout: "",
+        stderr: `hdc not found: ${hdc}`,
+      },
+    }
+  }
+
+  const hdcList = await runProcess([hdc, "list", "targets"], 10_000)
+  const devices =
+    hdcList.exitCode === 0
+      ? hdcList.stdout
+          .split(/\r?\n/)
+          .map((item) => item.trim())
+          .filter((item) => item && !item.includes("[Empty]"))
+      : []
+  return {
+    home,
+    hdc,
+    devices,
+    emulators: devices.filter(isEmulatorTarget),
+    hdcList,
+  }
+}
+
 export async function collectEnvironment() {
-  const [paths, auth] = await Promise.all([
+  const [paths, auth, toolchain] = await Promise.all([
     runDeveco(["debug", "paths"], { timeoutMs: 30_000 }),
     runDeveco(["auth", "list"], { timeoutMs: 30_000 }),
+    collectDevEcoEnvironment(),
   ])
 
   const authStdout = auth.stdout.toLowerCase()
@@ -125,6 +191,7 @@ export async function collectEnvironment() {
     selectedModel: process.env.DEVECO_LIVE_MODEL || "(default)",
     opencodeRoot,
     reportDir: latestReportDir,
+    deveco: toolchain,
     paths: {
       exitCode: paths.exitCode,
       stdout: paths.stdout,

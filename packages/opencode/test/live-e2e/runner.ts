@@ -28,6 +28,12 @@ function skipReason(testCase: LiveTestCase, env: Awaited<ReturnType<typeof colle
   if (testCase.requires.includes("deveco-provider") && !env.auth.hasDevecoOAuth) {
     return "DevEco provider cannot be injected without a DevEco OAuth credential"
   }
+  if (testCase.requires.includes("deveco-home") && !env.deveco.home) {
+    return "DevEco Studio was not found. Set DEVECO_HOME to a valid DevEco Studio installation."
+  }
+  if (testCase.requires.includes("harmony-emulator") && env.deveco.emulators.length === 0) {
+    return "A running HarmonyOS emulator is required. `hdc list targets` returned no 127.0.0.1:<port> emulator targets."
+  }
   return undefined
 }
 

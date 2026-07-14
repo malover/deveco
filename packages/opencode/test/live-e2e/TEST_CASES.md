@@ -2,15 +2,24 @@
 
 This document is the case map for live end-to-end tests. These tests may use the real local Huawei DevEco login and call the real LLM provider.
 
-| ID | Name | Category | Priority | Requirements | Code |
-|---|---|---|---|---|---|
-| `LLM_BASIC_TEXT` | 真实登录态下普通消息返回文本 | `llm` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/llm-basic-text.case.ts` |
-| `PLAN_MODE_ENTER` | 切换到plan模式 | `slash` | `P0` | `huawei-auth`, `real-llm` | `cases/plan-mode-enter.case.ts` |
-| `PROJECT_CREATE_DEFAULT_API` | 参数完整，无自定义apiLevel | `skill` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/project-create-default-api.case.ts` |
-| `CONFIG_THIRD_PARTY_MODELS` | 在deveco.jsonc中配置三方模型 | `cli` | `P1` | `huawei-auth` | `cases/config-third-party-models.case.ts` |
+| ID                           | Name                         | Category | Priority | Requirements                                 | Code                                       |
+| ---------------------------- | ---------------------------- | -------- | -------- | -------------------------------------------- | ------------------------------------------ |
+| `LLM_BASIC_TEXT`             | 真实登录态下普通消息返回文本 | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/llm-basic-text.case.ts`             |
+| `PLAN_MODE_ENTER`            | 切换到plan模式               | `slash`  | `P0`     | `huawei-auth`, `real-llm`                    | `cases/plan-mode-enter.case.ts`            |
+| `PROJECT_CREATE_DEFAULT_API` | 参数完整，无自定义apiLevel   | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/project-create-default-api.case.ts` |
+| `START_APP_DEPLOY`           | start_app推包启动            | `cli`    | `P0`     | `huawei-auth`, `deveco-provider`, `deveco-home` | `cases/start-app-deploy.case.ts` |
+| `HDC_LOG_LIST_DEVICES`       | hdc_log设备列表              | `cli`    | `P1`     | `huawei-auth`, `deveco-provider`, `deveco-home` | `cases/hdc-log-list-devices.case.ts` |
+| `COMMAND_EXECUTION`          | 指令执行                     | `llm`    | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/command-execution.case.ts` |
+| `CONFIG_THIRD_PARTY_MODELS`  | 在deveco.jsonc中配置三方模型 | `cli`    | `P1`     | `huawei-auth`                                | `cases/config-third-party-models.case.ts`  |
+| `CONFIG_THIRD_PARTY_MODEL_REQUEST` | 全局配置三方模型并发起请求 | `llm` | `P1` | `real-llm` | `cases/config-third-party-model-request.case.ts` |
+| `GLOBAL_CUSTOM_SKILL`        | 添加本地全局自定义 skill     | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/global-custom-skill.case.ts`        |
+| `PROJECT_CUSTOM_SKILL`       | 创建项目级 skill             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/project-custom-skill.case.ts`       |
+| `CONFIG_LOCAL_MCP`           | 配置本地 MCP                 | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/config-local-mcp.case.ts`           |
+| `CONFIG_REMOTE_MCP`          | 配置远端 MCP                 | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/config-remote-mcp.case.ts`          |
 | `SKILL_ERROR_INVALID_IMPORT` | 无效引用修复 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-error-invalid-import.case.ts` |
 | `SKILL_ERROR_TYPE_MISMATCH` | 类型错误修复 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-error-type-mismatch.case.ts` |
 | `SKILL_ERROR_SYNTAX_BRACKET` | 语法错误修复 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-error-syntax-bracket.case.ts` |
+| `SKILL_ERROR_DISABLE_CHECK` | 关闭ArkTS类型检查 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-error-check-disable.case.ts` |
 | `SKILL_GRAMMAR_DIFF_QUERY` | 差异点查询 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-grammar-diff-query.case.ts` |
 | `SKILL_GRAMMAR_CLASS_DEF` | 正确语法查询 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-grammar-class-def.case.ts` |
 | `SKILL_GRAMMAR_TS_TO_ARKTS` | 错误代码修复 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-grammar-ts-to-arkts.case.ts` |
@@ -18,6 +27,7 @@ This document is the case map for live end-to-end tests. These tests may use the
 | `SKILL_ARKUI_COMPLEX_LAYOUT` | 复杂布局实现 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-arkui-complex-layout.case.ts` |
 | `SKILL_DEVECO_CREATE_HELLO_WORLD` | 0-1构建项目 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-deveco-create-hello-world.case.ts` |
 | `SKILL_DEVECO_API17_FALLBACK` | SDK选择推荐 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-deveco-api17-fallback.case.ts` |
+| `INCREMENTAL_DEV_BUILD_PROJECT` | 增量开发触发build_project | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider`, `deveco-home` | `cases/incremental-dev-build-project.case.ts` |
 
 ## LLM_BASIC_TEXT
 
@@ -42,6 +52,82 @@ Expected result:
 Cleanup:
 
 The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## START_APP_DEPLOY
+
+Purpose:
+
+Verify that a minimal HarmonyOS project template can be built into local debug artifacts with `build_project`, deployed with `start_app`, and observed as installed on a running or startable HarmonyOS emulator.
+
+Steps:
+
+1. Create a temporary workspace.
+2. Generate a minimal project from the built-in `deveco-create-project/application` template.
+3. Run `deveco debug agent build --tool build_project --params '{"build_mode":"debug"}'` from the generated project.
+4. Run `deveco debug agent build --tool start_app --params '{"module":"entry","target":"default","ability":"EntryAbility","hvd":"<first emulator target>"}'` when an emulator is already connected; otherwise omit `hvd` and let `start_app` start an available emulator.
+5. Run `hdc -t <target> shell bm dump -n com.example.livee2estartapp` against the running emulator target observed after `start_app`.
+6. Verify the package query output contains the expected bundle name.
+
+Expected result:
+
+1. The project template is copied successfully and reports `verified: true`.
+2. `build_project` exits with code `0` and does not return a failure marker.
+3. `start_app` exits with code `0` and does not return a failure marker.
+4. `bm dump` confirms `com.example.livee2estartapp` is installed on the emulator target.
+
+Cleanup:
+
+The temporary workspace is deleted after execution. The user's real DevEco installation, auth, and config files are read-only and are not cleaned or modified by this case. If `start_app` starts an emulator, the case does not stop it.
+
+## HDC_LOG_LIST_DEVICES
+
+Purpose:
+
+Verify that the `hdc_log` tool can be invoked through the debug agent with `list_devices`, and that it handles both connected-device and no-device states.
+
+Steps:
+
+1. Discover the local DevEco Studio installation.
+2. Build the same real-user DevEco environment used by other DevEco tool live e2e cases.
+3. Run `deveco debug agent build --tool hdc_log --params '{"action":"list_devices"}'`.
+4. Parse the debug tool JSON output.
+5. Verify `tool`, `input.action`, `result.metadata.deviceCount`, and the expected title/output for either connected devices or no devices.
+
+Expected result:
+
+1. The command exits with code `0`.
+2. The debug result is for `hdc_log` with `action: "list_devices"`.
+3. `metadata.deviceCount` is a non-negative number.
+4. No-device output returns `No Devices`; connected-device output returns `Connected Devices`.
+
+Cleanup:
+
+This case does not create a temporary project. The user's real DevEco installation, auth/config, and device state are read-only and are not cleaned or modified.
+
+## COMMAND_EXECUTION
+
+Purpose:
+
+Verify that when the user asks to globally install fastify from a project directory, the CLI executes an npm global install command through the bash tool.
+
+Steps:
+
+1. Create a temporary project workspace and minimal `package.json`.
+2. Point npm global prefix and cache to directories inside the temporary workspace.
+3. Run `deveco run --format json --dir <tmp> --dangerously-skip-permissions`.
+4. Send a prompt instructing the agent to run only `npm install -g fastify` without `sudo`.
+5. Parse JSON-line events from stdout.
+6. Verify a completed bash tool event executed `npm install -g fastify`, `npm install --global fastify`, `npm i -g fastify`, or a Windows `npm.cmd` equivalent.
+
+Expected result:
+
+1. The process exits with code `0`.
+2. A completed bash tool event is emitted.
+3. The bash command globally installs `fastify` with npm and does not use `sudo`.
+
+Cleanup:
+
+The temporary project workspace, npm prefix, and npm cache are deleted after execution. The user's real DevEco auth/config and global npm environment are not modified.
 
 ## SKILL_ERROR_INVALID_IMPORT
 
@@ -109,6 +195,28 @@ Cleanup:
 
 The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
 
+## SKILL_ERROR_DISABLE_CHECK
+
+Purpose:
+
+Verify that asking whether ArkTS type checking can be disabled to preserve dynamic property assignment loads the ArkTS error-fix guidance and returns a recommendation that type checking should not or cannot be disabled for that purpose.
+
+Steps:
+
+1. Create a temporary workspace.
+2. Run `deveco run --format json --dir <tmp>` with a question about preserving `obj[dynamicKey] = value` by disabling type checking.
+3. Parse JSON-line events from stdout.
+4. Verify text events contain cannot-disable guidance such as `不能`, `不可`, `不建议`, or `无法关闭`.
+
+Expected result:
+
+1. At least one `text` event is emitted.
+2. The response recommends against disabling ArkTS type checking or states that it cannot be disabled for this pattern.
+
+Cleanup:
+
+The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
 ## SKILL_GRAMMAR_DIFF_QUERY
 
 Purpose:
@@ -130,6 +238,32 @@ Expected result:
 Cleanup:
 
 The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## PROJECT_CUSTOM_SKILL
+
+Purpose:
+
+Verify that a custom skill under a project's `.agents/skills` directory is visible and executable only inside that project and does not leak into another project.
+
+Steps:
+
+1. Create an isolated temporary user home, project A, and project B.
+2. Write `.agents/skills/live-e2e-project-skill/SKILL.md` under project A.
+3. Run `deveco debug skill` in both projects.
+4. Run `deveco run --command live-e2e-project-skill --format json` in project B.
+5. Run the same command in project A with a real LLM request.
+6. Parse JSON-line events from both command executions.
+
+Expected result:
+
+1. Project A's skill list contains the custom skill with the expected description and project-local location.
+2. Project B's skill list does not contain the custom skill.
+3. Running the command in project B exits with a non-zero code and emits an `error` event.
+4. Running the command in project A exits with code `0` and the model response contains `PROJECT_SKILL_OK`.
+
+Cleanup:
+
+The temporary user home and both projects are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
 
 ## SKILL_GRAMMAR_CLASS_DEF
 
@@ -299,6 +433,87 @@ Cleanup:
 
 All temporary directories (temp home, temp config home, project A, project B) are deleted after execution. The user's real auth and config files are not modified.
 
+## CONFIG_THIRD_PARTY_MODEL_REQUEST
+
+Purpose:
+
+Verify that a third-party model loaded from the common live E2E configuration is visible in `/models` after being added to the global config, and that the model can complete a request.
+
+Steps:
+
+1. Read the common live E2E configuration file.
+2. Require exactly one configured third-party provider/model in `live-e2e.config.json`.
+3. Create isolated temporary global-config and workspace directories.
+4. Write the configured third-party model to the temporary global `deveco.jsonc`.
+5. Run `deveco models` and verify the configured model is listed.
+6. Run `deveco run --model <configured-provider>/<configured-model> --format json`.
+7. Parse the JSON-line response events.
+
+Expected result:
+
+1. `deveco models` lists the configured third-party model.
+2. The model request exits with code `0`.
+3. At least one non-empty text event is returned.
+
+Cleanup:
+
+The temporary global-config and workspace directories are deleted. The user's real auth and config files are neither read nor modified.
+
+## CONFIG_LOCAL_MCP
+
+Purpose:
+
+Verify that local MCP servers configured in global and project-level `deveco.jsonc` files are visible in the correct project scopes and can be called from a real LLM request.
+
+Steps:
+
+1. Create a temporary global configuration directory, project A, and project B.
+2. Configure `live-e2e-global-mcp` in the global `deveco.jsonc`.
+3. Configure `live-e2e-project-mcp` in project A's `deveco.jsonc`.
+4. Run `deveco mcp list` in projects A and B.
+5. Run a real LLM request in project A that calls both MCP tools.
+6. Parse JSON-line events and verify both tool calls and their outputs.
+
+Expected result:
+
+1. Project A lists both MCP servers as connected.
+2. Project B lists the global MCP as connected and does not list project A's MCP.
+3. The global MCP tool completes and returns `GLOBAL_MCP_TOOL_OK`.
+4. The project MCP tool completes and returns `PROJECT_MCP_TOOL_OK`.
+5. The model response contains `LOCAL_MCP_OK`.
+
+Cleanup:
+
+The temporary global configuration directory and both projects are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## CONFIG_REMOTE_MCP
+
+Purpose:
+
+Verify that remote MCP servers configured in global and project-level `deveco.jsonc` files are visible in the correct project scopes and can be called from a real LLM request.
+
+Steps:
+
+1. Start two local StreamableHTTP MCP test servers.
+2. Create a temporary global configuration directory, project A, and project B.
+3. Configure the global remote MCP server with the runtime URL from `DEVECO_LIVE_E2E_GLOBAL_REMOTE_MCP_URL`.
+4. Configure the project remote MCP server with the runtime URL from `DEVECO_LIVE_E2E_PROJECT_REMOTE_MCP_URL`.
+5. Run `deveco mcp list` in projects A and B.
+6. Run a real LLM request in project A that calls both remote MCP tools.
+7. Parse JSON-line events and verify both tool calls and their outputs.
+
+Expected result:
+
+1. Project A lists both remote MCP servers as connected.
+2. Project B lists the global remote MCP as connected and does not list project A's remote MCP.
+3. The global remote MCP tool completes and returns `GLOBAL_REMOTE_MCP_TOOL_OK`.
+4. The project remote MCP tool completes and returns `PROJECT_REMOTE_MCP_TOOL_OK`.
+5. The model response contains `REMOTE_MCP_OK`.
+
+Cleanup:
+
+The temporary global configuration directory and both projects are deleted, and the local StreamableHTTP MCP test servers are stopped. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
 ## PLAN_MODE_ENTER
 
 Purpose:
@@ -323,6 +538,31 @@ Expected result:
 Cleanup:
 
 The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## GLOBAL_CUSTOM_SKILL
+
+Purpose:
+
+Verify that a custom skill added under the local user's `~/.agents/skills` directory is available in the `/skills` browser and can be sent as a slash-command request to the real LLM provider.
+
+Steps:
+
+1. Create isolated temporary user-home and workspace directories.
+2. Write `~/.agents/skills/live-e2e-global-skill/SKILL.md` under the temporary user home.
+3. Run `deveco debug skill` and verify the command data used by `/skills` contains the custom skill.
+4. Run `deveco run --command live-e2e-global-skill --format json --dir <tmp>` with a real LLM request.
+5. Parse JSON-line events and collect the text response.
+
+Expected result:
+
+1. The skill listing exits with code `0` and contains the custom skill's name, description, and user-home location.
+2. The skill request exits with code `0`.
+3. At least one `text` event is emitted.
+4. The received text contains `GLOBAL_SKILL_OK`, as required by the custom skill.
+
+Cleanup:
+
+The temporary user home and workspace are deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
 
 ## PROJECT_CREATE_DEFAULT_API
 
@@ -352,3 +592,29 @@ Expected result:
 Cleanup:
 
 The temporary workspace is deleted after execution. The user's real DevEco auth and config files are read-only and are not cleaned or modified by this case.
+
+## INCREMENTAL_DEV_BUILD_PROJECT
+
+Purpose:
+
+验证在已有鸿蒙工程上进行增量开发：先使用 copy-template 生成最小工程，然后通过 AI 对话创建"我的"页面并增量添加"清除缓存"菜单项，最后直接调用 build_project 验证工程可编译通过。
+
+Steps:
+
+1. 创建临时工作目录。
+2. 使用内置 copy-template 脚本生成最小 HarmonyOS 工程。
+3. 在工程目录下运行 `deveco run --format json --dir <projectRoot>`，发送组合 prompt：先添加"我的"页面，再在"我的"页面里添加"清除缓存"菜单项。
+4. 解析 stdout 中的 JSON line events。
+5. 验证相关页面文件存在代码修改（包含"清除缓存"相关代码）。
+6. 直接调用 `deveco debug agent build --tool build_project --params '{"build_mode":"debug"}'`。
+7. 验证编译通过且无 failure marker。
+
+Expected result:
+
+1. 相关页面文件被修改，包含"清除缓存"相关代码。
+2. build_project 工具执行完成。
+3. 编译通过，无编译失败信号。
+
+Cleanup:
+
+临时工作目录在执行结束后删除。真实 auth/config 只读不清理。

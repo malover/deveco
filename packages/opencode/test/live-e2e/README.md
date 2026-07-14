@@ -80,6 +80,8 @@ Use `requires` to declare runtime dependencies:
 - `huawei-auth`: requires local Huawei DevEco OAuth login.
 - `real-llm`: requires `DEVECO_LIVE_LLM=1`.
 - `deveco-provider`: requires DevEco provider injection from the OAuth credential.
+- `deveco-home`: requires a valid DevEco Studio installation discoverable from `DEVECO_HOME`, saved state, or default install paths.
+- `harmony-emulator`: requires at least one running HarmonyOS emulator from `hdc list targets` (matching `127.0.0.1:<port>`).
 
 The runner skips cases with unmet requirements and records the reason in the report.
 
