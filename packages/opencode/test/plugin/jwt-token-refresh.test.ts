@@ -16,6 +16,7 @@ const originalDevecoRefresh = devecoAuth.refreshToken
 const originalLoginRefresh = loginService.refreshToken
 const originalLoadToken = tokenStorage.loadToken
 const originalUserInfo = (loginService as any).userInfo
+const originalFetch = globalThis.fetch
 
 type RefreshResult = { accessToken: string; refreshToken: string; isRealName: boolean } | null
 type AuthState = { type: string; access: string; refresh: string; expires: number }
@@ -70,6 +71,7 @@ afterEach(() => {
   ;(loginService as any).userInfo = originalUserInfo
   __resetTokenRefreshState()
   mock.restore()
+  globalThis.fetch = originalFetch
   setSystemTime()
 })
 

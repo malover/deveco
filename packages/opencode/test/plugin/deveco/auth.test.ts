@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, mock, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test"
 import type { Mock } from "bun:test"
 import type { UserInfo, LoginResult, JwtPayload } from "@/plugin/deveco/types"
+import { loginService } from "@/plugin/deveco/login-service"
+import { tokenStorage } from "@/plugin/deveco/token-storage"
 
 function createJwt(payload: Record<string, unknown>): string {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")
@@ -25,36 +27,7 @@ let mockLoginServiceMethods: {
 let mockTokenStorageLoadToken: Mock<() => Promise<string | null>>
 let mockLoadAccessTokenFromDisk: Mock<() => string>
 
-mock.module("@/plugin/deveco/login-service", () => ({
-  LoginService: class MockLoginService {},
-  loginService: {
-    isLoggedIn: () => mockLoginServiceMethods.isLoggedIn(),
-    getUserInfo: () => mockLoginServiceMethods.getUserInfo(),
-    login: () => mockLoginServiceMethods.login(),
-    cancel: () => mockLoginServiceMethods.cancel(),
-    logout: () => mockLoginServiceMethods.logout(),
-    parseJwt: (token: string) => mockLoginServiceMethods.parseJwt(token),
-    refreshToken: (jwtToken: string) => mockLoginServiceMethods.refreshToken(jwtToken),
-    setUserInfoFromTokens: (tokens: { accessToken: string; refreshToken: string; isRealName: boolean }, jwtToken: string) => mockLoginServiceMethods.setUserInfoFromTokens(tokens, jwtToken),
-  },
-}))
-
-mock.module("@/plugin/deveco/token-storage", () => ({
-  TokenStorage: class MockTokenStorage {},
-  tokenStorage: {
-    loadToken: () => mockTokenStorageLoadToken(),
-    saveToken: async () => {},
-    clearToken: async () => {},
-  },
-}))
-
-mock.module("@/plugin/deveco/storage", () => ({
-  loadAccessTokenFromDisk: () => mockLoadAccessTokenFromDisk(),
-  loadIsRealNameFromDisk: () => null,
-  saveAuthToDisk: async () => {},
-  authFilePath: () => "/tmp/mock-auth.json",
-  hasDevecoOAuthEntry: () => false,
-}))
+const storage = await import("@/plugin/deveco/storage")
 
 const { DevEcoAuth } = await import("@/plugin/deveco/auth")
 
@@ -89,10 +62,29 @@ function resetMocks() {
   }
   mockTokenStorageLoadToken = mock(() => Promise.resolve(null as string | null))
   mockLoadAccessTokenFromDisk = mock(() => "")
+  spyOn(loginService, "isLoggedIn").mockImplementation(() => mockLoginServiceMethods.isLoggedIn())
+  spyOn(loginService, "getUserInfo").mockImplementation(() => mockLoginServiceMethods.getUserInfo())
+  spyOn(loginService, "login").mockImplementation(() => mockLoginServiceMethods.login())
+  spyOn(loginService, "cancel").mockImplementation(() => mockLoginServiceMethods.cancel())
+  spyOn(loginService, "logout").mockImplementation(() => mockLoginServiceMethods.logout())
+  spyOn(loginService, "parseJwt").mockImplementation((token: string) => mockLoginServiceMethods.parseJwt(token))
+  spyOn(loginService, "refreshToken").mockImplementation((jwtToken: string) =>
+    mockLoginServiceMethods.refreshToken(jwtToken),
+  )
+  spyOn(loginService, "setUserInfoFromTokens").mockImplementation((tokens, jwtToken) =>
+    mockLoginServiceMethods.setUserInfoFromTokens(tokens, jwtToken),
+  )
+  spyOn(tokenStorage, "loadToken").mockImplementation(() => mockTokenStorageLoadToken())
+  spyOn(tokenStorage, "saveToken").mockImplementation(async () => {})
+  spyOn(tokenStorage, "clearToken").mockImplementation(async () => {})
+  spyOn(storage, "loadAccessTokenFromDisk").mockImplementation(() => mockLoadAccessTokenFromDisk())
+  spyOn(storage, "loadIsRealNameFromDisk").mockImplementation(() => null)
 }
 
-afterEach(resetMocks)
-resetMocks()
+beforeEach(resetMocks)
+afterEach(() => {
+  mock.restore()
+})
 
 describe("DevEcoAuth.getSession", () => {
   test("returns session from userInfo, skips token storage and disk", async () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect } from "bun:test"
-import { Deferred, Effect, Fiber, Layer } from "effect"
+import { Deferred, Effect, Fiber, Layer, Schema } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/unstable/http"
 import { eq } from "drizzle-orm"
 import { GlobalBus, type GlobalEvent } from "@/bus/global"
@@ -9,6 +9,7 @@ import { SessionTable } from "@opencode-ai/core/session/sql"
 import { Database } from "@opencode-ai/core/database/database"
 import { AccountV2 } from "@opencode-ai/core/account"
 import { AccountTable } from "@opencode-ai/core/account/sql"
+import { MCP } from "@/mcp"
 import { Worktree } from "../../src/worktree"
 import { resetDatabase } from "../fixture/db"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
@@ -142,27 +143,22 @@ describe("experimental HttpApi", () => {
       Effect.gen(function* () {
         const tmp = yield* TestInstance
         const directory = tmp.directory
-        const [consoleState, consoleOrgs, toolList, toolIDs, worktrees, resources] = yield* Effect.all(
-          [
-            request(ExperimentalPaths.console, directory),
-            request(ExperimentalPaths.consoleOrgs, directory),
-            request(`${ExperimentalPaths.tool}?provider=opencode&model=gpt-5`, directory),
-            request(ExperimentalPaths.toolIDs, directory),
-            request(ExperimentalPaths.worktree, directory),
-            request(ExperimentalPaths.resource, directory),
-          ],
-          { concurrency: "unbounded" },
-        )
-
+        // Sequential requests to avoid cold-start instance-init deadlock on
+        // Windows. The first test triggers full route-tree lazy initialization
+        // through httpApiLayer's shared memoMap; running all 6 endpoints
+        // concurrently races that initialization.
+        const consoleState = yield* request(ExperimentalPaths.console, directory)
         expect(consoleState.status).toBe(200)
         expect(yield* json(consoleState)).toEqual({
           consoleManagedProviders: [],
           switchableOrgCount: 0,
         })
 
+        const consoleOrgs = yield* request(ExperimentalPaths.consoleOrgs, directory)
         expect(consoleOrgs.status).toBe(200)
         expect(yield* json(consoleOrgs)).toEqual({ orgs: [] })
 
+        const toolList = yield* request(`${ExperimentalPaths.tool}?provider=opencode&model=gpt-5`, directory)
         expect(toolList.status).toBe(200)
         expect(yield* json<unknown[]>(toolList)).toContainEqual(
           expect.objectContaining({
@@ -172,14 +168,21 @@ describe("experimental HttpApi", () => {
           }),
         )
 
+        const toolIDs = yield* request(ExperimentalPaths.toolIDs, directory)
         expect(toolIDs.status).toBe(200)
         expect(yield* json(toolIDs)).toContain("bash")
 
+        const worktrees = yield* request(ExperimentalPaths.worktree, directory)
         expect(worktrees.status).toBe(200)
         expect(yield* json(worktrees)).toEqual([])
 
+        const resources = yield* request(ExperimentalPaths.resource, directory)
         expect(resources.status).toBe(200)
-        expect(yield* json(resources)).toEqual({})
+        const resourcesJson = yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, MCP.Resource))(
+          yield* json(resources),
+        )
+        expect(Object.keys(resourcesJson).some((key) => key.startsWith("demo:"))).toBe(false)
+        expect(Object.values(resourcesJson).some((resource) => resource.client === "demo")).toBe(false)
       }),
     {
       config: {
@@ -196,21 +199,23 @@ describe("experimental HttpApi", () => {
     },
   )
 
-  it.instance("returns declared worktree errors", () =>
-    Effect.gen(function* () {
-      const tmp = yield* TestInstance
-      const response = yield* request(ExperimentalPaths.worktree, tmp.directory, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({}),
-      })
+  it.instance(
+    "returns declared worktree errors",
+    () =>
+      Effect.gen(function* () {
+        const tmp = yield* TestInstance
+        const response = yield* request(ExperimentalPaths.worktree, tmp.directory, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        })
 
-      expect(response.status).toBe(400)
-      expect(yield* json(response)).toEqual({
-        name: "WorktreeNotGitError",
-        data: { message: "Worktrees are only supported for git projects" },
-      })
-    }),
+        expect(response.status).toBe(400)
+        expect(yield* json(response)).toEqual({
+          name: "WorktreeNotGitError",
+          data: { message: "Worktrees are only supported for git projects" },
+        })
+      }),
   )
 
   it.instance(

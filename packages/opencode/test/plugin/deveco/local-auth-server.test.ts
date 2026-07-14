@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, mock, test } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test"
 import http from "http"
+import { AppRuntime } from "@/effect/app-runtime"
 import { LocalAuthServer } from "@/plugin/deveco/local-auth-server"
 import { LoginCancelledError, UnsupportedRegionError } from "@/plugin/deveco/errors"
 import type { CallbackData } from "@/plugin/deveco/types"
@@ -9,19 +10,44 @@ const SUCCESS_URL = "success/page"
 const FAILED_URL = "failed/page"
 const CLIENT_SECRET = "test-secret"
 
-mock.module("@/effect/app-runtime", () => ({
-  AppRuntime: {
-    runPromise: async () => {},
-  },
-}))
+const appRuntimeRunPromiseSpy = spyOn(AppRuntime, "runPromise")
 
-let nextPort = 45000
-function getUniquePort(): number {
-  return nextPort++
+beforeEach(() => {
+  appRuntimeRunPromiseSpy.mockReset().mockResolvedValue(undefined)
+})
+
+afterAll(() => {
+  appRuntimeRunPromiseSpy.mockRestore()
+})
+
+async function getAvailablePort(): Promise<number> {
+  const probe = http.createServer()
+  await new Promise<void>((resolve, reject) => {
+    probe.once("error", reject)
+    probe.listen(0, "127.0.0.1", resolve)
+  })
+
+  const address = probe.address()
+  if (address === null || typeof address === "string") {
+    probe.close()
+    throw new Error("Failed to determine the temporary port")
+  }
+
+  const port = address.port
+  await new Promise<void>((resolve, reject) => {
+    probe.close((error) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve()
+    })
+  })
+  return port
 }
 
 async function setupServer(): Promise<{ server: LocalAuthServer; port: number }> {
-  const port = getUniquePort()
+  const port = await getAvailablePort()
   const server = new LocalAuthServer(port, CLIENT_SECRET, BASE_URL, SUCCESS_URL, FAILED_URL)
   return { server, port: await server.start() }
 }
@@ -102,7 +128,7 @@ describe("LocalAuthServer", () => {
 
   describe("start", () => {
     test("starts on specified port", async () => {
-      const port = getUniquePort()
+      const port = await getAvailablePort()
       server = new LocalAuthServer(port, CLIENT_SECRET, BASE_URL, SUCCESS_URL, FAILED_URL)
       expect(await server.start()).toBe(port)
       expect(server.getPort()).toBe(port)
@@ -290,8 +316,8 @@ describe("LocalAuthServer", () => {
       await tracked
     })
 
-    test("safe when no callback is pending", () => {
-      const port = getUniquePort()
+    test("safe when no callback is pending", async () => {
+      const port = await getAvailablePort()
       server = new LocalAuthServer(port, CLIENT_SECRET, BASE_URL, SUCCESS_URL, FAILED_URL)
       server.cancel()
       server = null
@@ -310,7 +336,7 @@ describe("LocalAuthServer", () => {
 
   describe("stop", () => {
     test("resolves immediately when server was never started", async () => {
-      const port = getUniquePort()
+      const port = await getAvailablePort()
       server = new LocalAuthServer(port, CLIENT_SECRET, BASE_URL, SUCCESS_URL, FAILED_URL)
       await server.stop()
       server = null

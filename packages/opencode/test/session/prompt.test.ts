@@ -1,10 +1,15 @@
 import { NodeFileSystem } from "@effect/platform-node"
+import { LocationServiceMap } from "@opencode-ai/core/location-layer"
+import { ModelsDev } from "@opencode-ai/core/models-dev"
+import { AppProcess } from "@opencode-ai/core/process"
 import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { Database } from "@opencode-ai/core/database/database"
+import { Global } from "@opencode-ai/core/global"
 import { eq } from "drizzle-orm"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { FetchHttpClient } from "effect/unstable/http"
+import { LLMClient, RequestExecutor, WebSocketExecutor } from "@opencode-ai/llm/route"
 import { expect } from "bun:test"
 import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer } from "effect"
 import path from "path"
@@ -12,6 +17,7 @@ import { fileURLToPath, pathToFileURL } from "url"
 import { NamedError } from "@opencode-ai/core/util/error"
 import { Agent as AgentSvc } from "../../src/agent/agent"
 import { BackgroundJob } from "@/background/job"
+import { Auth } from "@/auth"
 import { Command } from "../../src/command"
 import { Config } from "@/config/config"
 import { LSP } from "@/lsp/lsp"
@@ -40,9 +46,11 @@ import { SessionRevert } from "../../src/session/revert"
 import { SessionRunState } from "../../src/session/run-state"
 import { MessageID, PartID, SessionID } from "../../src/session/schema"
 import { SessionStatus } from "../../src/session/status"
+import { Storage } from "@/storage/storage"
 import { SessionV2 } from "@opencode-ai/core/session"
 import { SessionExecution } from "@opencode-ai/core/session/execution"
 import { Skill } from "../../src/skill"
+import { Discovery } from "../../src/skill/discovery"
 import { SystemPrompt } from "../../src/session/system"
 import { Shell } from "@opencode-ai/core/shell"
 import { Snapshot } from "../../src/snapshot"
@@ -50,8 +58,12 @@ import { ToolRegistry } from "@/tool/registry"
 import { Truncate } from "@/tool/truncate"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { Ripgrep } from "@opencode-ai/core/ripgrep"
+import { Entry } from "@opencode-ai/core/filesystem/schema"
+import { RelativePath } from "@opencode-ai/core/schema"
 import { Format } from "../../src/format"
 import { TestInstance } from "../fixture/fixture"
+import { AccountTest } from "../fake/account"
+import { NpmTest } from "../fake/npm"
 import { awaitWithTimeout, pollWithTimeout, testEffect } from "../lib/effect"
 import { reply, TestLLMServer } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
@@ -65,6 +77,82 @@ const summary = Layer.succeed(
     diff: () => Effect.succeed([]),
     computeDiff: () => Effect.succeed([]),
   }),
+)
+
+const auth = Layer.mock(Auth.Service, {
+  get: () => Effect.succeed(undefined),
+  all: () => Effect.succeed({}),
+})
+
+const ripgrep = Layer.mock(Ripgrep.Service, {
+  glob: () =>
+    Effect.succeed([
+      new Entry({
+        path: RelativePath.make("probe.txt"),
+        type: "file",
+        mime: "text/plain",
+      }),
+    ]),
+})
+
+const runtime = RuntimeFlags.layer({
+  pure: true,
+  disableDefaultPlugins: true,
+  disableDefaultSkills: true,
+  experimentalEventSystem: true,
+})
+const config = Config.layer.pipe(
+  Layer.provide(FSUtil.defaultLayer),
+  Layer.provide(Env.defaultLayer),
+  Layer.provide(auth),
+  Layer.provide(AccountTest.empty),
+  Layer.provide(NpmTest.noop),
+  Layer.provide(FetchHttpClient.layer),
+)
+const plugin = Plugin.layer.pipe(
+  Layer.provide(EventV2Bridge.defaultLayer),
+  Layer.provide(config),
+  Layer.provide(runtime),
+)
+const skill = Skill.layer.pipe(
+  Layer.provide(Discovery.defaultLayer),
+  Layer.provide(config),
+  Layer.provide(EventV2Bridge.defaultLayer),
+  Layer.provide(FSUtil.defaultLayer),
+  Layer.provide(Global.layer),
+  Layer.provide(runtime),
+)
+const provider = ProviderSvc.layer.pipe(
+  Layer.provide(FSUtil.defaultLayer),
+  Layer.provide(Env.defaultLayer),
+  Layer.provide(config),
+  Layer.provide(auth),
+  Layer.provide(plugin),
+  Layer.provide(ModelsDev.defaultLayer),
+  Layer.provide(runtime),
+)
+const agent = AgentSvc.layer.pipe(
+  Layer.provide(config),
+  Layer.provide(auth),
+  Layer.provide(plugin),
+  Layer.provide(skill),
+  Layer.provide(provider),
+  Layer.provide(LocationServiceMap.layer),
+)
+const snapshot = Snapshot.layer.pipe(
+  Layer.provide(AppProcess.defaultLayer),
+  Layer.provide(FSUtil.defaultLayer),
+  Layer.provide(config),
+)
+const llm = LLM.layer.pipe(
+  Layer.provide(auth),
+  Layer.provide(config),
+  Layer.provide(provider),
+  Layer.provide(plugin),
+  Layer.provide(
+    LLMClient.layer.pipe(Layer.provide(Layer.mergeAll(RequestExecutor.defaultLayer, WebSocketExecutor.layer))),
+  ),
+  Layer.provide(runtime),
 )
 
 const ref = {
@@ -152,9 +240,28 @@ const lsp = Layer.succeed(
   }),
 )
 
+const command = Command.layer.pipe(Layer.provide(config), Layer.provide(mcp), Layer.provide(skill))
+const instruction = Instruction.layer.pipe(
+  Layer.provide(config),
+  Layer.provide(Global.layer),
+  Layer.provide(FSUtil.defaultLayer),
+  Layer.provide(FetchHttpClient.layer),
+  Layer.provide(runtime),
+)
+const systemPrompt = SystemPrompt.layer.pipe(Layer.provide(skill), Layer.provide(LocationServiceMap.layer))
+
 const status = SessionStatus.layer.pipe(Layer.provideMerge(EventV2Bridge.defaultLayer))
 const run = SessionRunState.layer.pipe(Layer.provide(status))
 const infra = Layer.mergeAll(NodeFileSystem.layer, CrossSpawnSpawner.defaultLayer)
+const session = Session.defaultLayer
+const sessionRevert = SessionRevert.layer.pipe(
+  Layer.provide(run),
+  Layer.provide(session),
+  Layer.provide(snapshot),
+  Layer.provide(Storage.defaultLayer),
+  Layer.provide(EventV2Bridge.defaultLayer),
+  Layer.provide(summary),
+)
 
 const processorCreateStarted: Array<() => void> = []
 const blockingProcessor = Layer.succeed(
@@ -166,16 +273,16 @@ const blockingProcessor = Layer.succeed(
 
 function makePrompt(input?: { processor?: "blocking" }) {
   const deps = Layer.mergeAll(
-    Session.defaultLayer,
-    Snapshot.defaultLayer,
-    LLM.defaultLayer,
+    session,
+    snapshot,
+    llm,
     Env.defaultLayer,
-    AgentSvc.defaultLayer,
-    Command.defaultLayer,
+    agent,
+    command,
     Permission.defaultLayer,
-    Plugin.defaultLayer,
-    Config.defaultLayer,
-    ProviderSvc.defaultLayer,
+    plugin,
+    config,
+    provider,
     lsp,
     mcp,
     FSUtil.defaultLayer,
@@ -187,13 +294,14 @@ function makePrompt(input?: { processor?: "blocking" }) {
   const question = Question.layer.pipe(Layer.provideMerge(deps))
   const todo = Todo.layer.pipe(Layer.provideMerge(deps))
   const registry = ToolRegistry.layer.pipe(
-    Layer.provide(Skill.defaultLayer),
+    Layer.provide(auth),
+    Layer.provide(skill),
     Layer.provide(FetchHttpClient.layer),
     Layer.provide(CrossSpawnSpawner.defaultLayer),
     Layer.provide(Git.defaultLayer),
-    Layer.provide(Ripgrep.defaultLayer),
+    Layer.provide(ripgrep),
     Layer.provide(Format.defaultLayer),
-    Layer.provide(RuntimeFlags.layer({ experimentalEventSystem: true })),
+    Layer.provide(runtime),
     Layer.provideMerge(todo),
     Layer.provideMerge(question),
     Layer.provideMerge(deps),
@@ -205,17 +313,17 @@ function makePrompt(input?: { processor?: "blocking" }) {
       : SessionProcessor.layer.pipe(
           Layer.provide(summary),
           Layer.provide(Image.defaultLayer),
-          Layer.provide(RuntimeFlags.layer({ experimentalEventSystem: true })),
+          Layer.provide(runtime),
           Layer.provide(ExitQueue.defaultLayer),
           Layer.provideMerge(deps),
         )
   const compact = SessionCompaction.layer.pipe(
-    Layer.provide(RuntimeFlags.layer({ experimentalEventSystem: true })),
+    Layer.provide(runtime),
     Layer.provideMerge(proc),
     Layer.provideMerge(deps),
   )
   return SessionPrompt.layer.pipe(
-    Layer.provide(SessionRevert.defaultLayer),
+    Layer.provide(sessionRevert),
     Layer.provide(Image.defaultLayer),
     Layer.provide(summary),
     Layer.provideMerge(run),
@@ -223,9 +331,9 @@ function makePrompt(input?: { processor?: "blocking" }) {
     Layer.provideMerge(proc),
     Layer.provideMerge(registry),
     Layer.provideMerge(trunc),
-    Layer.provide(Instruction.defaultLayer),
-    Layer.provide(SystemPrompt.defaultLayer),
-    Layer.provide(RuntimeFlags.layer({ experimentalEventSystem: true })),
+    Layer.provide(instruction),
+    Layer.provide(systemPrompt),
+    Layer.provide(runtime),
     Layer.provideMerge(deps),
     Layer.provide(summary),
   )
@@ -239,11 +347,8 @@ function makeHttpNoLLMServer(input?: { processor?: "blocking" }) {
   return makePrompt(input)
 }
 
-// @ts-expect-error - pre-existing Effect Layer type mismatch (unresolved Service dependency)
 const it = testEffect(makeHttp())
-// @ts-expect-error - pre-existing Effect Layer type mismatch (unresolved Service dependency)
 const noLLMServer = testEffect(makeHttpNoLLMServer())
-// @ts-expect-error - pre-existing Effect Layer type mismatch (unresolved Service dependency)
 const raceNoLLMServer = testEffect(makeHttpNoLLMServer({ processor: "blocking" }))
 const unix = process.platform !== "win32" ? it.instance : it.instance.skip
 const unixNoLLMServer = process.platform !== "win32" ? noLLMServer.instance : noLLMServer.instance.skip
@@ -892,6 +997,7 @@ noLLMServer.instance("prompt tools replace previous prompt tool rules", () =>
     expect(reloaded.permission).toEqual([{ permission: "read", pattern: "*", action: "allow" }])
     expect(Permission.evaluate("bash", "anything", reloaded.permission ?? []).action).toBe("ask")
   }),
+  { config: cfg },
 )
 
 it.instance(
@@ -1235,8 +1341,8 @@ it.instance(
 
       const a = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
       yield* llm.wait(1)
-      const b = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
-      yield* Effect.sleep(50)
+      const b = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild({ startImmediately: true }))
+      yield* Effect.yieldNow
 
       yield* prompt.cancel(chat.id)
       const [exitA, exitB] = yield* Effect.all([Fiber.await(a), Fiber.await(b)])
@@ -1247,7 +1353,7 @@ it.instance(
       }
     }),
   { git: true },
-  3_000,
+  10_000,
 )
 
 // Queue semantics

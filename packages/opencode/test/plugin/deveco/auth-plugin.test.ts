@@ -1,54 +1,37 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
-import type { LoginResult, UserInfo } from "@/plugin/deveco/types"
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import type { UserInfo } from "@/plugin/deveco/types"
 import { ACCESS_TOKEN_EXPIRES_MS, PROVIDER_ID } from "@/plugin/deveco/types"
 import type { AuthOAuthResult, Hooks, PluginInput } from "@opencode-ai/plugin"
+import { GlobalBus } from "@/bus/global"
+import { AppRuntime } from "@/effect/app-runtime"
+import { devecoAuth } from "@/plugin/deveco/auth"
+import { sessionChatIdMap } from "@/plugin/deveco/session"
+
+// 真实 @/auth 导出 OAUTH_DUMMY_KEY = "opencode-oauth-dummy-key"，与测试断言一致，无需 mock。
+// 真实 @opencode-ai/core/global 模块副作用（创建数据目录）安全，auth-plugin 本身不消费其值。
+// 真实 @/bus/global：spyOn(GlobalBus, "emit") 替换 emit 行为，天然隔离。
+// 真实 @/effect/app-runtime：spyOn(AppRuntime, "runPromise") 拦截 Effect 执行。
+// 真实 @/plugin/deveco/auth：spyOn(devecoAuth, "login") 隔离登录行为。
+// 真实 @/plugin/deveco/session：sessionChatIdMap 是可变 Map，测试直接操作同一个 Map 实例。
+// 真实 @/plugin/deveco/token-refresh：先 spyOn ensureValidToken，再动态导入 auth-plugin，
+// 让 auth-plugin 的 ESM live binding 读取被 spy 包装后的导出。
+
+const tokenRefresh = await import("@/plugin/deveco/token-refresh")
+const { DevEcoAuthPlugin } = await import("@/plugin/deveco/auth-plugin")
 
 type AuthCallbackResult =
   | { type: "success"; provider?: string; refresh: string; access: string; expires: number }
   | { type: "failed"; error?: string }
 
-let mockEnsureValidTokenFn: () => Promise<string | null>
-let mockDevecoAuthLoginFn: () => Promise<LoginResult>
 let capturedFetchCall: { input: RequestInfo | URL; init?: RequestInit } | null = null
 let originalGlobalFetch: typeof globalThis.fetch
-const mockSessionChatIdMap = new Map<string, string>()
 let globalBusEmitCalls: Array<{ event: string; payload: unknown }> = []
 
-mock.module("@/auth", () => ({
-  OAUTH_DUMMY_KEY: "opencode-oauth-dummy-key",
-}))
-
-mock.module("@opencode-ai/core/global", () => ({
-  Global: { Path: { data: "/tmp/test-data" } },
-}))
-
-mock.module("@/bus/global", () => ({
-  GlobalBus: {
-    emit: (event: string, payload: unknown) => {
-      globalBusEmitCalls.push({ event, payload })
-    },
-  },
-}))
-
-mock.module("@/effect/app-runtime", () => ({
-  AppRuntime: { runPromise: async () => {}, dispose: async () => {} },
-}))
-
-mock.module("@/plugin/deveco/token-refresh", () => ({
-  ensureValidToken: () => mockEnsureValidTokenFn(),
-  __resetTokenRefreshState: () => {},
-}))
-
-mock.module("@/plugin/deveco/auth", () => ({
-  devecoAuth: { login: () => mockDevecoAuthLoginFn() },
-  DevEcoAuth: class {},
-}))
-
-mock.module("@/plugin/deveco/session", () => ({
-  sessionChatIdMap: mockSessionChatIdMap,
-}))
-
-const { DevEcoAuthPlugin } = await import("@/plugin/deveco/auth-plugin")
+const devecAuthLoginSpy = spyOn(devecoAuth, "login")
+const devecAuthRefreshTokenSpy = spyOn(devecoAuth, "refreshToken")
+const globalBusEmitSpy = spyOn(GlobalBus, "emit")
+const appRuntimeRunPromiseSpy = spyOn(AppRuntime, "runPromise")
+const ensureValidTokenSpy = spyOn(tokenRefresh, "ensureValidToken")
 
 const sampleUserInfo: UserInfo = {
   userId: "user-123",
@@ -71,18 +54,20 @@ const minimalPluginInput: PluginInput = {
   $: {} as PluginInput["$"],
 }
 
-function resetMocks() {
-  mockEnsureValidTokenFn = mock(() => Promise.resolve(null))
-  mockDevecoAuthLoginFn = mock(() => Promise.resolve({ success: true, userInfo: sampleUserInfo }))
-  capturedFetchCall = null
-  mockSessionChatIdMap.clear()
-  globalBusEmitCalls = []
-}
-
 beforeEach(() => {
-  resetMocks()
+  capturedFetchCall = null
+  sessionChatIdMap.clear()
+  globalBusEmitCalls = []
+  devecAuthLoginSpy.mockResolvedValue({ success: true, userInfo: sampleUserInfo })
+  devecAuthRefreshTokenSpy.mockResolvedValue(null)
+  globalBusEmitSpy.mockReset().mockImplementation(((_eventName: "event", event: any) => {
+    globalBusEmitCalls.push({ event: "event", payload: event })
+    return false
+  }) as typeof GlobalBus.emit)
+  appRuntimeRunPromiseSpy.mockReset().mockResolvedValue(undefined)
+  ensureValidTokenSpy.mockReset().mockResolvedValue(null)
   originalGlobalFetch = globalThis.fetch
-  globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     capturedFetchCall = { input, init }
     return new Response("mock response", { status: 200 })
   }) as unknown as typeof globalThis.fetch
@@ -90,6 +75,14 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalGlobalFetch
+})
+
+afterAll(() => {
+  globalBusEmitSpy.mockRestore()
+  appRuntimeRunPromiseSpy.mockRestore()
+  devecAuthLoginSpy.mockRestore()
+  devecAuthRefreshTokenSpy.mockRestore()
+  ensureValidTokenSpy.mockRestore()
 })
 
 async function getFetchFn(
@@ -187,8 +180,7 @@ describe("fetch authorization header handling", () => {
   })
 
   test("should not call ensureValidToken when token is valid and not expired", async () => {
-    const ensureValidTokenSpy = mock(() => Promise.resolve("should-not-be-called"))
-    mockEnsureValidTokenFn = ensureValidTokenSpy
+    ensureValidTokenSpy.mockResolvedValue("should-not-be-called")
     const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
     await fetchFn(testUrl)
     expect(ensureValidTokenSpy.mock.calls.length).toBe(0)
@@ -202,8 +194,7 @@ describe("fetch token refresh", () => {
       access: "expired-token",
       expires: Date.now() - 1000,
     }
-    const ensureValidTokenSpy = mock(() => Promise.resolve("refreshed-token"))
-    mockEnsureValidTokenFn = ensureValidTokenSpy
+    ensureValidTokenSpy.mockResolvedValue("refreshed-token")
     const fetchFn = await getFetchFn(() => Promise.resolve(expiredAuth))
     await fetchFn(testUrl)
     const finalHeaders = capturedFetchCall!.init!.headers as Headers
@@ -217,8 +208,7 @@ describe("fetch token refresh", () => {
       access: "",
       expires: Date.now() + 100000,
     }
-    const ensureValidTokenSpy = mock(() => Promise.resolve("new-token"))
-    mockEnsureValidTokenFn = ensureValidTokenSpy
+    ensureValidTokenSpy.mockResolvedValue("new-token")
     const fetchFn = await getFetchFn(() => Promise.resolve(emptyAccessAuth))
     await fetchFn(testUrl)
     const finalHeaders = capturedFetchCall!.init!.headers as Headers
@@ -232,7 +222,7 @@ describe("fetch token refresh", () => {
       access: "expired-token",
       expires: Date.now() - 1000,
     }
-    mockEnsureValidTokenFn = mock(() => Promise.resolve(null))
+    ensureValidTokenSpy.mockResolvedValue(null)
     const fetchFn = await getFetchFn(() => Promise.resolve(expiredAuth))
     const response = await fetchFn(testUrl)
     expect(response.status).toBe(401)
@@ -249,8 +239,7 @@ describe("fetch token refresh", () => {
 
   test("should not refresh or set Bearer when auth type is not oauth", async () => {
     const apiAuth: Record<string, unknown> = { type: "api", key: "sk-test" }
-    const ensureValidTokenSpy = mock(() => Promise.resolve(null))
-    mockEnsureValidTokenFn = ensureValidTokenSpy
+    ensureValidTokenSpy.mockResolvedValue(null)
     const fetchFn = await getFetchFn(() => Promise.resolve(apiAuth))
     await fetchFn(testUrl)
     const finalHeaders = capturedFetchCall!.init!.headers as Headers
@@ -273,7 +262,7 @@ describe("fetch token refresh", () => {
 
 describe("fetch Chat-Id and Session-Id", () => {
   test("should use sessionChatIdMap value when x-deveco-session header is present", async () => {
-    mockSessionChatIdMap.set("session-abc", "chat-def")
+    sessionChatIdMap.set("session-abc", "chat-def")
     const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
     await fetchFn(testUrl, { headers: new Headers({ "x-deveco-session": "session-abc" }) })
     const finalHeaders = capturedFetchCall!.init!.headers as Headers
@@ -282,7 +271,7 @@ describe("fetch Chat-Id and Session-Id", () => {
   })
 
   test("should use sessionChatIdMap value when x-session-affinity header is present", async () => {
-    mockSessionChatIdMap.set("session-xyz", "chat-mnp")
+    sessionChatIdMap.set("session-xyz", "chat-mnp")
     const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
     await fetchFn(testUrl, { headers: new Headers({ "x-session-affinity": "session-xyz" }) })
     const finalHeaders = capturedFetchCall!.init!.headers as Headers
@@ -370,9 +359,7 @@ describe("fetch URL rewriting", () => {
 
 describe("authorize callback", () => {
   test("should return success when login succeeds with userInfo", async () => {
-    mockDevecoAuthLoginFn = mock(() =>
-      Promise.resolve({ success: true, userInfo: sampleUserInfo }),
-    )
+    devecAuthLoginSpy.mockResolvedValue({ success: true, userInfo: sampleUserInfo })
     const callback = await getAuthorizeCallback()
     const before = Date.now()
     const result = await callback()
@@ -387,7 +374,7 @@ describe("authorize callback", () => {
   })
 
   test("should return failed with error when login succeeds but userInfo is undefined", async () => {
-    mockDevecoAuthLoginFn = mock(() => Promise.resolve({ success: true }))
+    devecAuthLoginSpy.mockResolvedValue({ success: true })
     const callback = await getAuthorizeCallback()
     const result = await callback()
     expect(result.type).toBe("failed")
@@ -396,9 +383,7 @@ describe("authorize callback", () => {
 
   test("should return failed with error when userInfo has empty accessToken", async () => {
     const userInfoWithEmptyTokens: UserInfo = { ...sampleUserInfo, accessToken: "", refreshToken: "" }
-    mockDevecoAuthLoginFn = mock(() =>
-      Promise.resolve({ success: true, userInfo: userInfoWithEmptyTokens }),
-    )
+    devecAuthLoginSpy.mockResolvedValue({ success: true, userInfo: userInfoWithEmptyTokens })
     const callback = await getAuthorizeCallback()
     const result = await callback()
     expect(result.type).toBe("failed")
@@ -406,9 +391,7 @@ describe("authorize callback", () => {
   })
 
   test("should return failed without error when login is cancelled", async () => {
-    mockDevecoAuthLoginFn = mock(() =>
-      Promise.resolve({ success: false, cancelled: true }),
-    )
+    devecAuthLoginSpy.mockResolvedValue({ success: false, cancelled: true })
     const callback = await getAuthorizeCallback()
     const result = await callback()
     expect(result.type).toBe("failed")
@@ -416,9 +399,7 @@ describe("authorize callback", () => {
   })
 
   test("should return failed with region error when unsupportedRegion", async () => {
-    mockDevecoAuthLoginFn = mock(() =>
-      Promise.resolve({ success: false, unsupportedRegion: true }),
-    )
+    devecAuthLoginSpy.mockResolvedValue({ success: false, unsupportedRegion: true })
     const callback = await getAuthorizeCallback()
     const result = await callback()
     expect(result.type).toBe("failed")
@@ -426,7 +407,7 @@ describe("authorize callback", () => {
   })
 
   test("should return failed without error when login fails without unsupportedRegion", async () => {
-    mockDevecoAuthLoginFn = mock(() => Promise.resolve({ success: false }))
+    devecAuthLoginSpy.mockResolvedValue({ success: false })
     const callback = await getAuthorizeCallback()
     const result = await callback()
     expect(result.type).toBe("failed")

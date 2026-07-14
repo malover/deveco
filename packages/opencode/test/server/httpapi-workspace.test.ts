@@ -52,6 +52,40 @@ function requestServer(path: string, directory: string, init: RequestInit = {}) 
   return Effect.promise(() => Promise.resolve(Server.Default().app.request(path, { ...init, headers })))
 }
 
+function runWorktreeTestInChild() {
+  return Effect.promise(async () => {
+    const testFile = path.join(import.meta.dir, "httpapi-workspace.test.ts")
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        "test",
+        "--timeout",
+        "30000",
+        "--test-name-pattern",
+        "creates a real git worktree workspace via the builtin adapter",
+        testFile,
+      ],
+      {
+        env: { ...process.env, DEVECO_WORKTREE_ISOLATED: "1" },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    )
+    const killTimer = setTimeout(() => child.kill(), 30_000)
+    try {
+      const [exitCode, stdout, stderr] = await Promise.all([
+        child.exited,
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+      ])
+      if (exitCode !== 0) throw new Error(`worktree test worker failed: ${stderr || stdout}`)
+    } finally {
+      clearTimeout(killTimer)
+      child.kill()
+    }
+  })
+}
+
 function localAdapter(directory: string): WorkspaceAdapter {
   return {
     name: "Local Test",
@@ -306,8 +340,15 @@ describe("workspace HttpApi", () => {
     }),
   )
 
-  it.live("creates a real git worktree workspace via the builtin adapter", () =>
-    Effect.gen(function* () {
+  it.live(
+    "creates a real git worktree workspace via the builtin adapter",
+    () =>
+      Effect.gen(function* () {
+      if (!process.env.DEVECO_WORKTREE_ISOLATED) {
+        yield* runWorktreeTestInChild()
+        return
+      }
+
       Flag.DEVECO_EXPERIMENTAL_WORKSPACES = true
       const dir = yield* tmpdirScoped({ git: true })
 
@@ -321,7 +362,8 @@ describe("workspace HttpApi", () => {
       expect({ status: created.status, body }).toMatchObject({ status: 200 })
       const workspace = JSON.parse(body) as Workspace.Info
       expect(workspace).toMatchObject({ type: "worktree" })
-    }),
+      }),
+    60_000,
   )
 
   it.live("routes local workspace requests through the workspace target directory", () =>

@@ -1,12 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 
-void mock.module("@/effect/app-runtime", () => ({
-  AppRuntime: {
-    runPromise: async () => {},
-    dispose: async () => {},
-  },
-}))
-
 import {
   DEVECO_API_URL,
   DEVECO_DEFAULTS,

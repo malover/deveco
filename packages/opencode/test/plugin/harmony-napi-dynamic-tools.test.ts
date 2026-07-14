@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import fs from "fs"
 import path from "path"
+import { setSessionCwd, clearSessionCwd } from "../../src/tool/lib/session-cwd"
 
 let mockCallHarmonyNapiToolCalls: Array<{
   worktree: string
@@ -13,25 +14,8 @@ let mockResolveUIVerifyParamsResult: {
   apiKey: string | null
   modelName: string | null
 } = { baseURL: null, apiKey: null, modelName: null }
-let mockGetSessionCwdResult: string | undefined = undefined
 
-void mock.module("../../src/tool/lib/harmony_napi", () => ({
-  callHarmonyNapiTool: async (params: {
-    worktree: string
-    toolName: string
-    args: Record<string, unknown>
-  }) => {
-    mockCallHarmonyNapiToolCalls.push(params)
-    return mockCallHarmonyNapiToolResult
-  },
-  resolveUIVerifyParams: async (_worktree: string) => mockResolveUIVerifyParamsResult,
-}))
-
-void mock.module("../../src/tool/lib/session-cwd", () => ({
-  getSessionCwd: (_sessionID?: string) => mockGetSessionCwdResult,
-  setSessionCwd: () => {},
-  clearSessionCwd: () => {},
-}))
+import * as harmonyNapi from "../../src/tool/lib/harmony_napi"
 
 const HarmonyNapiDynamicToolsPlugin = await import(
   "../../src/plugin/harmony-napi-dynamic-tools"
@@ -41,7 +25,7 @@ function resetMocks() {
   mockCallHarmonyNapiToolCalls = []
   mockCallHarmonyNapiToolResult = null
   mockResolveUIVerifyParamsResult = { baseURL: null, apiKey: null, modelName: null }
-  mockGetSessionCwdResult = undefined
+  clearSessionCwd()
 }
 
 function withEnvVar<T>(
@@ -85,16 +69,30 @@ const defaultCtx = {
 describe("HarmonyNapiDynamicToolsPlugin", () => {
   let tools: Record<string, ReturnType<typeof import("@opencode-ai/plugin").tool>>
   let realpathSpy: ReturnType<typeof spyOn> | undefined
+  let callHarmonyNapiToolSpy: ReturnType<typeof spyOn>
+  let resolveUIVerifyParamsSpy: ReturnType<typeof spyOn>
 
   beforeEach(async () => {
     resetMocks()
+    callHarmonyNapiToolSpy = spyOn(harmonyNapi, "callHarmonyNapiTool").mockImplementation(async (params: {
+      worktree: string
+      toolName: string
+      args: Record<string, unknown>
+    }) => {
+      mockCallHarmonyNapiToolCalls.push(params)
+      return mockCallHarmonyNapiToolResult
+    })
+    resolveUIVerifyParamsSpy = spyOn(harmonyNapi, "resolveUIVerifyParams").mockImplementation(async () => mockResolveUIVerifyParamsResult)
     const result = await HarmonyNapiDynamicToolsPlugin({} as never)
     tools = result.tool ?? {}
     realpathSpy = undefined
   })
 
   afterEach(() => {
+    callHarmonyNapiToolSpy?.mockRestore()
+    resolveUIVerifyParamsSpy?.mockRestore()
     realpathSpy?.mockRestore()
+    clearSessionCwd()
   })
 
   describe("plugin creation", () => {
@@ -149,7 +147,7 @@ describe("HarmonyNapiDynamicToolsPlugin", () => {
   describe("tool execute - worktree resolution", () => {
     test("should use session cwd when getSessionCwd returns a value", async () => {
       await withDevecoHome(async () => {
-        mockGetSessionCwdResult = "/session/cwd/path"
+        setSessionCwd(defaultCtx.sessionID, "/session/cwd/path")
         mockCallHarmonyNapiToolResult = { content: [{ text: "ok" }] }
         await tools.check_ets_files.execute({ files: ["test.ets"] }, defaultCtx)
         expect(mockCallHarmonyNapiToolCalls[0].worktree).toBe("/session/cwd/path")
@@ -158,7 +156,6 @@ describe("HarmonyNapiDynamicToolsPlugin", () => {
 
     test("should use context directory when session cwd is not set", async () => {
       await withDevecoHome(async () => {
-        mockGetSessionCwdResult = undefined
         mockCallHarmonyNapiToolResult = { content: [{ text: "ok" }] }
         const ctx = { ...defaultCtx, directory: "/ctx/directory", worktree: "" }
         await tools.check_ets_files.execute({ files: ["test.ets"] }, ctx)
@@ -168,7 +165,6 @@ describe("HarmonyNapiDynamicToolsPlugin", () => {
 
     test("should use context worktree when directory is not set", async () => {
       await withDevecoHome(async () => {
-        mockGetSessionCwdResult = undefined
         mockCallHarmonyNapiToolResult = { content: [{ text: "ok" }] }
         const ctx = { ...defaultCtx, directory: "", worktree: "/ctx/worktree" }
         await tools.check_ets_files.execute({ files: ["test.ets"] }, ctx)
@@ -178,7 +174,6 @@ describe("HarmonyNapiDynamicToolsPlugin", () => {
 
     test("should fall back to process.cwd() when no worktree source is available", async () => {
       await withDevecoHome(async () => {
-        mockGetSessionCwdResult = undefined
         mockCallHarmonyNapiToolResult = { content: [{ text: "ok" }] }
         const ctx = { ...defaultCtx, directory: "", worktree: "" }
         await tools.check_ets_files.execute({ files: ["test.ets"] }, ctx)
@@ -328,7 +323,7 @@ describe("HarmonyNapiDynamicToolsPlugin", () => {
     const worktree = process.cwd()
 
     beforeEach(() => {
-      mockGetSessionCwdResult = worktree
+      setSessionCwd(defaultCtx.sessionID, worktree)
     })
 
     test("should throw error when log_path contains path traversal", async () => {

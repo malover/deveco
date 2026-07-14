@@ -1,4 +1,5 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { Entry, Match } from "@opencode-ai/core/filesystem/schema"
 import { describe, expect } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -12,6 +13,7 @@ import { Global } from "@opencode-ai/core/global"
 import { Truncate } from "@/tool/truncate"
 import { Agent } from "../../src/agent/agent"
 import { Ripgrep } from "@opencode-ai/core/ripgrep"
+import { RelativePath } from "@opencode-ai/core/schema"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { testEffect } from "../lib/effect"
 import { Permission } from "../../src/permission"
@@ -25,7 +27,37 @@ const toolLayer = (flags: Partial<RuntimeFlags.Info> = {}) =>
   Layer.mergeAll(
     CrossSpawnSpawner.defaultLayer,
     FSUtil.defaultLayer,
-    Ripgrep.defaultLayer,
+    Layer.mock(Ripgrep.Service, {
+      grep: (input) => {
+        if (input.pattern === "xyznonexistentpatternxyz123") return Effect.succeed([])
+        if (input.pattern === "needle") {
+          return Effect.succeed(
+            Array.from({ length: 100 }, (_, index) =>
+              new Match({
+                entry: new Entry({
+                  path: RelativePath.make(`match-${index}.txt`),
+                  type: "file",
+                  mime: "text/plain",
+                }),
+                line: 1,
+                offset: 0,
+                text: "needle",
+                submatches: [{ text: "needle", start: 0, end: 6 }],
+              }),
+            ),
+          )
+        }
+        return Effect.succeed([
+          new Match({
+            entry: new Entry({ path: RelativePath.make("test.txt"), type: "file", mime: "text/plain" }),
+            line: input.pattern === "line2" ? 2 : 1,
+            offset: 0,
+            text: input.pattern === "line2" ? "line2" : "export const match = true",
+            submatches: [{ text: input.pattern, start: 0, end: input.pattern.length }],
+          }),
+        ])
+      },
+    }),
     Truncate.defaultLayer,
     Agent.defaultLayer,
     Git.defaultLayer,

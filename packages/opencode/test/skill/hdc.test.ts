@@ -1,14 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test"
+import * as env from "../../src/tool/lib/env"
 
 let mockFindDevEcoHomeResult: string | undefined = "/fake/deveco"
 let mockHdcPathResult: string = "/fake/hdc"
 let mockHdcFileExistsResult: boolean = true
-
-void mock.module("../../src/tool/lib/env", () => ({
-  findDevEcoHome: async () => mockFindDevEcoHomeResult,
-  hdcPath: (_home: string) => mockHdcPathResult,
-  nodePath: (_home: string) => "/fake/node",
-}))
 
 const { targetArgs, resolveHdcBinary, resolveHdcOrThrow, runHdc } = await import(
   "../../resources/skills/arkts-runtime-fix/scripts/shared/hdc"
@@ -18,6 +13,21 @@ function resetMocks() {
   mockFindDevEcoHomeResult = "/fake/deveco"
   mockHdcPathResult = "/fake/hdc"
   mockHdcFileExistsResult = true
+}
+
+let envSpyFind: ReturnType<typeof spyOn> | undefined
+let envSpyPath: ReturnType<typeof spyOn> | undefined
+
+function setupEnvSpies() {
+  envSpyFind = spyOn(env, "findDevEcoHome").mockImplementation(async () => mockFindDevEcoHomeResult)
+  envSpyPath = spyOn(env, "hdcPath").mockImplementation((_home: string) => mockHdcPathResult)
+}
+
+function teardownEnvSpies() {
+  envSpyFind?.mockRestore()
+  envSpyPath?.mockRestore()
+  envSpyFind = undefined
+  envSpyPath = undefined
 }
 
 function setupFileSpy() {
@@ -43,10 +53,12 @@ describe("resolveHdcBinary", () => {
 
   beforeEach(() => {
     resetMocks()
+    setupEnvSpies()
     fileSpy = setupFileSpy()
   })
 
   afterEach(() => {
+    teardownEnvSpies()
     fileSpy.mockRestore()
   })
 
@@ -82,10 +94,12 @@ describe("resolveHdcOrThrow", () => {
 
   beforeEach(() => {
     resetMocks()
+    setupEnvSpies()
     fileSpy = setupFileSpy()
   })
 
   afterEach(() => {
+    teardownEnvSpies()
     fileSpy.mockRestore()
   })
 

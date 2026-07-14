@@ -1,6 +1,10 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
+import { Entry } from "@opencode-ai/core/filesystem/schema"
+import { ModelV2 } from "@opencode-ai/core/model"
+import { ProviderV2 } from "@opencode-ai/core/provider"
 import { Ripgrep } from "@opencode-ai/core/ripgrep"
+import { RelativePath } from "@opencode-ai/core/schema"
 import { Cause, Effect, Exit, Layer } from "effect"
 import { afterEach, describe, expect } from "bun:test"
 import path from "path"
@@ -28,8 +32,26 @@ afterEach(async () => {
 })
 
 const node = CrossSpawnSpawner.defaultLayer
+const ripgrep = Layer.mock(Ripgrep.Service, {
+  find: (input) =>
+    Effect.sync(() => {
+      expect(path.basename(input.cwd)).toBe("tool-skill")
+      expect(input.pattern).toBe("!**/SKILL.md")
+      expect(input.hidden).toBe(true)
+      expect(input.follow).toBe(false)
+      expect(input.signal).toBe(baseCtx.abort)
+      expect(input.limit).toBe(10)
+      return [
+        new Entry({
+          path: RelativePath.make("scripts/demo.txt"),
+          type: "file",
+          mime: "text/plain",
+        }),
+      ]
+    }),
+})
 
-const it = testEffect(Layer.mergeAll(ToolRegistry.defaultLayer, node).pipe(Layer.provide(Ripgrep.defaultLayer)))
+const it = testEffect(Layer.mergeAll(ToolRegistry.defaultLayer, node).pipe(Layer.provide(ripgrep)))
 
 describe("tool.skill", () => {
   it.instance("execute returns skill content block with files", () =>
@@ -52,19 +74,11 @@ Use this skill.
       )
       yield* Effect.promise(() => Bun.write(path.join(skill, "scripts", "demo.txt"), "demo"))
 
-      const home = process.env.DEVECO_TEST_HOME
-      process.env.DEVECO_TEST_HOME = dir
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          process.env.DEVECO_TEST_HOME = home
-        }),
-      )
-
       const registry = yield* ToolRegistry.Service
       const agent = { name: "build", mode: "primary" as const, permission: [], options: {} }
       const tool = (yield* registry.tools({
-        providerID: "opencode" as any,
-        modelID: "gpt-5" as any,
+        providerID: ProviderV2.ID.opencode,
+        modelID: ModelV2.ID.make("gpt-5"),
         agent,
       })).find((tool) => tool.id === SkillTool.id)
       if (!tool) throw new Error("Skill tool not found")
@@ -97,20 +111,11 @@ Use this skill.
 
   it.instance("execute preserves not found message", () =>
     Effect.gen(function* () {
-      const dir = (yield* TestInstance).directory
-      const home = process.env.DEVECO_TEST_HOME
-      process.env.DEVECO_TEST_HOME = dir
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          process.env.DEVECO_TEST_HOME = home
-        }),
-      )
-
       const registry = yield* ToolRegistry.Service
       const agent = { name: "build", mode: "primary" as const, permission: [], options: {} }
       const tool = (yield* registry.tools({
-        providerID: "opencode" as any,
-        modelID: "gpt-5" as any,
+        providerID: ProviderV2.ID.opencode,
+        modelID: ModelV2.ID.make("gpt-5"),
         agent,
       })).find((tool) => tool.id === SkillTool.id)
       if (!tool) throw new Error("Skill tool not found")

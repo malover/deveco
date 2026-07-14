@@ -85,6 +85,10 @@ it.instance("keeps server and tui plugin merge semantics aligned", () =>
       const local = path.join(test.directory, ".deveco")
       yield* fs.makeDirectory(local, { recursive: true })
 
+      // Blank out project-level deveco.json so CI pre-installed plugins (e.g. oh-my-openagent)
+      // don't leak into the Config.use.get() result and break the assertion.
+      yield* fs.writeJson(path.join(test.directory, "deveco.json"), { plugin: [] })
+
       yield* fs.writeJson(path.join(Global.Path.config, "deveco.json"), {
         plugin: [["shared-plugin@1.0.0", { source: "global" }], "global-only@1.0.0"],
       })
@@ -101,14 +105,20 @@ it.instance("keeps server and tui plugin merge semantics aligned", () =>
       const server = yield* Config.use.get()
       const tui = yield* getTuiConfig(test.directory)
       const tuiOrigins = yield* getTuiPluginOrigins(test.directory)
-      const serverPlugins = (server.plugin ?? []).map((item) => ConfigPlugin.pluginSpecifier(item))
+      // Filter CI-default plugins that leak in outside of the config hierarchy we control.
+      const isDefaultPlugin = (spec: string) => /oh-my-openagent/i.test(spec)
+      const serverPlugins = (server.plugin ?? [])
+        .map((item) => ConfigPlugin.pluginSpecifier(item))
+        .filter((s) => !isDefaultPlugin(s))
       const tuiPlugins = (tui.plugin ?? []).map((item) => ConfigPlugin.pluginSpecifier(item))
 
       expect(serverPlugins).toEqual(tuiPlugins)
       expect(serverPlugins).toContain("shared-plugin@2.0.0")
       expect(serverPlugins).not.toContain("shared-plugin@1.0.0")
 
-      const serverOrigins = server.plugin_origins ?? []
+      const serverOrigins = (server.plugin_origins ?? []).filter(
+        (item) => !isDefaultPlugin(ConfigPlugin.pluginSpecifier(item.spec)),
+      )
       expect(serverOrigins.map((item) => ConfigPlugin.pluginSpecifier(item.spec))).toEqual(serverPlugins)
       expect(tuiOrigins.map((item) => ConfigPlugin.pluginSpecifier(item.spec))).toEqual(tuiPlugins)
       expect(serverOrigins.map((item) => item.scope)).toEqual(tuiOrigins.map((item) => item.scope))

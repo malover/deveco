@@ -81,10 +81,12 @@ test("offsetToPosition converts Zed offsets to 1-based editor positions", () => 
 test("resolveZedDbPath skips candidates that cannot be stated", async () => {
   await using tmp = await tmpdir()
   const loop = path.join(tmp.path, "loop")
-  await symlink(loop, loop)
+  // On Windows, symlinks require elevated privileges. Use a non-existent
+  // directory path instead so stat() fails the same way a broken symlink would.
+  const brokenPath = path.join(tmp.path, "does-not-exist", "zed.db")
   const home = spyOn(os, "homedir").mockImplementation(() => tmp.path)
   const previous = process.env.DEVECO_ZED_DB
-  process.env.DEVECO_ZED_DB = loop
+  process.env.DEVECO_ZED_DB = brokenPath
 
   try {
     expect(resolveZedDbPath()).toBeUndefined()

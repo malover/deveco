@@ -308,7 +308,7 @@ function normalizeToolList(
 
 /** @internal Exported for testing */
 export function buildProxiedToolDescription(name: string, description: string | undefined): string {
-  return description?.trim() ?? `Harmony N-API tool: ${name}.`;
+  return description?.trim() ?? `HarmonyOS N-API tool: ${name}.`;
 }
 
 /**

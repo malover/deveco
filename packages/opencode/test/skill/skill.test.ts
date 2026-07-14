@@ -15,35 +15,7 @@ import fs from "fs/promises"
 
 const node = CrossSpawnSpawner.defaultLayer
 
-const it = testEffect(Layer.mergeAll(Skill.defaultLayer, node, testInstanceStoreLayer))
-const itWithoutClaudeCodeSkills = testEffect(
-  Layer.mergeAll(
-    Skill.layer.pipe(
-      Layer.provide(Discovery.defaultLayer),
-      Layer.provide(Config.defaultLayer),
-      Layer.provide(EventV2Bridge.defaultLayer),
-      Layer.provide(FSUtil.defaultLayer),
-      Layer.provide(Global.layer),
-      Layer.provide(RuntimeFlags.layer({ disableClaudeCodeSkills: true })),
-    ),
-    node,
-    testInstanceStoreLayer,
-  ),
-)
-const itWithoutExternalSkills = testEffect(
-  Layer.mergeAll(
-    Skill.layer.pipe(
-      Layer.provide(Discovery.defaultLayer),
-      Layer.provide(Config.defaultLayer),
-      Layer.provide(EventV2Bridge.defaultLayer),
-      Layer.provide(FSUtil.defaultLayer),
-      Layer.provide(Global.layer),
-      Layer.provide(RuntimeFlags.layer({ disableExternalSkills: true })),
-    ),
-    node,
-    testInstanceStoreLayer,
-  ),
-)
+const it = testEffect(Layer.mergeAll(node, testInstanceStoreLayer))
 
 async function createGlobalSkill(homeDir: string) {
   const skillDir = path.join(homeDir, ".claude", "skills", "global-test-skill")
@@ -62,23 +34,58 @@ This skill is loaded from the global home directory.
   )
 }
 
-const withHome = <A, E, R>(home: string, self: Effect.Effect<A, E, R>) =>
+const withHome = <A, E, R>(
+  home: string,
+  self: Effect.Effect<A, E, R | Skill.Service>,
+  flags: Partial<RuntimeFlags.Info> = {},
+) =>
   Effect.acquireUseRelease(
     Effect.sync(() => {
       const prev = process.env.DEVECO_TEST_HOME
       process.env.DEVECO_TEST_HOME = home
       return prev
     }),
-    () => self,
+    () =>
+      Effect.suspend(() =>
+        self.pipe(
+          Effect.provide(
+            Skill.layer.pipe(
+              Layer.provide(Discovery.defaultLayer),
+              Layer.provide(Config.defaultLayer),
+              Layer.provide(EventV2Bridge.defaultLayer),
+              Layer.provide(FSUtil.defaultLayer),
+              Layer.provide(Global.layer),
+              Layer.provide(
+                RuntimeFlags.layer({
+                  disableDefaultSkills: true,
+                  disableExternalSkills: false,
+                  disableClaudeCodeSkills: false,
+                  ...flags,
+                }),
+              ),
+            ),
+          ),
+        ),
+      ),
     (prev) =>
       Effect.sync(() => {
+        if (prev === undefined) {
+          delete process.env.DEVECO_TEST_HOME
+          return
+        }
         process.env.DEVECO_TEST_HOME = prev
       }),
   )
 
+const provideSkillTmpdirInstance = <A, E, R>(
+  self: (dir: string) => Effect.Effect<A, E, R | Skill.Service>,
+  options?: { git?: boolean },
+  flags: Partial<RuntimeFlags.Info> = {},
+) => provideTmpdirInstance((dir) => withHome(dir, self(dir), flags), options)
+
 describe("skill", () => {
   it.live("discovers skills from .deveco/skill/ directory", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -101,44 +108,41 @@ Instructions here.
           expect(list.length).toBe(1)
           const item = list.find((x) => x.name === "test-skill")
           expect(item).toBeDefined()
-          expect(item!.description).toBe("A test skill for verification.")
-          expect(item!.location).toContain(path.join("skill", "test-skill", "SKILL.md"))
+          expect(item?.description).toBe("A test skill for verification.")
+          expect(item?.location).toContain(path.join("skill", "test-skill", "SKILL.md"))
         }),
       { git: true },
     ),
   )
 
   it.live("returns skill directories from Skill.dirs", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
-        withHome(
-          dir,
-          Effect.gen(function* () {
-            yield* Effect.promise(() =>
-              Bun.write(
-                path.join(dir, ".deveco", "skill", "dir-skill", "SKILL.md"),
-                `---
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            Bun.write(
+              path.join(dir, ".deveco", "skill", "dir-skill", "SKILL.md"),
+              `---
 name: dir-skill
 description: Skill for dirs test.
 ---
 
 # Dir Skill
 `,
-              ),
-            )
+            ),
+          )
 
-            const skill = yield* Skill.Service
-            const dirs = yield* skill.dirs()
-            expect(dirs).toContain(path.join(dir, ".deveco", "skill", "dir-skill"))
-            expect(dirs.length).toBe(1)
-          }),
-        ),
+          const skill = yield* Skill.Service
+          const dirs = yield* skill.dirs()
+          expect(dirs).toContain(path.join(dir, ".deveco", "skill", "dir-skill"))
+          expect(dirs.length).toBe(1)
+        }),
       { git: true },
     ),
   )
 
   it.live("discovers multiple skills from .deveco/skill/ directory", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -177,7 +181,7 @@ description: Second test skill.
   )
 
   it.live("skips skills with missing frontmatter", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -198,7 +202,7 @@ Just some content without YAML frontmatter.
   )
 
   it.live("discovers skills without descriptions", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -220,7 +224,7 @@ Instructions here.
           expect(list.length).toBe(1)
           const item = list.find((x) => x.name === "manual-skill")
           expect(item).toBeDefined()
-          expect(item!.description).toBeUndefined()
+          expect(item?.description).toBeUndefined()
           expect(Skill.fmt(list, { verbose: false })).toBe("No skills are currently available.")
           expect(Skill.fmt(list, { verbose: true })).toBe("No skills are currently available.")
         }),
@@ -229,7 +233,7 @@ Instructions here.
   )
 
   it.live("discovers skills from .claude/skills/ directory", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -250,7 +254,7 @@ description: A skill in the .claude/skills directory.
           expect(list.length).toBe(1)
           const item = list.find((x) => x.name === "claude-skill")
           expect(item).toBeDefined()
-          expect(item!.location).toContain(path.join(".claude", "skills", "claude-skill", "SKILL.md"))
+          expect(item?.location).toContain(path.join(".claude", "skills", "claude-skill", "SKILL.md"))
         }),
       { git: true },
     ),
@@ -281,7 +285,7 @@ description: A skill in the .claude/skills directory.
   )
 
   it.live("returns empty array when no skills exist", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       () =>
         Effect.gen(function* () {
           const skill = yield* Skill.Service
@@ -292,7 +296,7 @@ description: A skill in the .claude/skills directory.
   )
 
   it.live("fails with typed error when requiring a missing skill", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       () =>
         Effect.gen(function* () {
           const skill = yield* Skill.Service
@@ -323,7 +327,7 @@ description: A skill in the .claude/skills directory.
   )
 
   it.live("discovers skills from .agents/skills/ directory", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -344,7 +348,7 @@ description: A skill in the .agents/skills directory.
           expect(list.length).toBe(1)
           const item = list.find((x) => x.name === "agent-skill")
           expect(item).toBeDefined()
-          expect(item!.location).toContain(path.join(".agents", "skills", "agent-skill", "SKILL.md"))
+          expect(item?.location).toContain(path.join(".agents", "skills", "agent-skill", "SKILL.md"))
         }),
       { git: true },
     ),
@@ -391,7 +395,7 @@ This skill is loaded from the global home directory.
   )
 
   it.live("discovers skills from both .claude/skills/ and .agents/skills/", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -429,8 +433,8 @@ description: A skill in the .agents/skills directory.
     ),
   )
 
-  itWithoutClaudeCodeSkills.live("skips Claude Code skills when disabled", () =>
-    provideTmpdirInstance(
+  it.live("skips Claude Code skills when disabled", () =>
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -463,11 +467,12 @@ description: A skill in the .agents/skills directory.
           expect(list.map((s) => s.name)).toEqual(["agent-skill"])
         }),
       { git: true },
+      { disableClaudeCodeSkills: true },
     ),
   )
 
-  itWithoutExternalSkills.live("skips external skill directories when disabled", () =>
-    provideTmpdirInstance(
+  it.live("skips external skill directories when disabled", () =>
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
@@ -510,11 +515,12 @@ description: A skill in the .deveco/skill directory.
           expect(list.map((s) => s.name)).toEqual(["opencode-skill"])
         }),
       { git: true },
+      { disableExternalSkills: true },
     ),
   )
 
   it.live("properly resolves directories that skills live in", () =>
-    provideTmpdirInstance(
+    provideSkillTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>

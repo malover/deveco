@@ -1,5 +1,5 @@
 // Subprocess test harness for the opencode CLI. Spawns the real binary against
-// a TestLLMServer running in-process at a random port, with full env isolation.
+// a TestLLMServer at a random port, with isolated HOME/XDG/config state.
 //
 // This is the missing test tier: in-process tests can't catch bugs that span
 // argv parsing → server boot → SDK call → event consumption → exit code (like
@@ -23,6 +23,7 @@ import { AppProcess } from "@opencode-ai/core/process"
 import { Deferred, Duration, Effect, Layer, Queue, Scope, Stream } from "effect"
 import { FetchHttpClient, HttpClient } from "effect/unstable/http"
 import { ChildProcess } from "effect/unstable/process"
+import { readdirSync } from "node:fs"
 import path from "node:path"
 import { TestLLMServer } from "./llm-server"
 import { testProviderConfig } from "./test-provider"
@@ -57,7 +58,14 @@ function forkStderrDrain(stream: ReadableStream<Uint8Array>, into: string[]) {
   )
 }
 
-function isolatedEnv(home: string, configJson: string): Record<string, string> {
+export function isolatedEnv(
+  home: string,
+  configJson: string,
+  bunModules = path.resolve(opencodeRoot, "../../node_modules/.bun"),
+): Record<string, string> {
+  const reactPackage = readReactPackage(bunModules)
+  const reactNodeModules = reactPackage ? path.join(bunModules, reactPackage, "node_modules") : undefined
+
   return {
     DEVECO_TEST_HOME: home,
     HOME: home,
@@ -65,6 +73,9 @@ function isolatedEnv(home: string, configJson: string): Record<string, string> {
     XDG_DATA_HOME: path.join(home, ".local/share"),
     XDG_STATE_HOME: path.join(home, ".local/state"),
     XDG_CACHE_HOME: path.join(home, ".cache"),
+    LANG: "C.UTF-8",
+    LC_ALL: "C.UTF-8",
+    LANGUAGE: "en",
     DEVECO_CONFIG_CONTENT: configJson,
     DEVECO_DISABLE_PROJECT_CONFIG: "1",
     DEVECO_PURE: "1",
@@ -72,6 +83,16 @@ function isolatedEnv(home: string, configJson: string): Record<string, string> {
     DEVECO_DISABLE_AUTOCOMPACT: "1",
     DEVECO_DISABLE_MODELS_FETCH: "1",
     DEVECO_AUTH_CONTENT: "{}",
+    ...(reactNodeModules ? { NODE_PATH: reactNodeModules } : {}),
+  }
+}
+
+function readReactPackage(bunModules: string) {
+  try {
+    return readdirSync(bunModules).find((name) => name.startsWith("react@"))
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined
+    throw error
   }
 }
 
@@ -82,7 +103,11 @@ export type RunResult = {
   readonly durationMs: number
 }
 
-export type SpawnOpts = { readonly timeoutMs?: number; readonly env?: Record<string, string> }
+export type SpawnOpts = {
+  readonly timeoutMs?: number
+  readonly env?: Record<string, string>
+  readonly cwd?: string
+}
 
 // Typed equivalent of constructing argv for `opencode run`. New flags should
 // land here so tests stay grep-able and refactor-safe.
@@ -194,13 +219,13 @@ export function withCliFixture<A, E>(
 
     const spawn = Effect.fn("opencode.spawn")(function* (args: string[], opts?: SpawnOpts) {
       const start = Date.now()
-      const timeoutMs = opts?.timeoutMs ?? 30_000
+      const timeoutMs = opts?.timeoutMs ?? 15_000
       // stdin: "ignore" so the child doesn't see a piped stdin and block
       // on `Bun.stdin.text()` (see src/cli/cmd/run.ts — non-TTY stdin is
       // consumed as the prompt). The old Process.run wrapper defaulted to
       // ignore; ChildProcess.make defaults to pipe, so we set it explicitly.
-      const command = ChildProcess.make("bun", ["run", "--conditions=browser", cliEntry, ...args], {
-        cwd: home,
+      const command = ChildProcess.make(process.execPath, ["run", "--conditions=browser", cliEntry, ...args], {
+        cwd: opts?.cwd ?? home,
         env: { ...env, ...opts?.env },
         extendEnv: true,
         stdin: "ignore",
@@ -261,17 +286,23 @@ export function withCliFixture<A, E>(
       // as a finalizer error during test teardown.
       const proc = yield* Effect.acquireRelease(
         Effect.sync(() =>
-          Bun.spawn(["bun", "run", "--conditions=browser", cliEntry, ...argv], {
-            cwd: home,
+          Bun.spawn([process.execPath, "run", "--conditions=browser", cliEntry, ...argv], {
+            cwd: opts?.cwd ?? home,
             env: { ...process.env, ...env, ...opts?.env },
             stdout: "pipe",
             stderr: "pipe",
           }),
         ),
         (p) =>
-          Effect.promise(() => {
-            p.kill()
-            return p.exited
+          Effect.gen(function* () {
+            yield* Effect.sync(() => p.kill())
+            yield* Effect.promise(() => p.exited).pipe(
+              Effect.timeoutOrElse({
+                duration: Duration.seconds(1),
+                orElse: () => Effect.sync(() => p.kill("SIGKILL")),
+              }),
+            )
+            yield* Effect.promise(() => p.exited).pipe(Effect.timeout(Duration.seconds(2)))
           }).pipe(Effect.ignore),
       )
 
@@ -332,7 +363,7 @@ export function withCliFixture<A, E>(
       // Either way we await proc.exited so the test scope doesn't leak.
       const proc = yield* Effect.acquireRelease(
         Effect.sync(() =>
-          Bun.spawn(["bun", "run", "--conditions=browser", cliEntry, ...argv], {
+          Bun.spawn([process.execPath, "run", "--conditions=browser", cliEntry, ...argv], {
             cwd: opts?.cwd ?? home,
             env: { ...process.env, ...env, ...opts?.env },
             stdin: "pipe",
@@ -345,14 +376,26 @@ export function withCliFixture<A, E>(
           // window to exit, then SIGTERM. The Effect.timeoutOrElse expresses
           // exactly that race without raw setTimeout or Promise.race.
           Effect.gen(function* () {
-            yield* Effect.sync(() => p.stdin.end())
+            yield* Effect.sync(() => p.stdin.end()).pipe(Effect.ignore)
             yield* Effect.promise(() => p.exited).pipe(
               Effect.timeoutOrElse({
-                duration: Duration.seconds(2),
+                duration: Duration.seconds(1),
                 orElse: () =>
                   Effect.sync(() => {
                     p.kill()
                   }),
+              }),
+            )
+            yield* Effect.promise(() => p.exited).pipe(
+              Effect.timeoutOrElse({
+                duration: Duration.seconds(2),
+                orElse: () => Effect.sync(() => p.kill("SIGKILL")),
+              }),
+            )
+            yield* Effect.promise(() => p.exited).pipe(
+              Effect.timeoutOrElse({
+                duration: Duration.seconds(1),
+                orElse: () => Effect.sync(() => p.kill("SIGKILL")).pipe(Effect.ignore),
               }),
             )
             yield* Effect.promise(() => p.exited)

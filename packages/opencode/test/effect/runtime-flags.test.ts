@@ -44,7 +44,7 @@ describe("RuntimeFlags", () => {
       expect(flags.disableEmbeddedWebUi).toBe(true)
       expect(flags.disableExternalSkills).toBe(true)
       expect(flags.disableLspDownload).toBe(true)
-      expect(flags.disableClaudeCodePrompt).toBe(false)
+      expect(flags.disableClaudeCodePrompt).toBe(true)
       expect(flags.enableExa).toBe(true)
       expect(flags.enableParallel).toBe(true)
       expect(flags.enableExperimentalModels).toBe(true)
@@ -110,8 +110,8 @@ describe("RuntimeFlags", () => {
       expect(flags.disableEmbeddedWebUi).toBe(false)
       expect(flags.disableExternalSkills).toBe(false)
       expect(flags.disableLspDownload).toBe(false)
-      expect(flags.disableClaudeCodePrompt).toBe(false)
-      expect(flags.disableClaudeCodeSkills).toBe(false)
+      expect(flags.disableClaudeCodePrompt).toBe(true)
+      expect(flags.disableClaudeCodeSkills).toBe(true)
       expect(flags.enableExa).toBe(false)
       expect(flags.experimentalIconDiscovery).toBe(false)
       expect(flags.experimentalOxfmt).toBe(false)
@@ -162,11 +162,28 @@ describe("RuntimeFlags", () => {
     }),
   )
 
-  it.effect("disableClaudeCodePrompt defaults to false", () =>
+  it.effect("disableClaudeCodePrompt defaults to true", () =>
     Effect.gen(function* () {
       const flags = yield* readFlags.pipe(Effect.provide(fromConfig({})))
 
+      expect(flags.disableClaudeCodePrompt).toBe(true)
+    }),
+  )
+
+  it.effect("Claude Code prompt and skill loading can be explicitly enabled", () =>
+    Effect.gen(function* () {
+      const flags = yield* readFlags.pipe(
+        Effect.provide(
+          fromConfig({
+            DEVECO_DISABLE_CLAUDE_CODE: "false",
+            DEVECO_DISABLE_CLAUDE_CODE_PROMPT: "false",
+            DEVECO_DISABLE_CLAUDE_CODE_SKILLS: "false",
+          }),
+        ),
+      )
+
       expect(flags.disableClaudeCodePrompt).toBe(false)
+      expect(flags.disableClaudeCodeSkills).toBe(false)
     }),
   )
 
@@ -336,8 +353,8 @@ describe("RuntimeFlags", () => {
       expect(flags.disableEmbeddedWebUi).toBe(false)
       expect(flags.disableExternalSkills).toBe(false)
       expect(flags.disableLspDownload).toBe(false)
-      expect(flags.disableClaudeCodePrompt).toBe(false)
-      expect(flags.disableClaudeCodeSkills).toBe(false)
+      expect(flags.disableClaudeCodePrompt).toBe(true)
+      expect(flags.disableClaudeCodeSkills).toBe(true)
       expect(flags.enableExa).toBe(false)
       expect(flags.experimentalIconDiscovery).toBe(false)
       expect(flags.experimentalOxfmt).toBe(false)
@@ -347,11 +364,11 @@ describe("RuntimeFlags", () => {
     }),
   )
 
-  it.effect("disableClaudeCodeSkills defaults to false", () =>
+  it.effect("disableClaudeCodeSkills defaults to true", () =>
     Effect.gen(function* () {
       const flags = yield* readFlags.pipe(Effect.provide(fromConfig({})))
 
-      expect(flags.disableClaudeCodeSkills).toBe(false)
+      expect(flags.disableClaudeCodeSkills).toBe(true)
     }),
   )
 

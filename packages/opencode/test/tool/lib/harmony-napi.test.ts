@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll } from "bun:test"
+import { afterAll, describe, expect, test, beforeAll } from "bun:test"
 
 // Load the real harmony_napi module dynamically. This avoids being affected
 // by mock.module calls from other test files (emulator-tools-execute.test.ts)
@@ -11,12 +11,29 @@ function uniqueWt() {
   return `/tmp/harmony-napi-test-wt-${Date.now()}-${wtCounter++}`
 }
 
+// Snapshot env vars before any deletion so afterAll can restore them
+const savedUIVerifyBaseURL = process.env.UI_VERIFY_BASE_URL
+const savedUIVerifyApiKey = process.env.UI_VERIFY_API_KEY
+const savedUIVerifyModelName = process.env.UI_VERIFY_MODEL_NAME
+
 describe("resolveUIVerifyParams – 3-tier fallback logic", () => {
   beforeAll(() => {
     // Clear all relevant env vars
     delete process.env.UI_VERIFY_BASE_URL
     delete process.env.UI_VERIFY_API_KEY
     delete process.env.UI_VERIFY_MODEL_NAME
+  })
+
+  afterAll(() => {
+    // Restore original env vars to avoid polluting other test files
+    if (savedUIVerifyBaseURL === undefined) delete process.env.UI_VERIFY_BASE_URL
+    else process.env.UI_VERIFY_BASE_URL = savedUIVerifyBaseURL
+
+    if (savedUIVerifyApiKey === undefined) delete process.env.UI_VERIFY_API_KEY
+    else process.env.UI_VERIFY_API_KEY = savedUIVerifyApiKey
+
+    if (savedUIVerifyModelName === undefined) delete process.env.UI_VERIFY_MODEL_NAME
+    else process.env.UI_VERIFY_MODEL_NAME = savedUIVerifyModelName
   })
 
   describe("tier 2: environment variables", () => {

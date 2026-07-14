@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn } from "bun:test"
 import { Cause, Effect, Exit, Layer } from "effect"
 import { Agent } from "../../src/agent/agent"
+import * as env from "../../src/tool/lib/env"
 import { Truncate } from "../../src/tool/truncate"
 import { Tool } from "../../src/tool/tool"
 import { SessionID, MessageID } from "../../src/session/schema"
@@ -9,11 +10,6 @@ import { testEffect } from "../lib/effect"
 let mockFindDevEcoHomeResult: string | undefined
 let mockHdcPathResult: string
 let mockFileExistsResult: boolean
-
-void mock.module("../../src/tool/lib/env", () => ({
-  findDevEcoHome: async () => mockFindDevEcoHomeResult,
-  hdcPath: (_home: string) => mockHdcPathResult,
-}))
 
 const { HdcLogTool } = await import("../../src/tool/hdc_log")
 
@@ -128,16 +124,22 @@ function setupSpawnCaptureWithOutput(stdout: string) {
 describe("HdcLogTool", () => {
   let fileSpy: ReturnType<typeof spyOn> | undefined
   let spawnSpy: ReturnType<typeof spyOn> | undefined
+  let findDevEcoHomeSpy: ReturnType<typeof spyOn>
+  let hdcPathSpy: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     resetMocks()
     fileSpy = undefined
     spawnSpy = undefined
+    findDevEcoHomeSpy = spyOn(env, "findDevEcoHome").mockImplementation(async () => mockFindDevEcoHomeResult)
+    hdcPathSpy = spyOn(env, "hdcPath").mockImplementation((_home: string) => mockHdcPathResult)
   })
 
   afterEach(() => {
     fileSpy?.mockRestore()
     spawnSpy?.mockRestore()
+    findDevEcoHomeSpy?.mockRestore()
+    hdcPathSpy?.mockRestore()
   })
 
   describe("execute", () => {

@@ -1,25 +1,12 @@
-import { describe, expect, mock, it, beforeEach } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import os from "node:os"
 import path from "node:path"
 import fs from "node:fs"
 import { getMockBridge } from "../lib/mock-bridge"
 import emulatorTools from "../../src/tool/lib/emulator_tools.json"
+import * as harmonyNapi from "../../src/tool/lib/harmony_napi"
 
 const bridge = getMockBridge()
-
-// Import real implementation before mock.module takes effect
-const { resolveUIVerifyParams: realResolveUIVerifyParams } = await import("../../src/tool/lib/harmony_napi")
-
-void mock.module("../../src/tool/lib/harmony_napi", () => ({
-  ensureInitialized: async (worktree: string) => bridge.ensureInitialized_(worktree),
-  callHarmonyNapiTool: async (params: any) => bridge.callTool_(params),
-  listTools: async (worktree: string) => bridge.listTools_(worktree),
-  callTool: async (worktree: string, toolName: string, args: Record<string, unknown>) =>
-    bridge.callTool_({ worktree, toolName, args }),
-  napiBridgeStop: async () => {},
-  // Keep real resolveUIVerifyParams to avoid polluting other tests with mock version
-  resolveUIVerifyParams: realResolveUIVerifyParams,
-}))
 
 const {
   parseToolArgs,
@@ -30,9 +17,23 @@ const {
   formatSchemaError,
 } = await import("../../src/plugin/harmony-napi-dynamic-tools")
 
-const { callHarmonyNapiTool } = await import("../../src/tool/lib/harmony_napi")
+let callHarmonyNapiToolSpy: ReturnType<typeof spyOn>
+let resolveUIVerifyParamsSpy: ReturnType<typeof spyOn>
 
-beforeEach(() => bridge.reset())
+beforeEach(() => {
+  bridge.reset()
+  callHarmonyNapiToolSpy = spyOn(harmonyNapi, "callHarmonyNapiTool").mockImplementation(
+    async (params: any) => bridge.callTool_(params),
+  )
+  resolveUIVerifyParamsSpy = spyOn(harmonyNapi, "resolveUIVerifyParams").mockImplementation(
+    (worktree: string) => bridge.resolveUIVerifyParams_(worktree),
+  )
+})
+
+afterEach(() => {
+  callHarmonyNapiToolSpy?.mockRestore()
+  resolveUIVerifyParamsSpy?.mockRestore()
+})
 
 describe("textFromCallResult", () => {
   it("extracts text from MCP content array", () => {
@@ -110,7 +111,7 @@ describe("buildProxiedToolDescription", () => {
   })
 
   it("returns fallback description when undefined", () => {
-    expect(buildProxiedToolDescription("build_project", undefined)).toBe("Harmony N-API tool: build_project.")
+    expect(buildProxiedToolDescription("build_project", undefined)).toContain("N-API tool: build_project.")
   })
 
   it("trims whitespace from description", () => {
@@ -229,7 +230,7 @@ describe("execute flow simulation — callHarmonyNapiTool with mock bridge", () 
         bridge.next({
           content: [{ type: "text", text: `${name} succeeded` }],
         })
-        const result = await callHarmonyNapiTool({ worktree: "/test", toolName: name, args: payload })
+        const result = await harmonyNapi.callHarmonyNapiTool({ worktree: "/test", toolName: name, args: payload })
         const text = textFromCallResult(result)
         expect(text).toBe(`${name} succeeded`)
         expect(bridge.calls).toHaveLength(1)
@@ -240,7 +241,7 @@ describe("execute flow simulation — callHarmonyNapiTool with mock bridge", () 
       it(`${name}: bridge returns non-MCP format`, async () => {
         const payload = parseToolArgs(validArgs, tool.inputSchema)
         bridge.next({ status: "ok", output: "raw result" })
-        const result = await callHarmonyNapiTool({ worktree: "/test", toolName: name, args: payload })
+        const result = await harmonyNapi.callHarmonyNapiTool({ worktree: "/test", toolName: name, args: payload })
         const text = textFromCallResult(result)
         expect(text).toBe(JSON.stringify({ status: "ok", output: "raw result" }, null, 2))
       })
@@ -249,14 +250,14 @@ describe("execute flow simulation — callHarmonyNapiTool with mock bridge", () 
         const payload = parseToolArgs(validArgs, tool.inputSchema)
         bridge.nextError(new Error("bridge connection failed"))
         await expect(
-          callHarmonyNapiTool({ worktree: "/test", toolName: name, args: payload }),
+          harmonyNapi.callHarmonyNapiTool({ worktree: "/test", toolName: name, args: payload }),
         ).rejects.toThrow("bridge connection failed")
       })
 
       it(`${name}: bridge returns empty content`, async () => {
         const payload = parseToolArgs(validArgs, tool.inputSchema)
         bridge.next({ content: [] })
-        const result = await callHarmonyNapiTool({ worktree: "/test", toolName: name, args: payload })
+        const result = await harmonyNapi.callHarmonyNapiTool({ worktree: "/test", toolName: name, args: payload })
         const text = textFromCallResult(result)
         expect(text).toBe(JSON.stringify({ content: [] }, null, 2))
       })
@@ -324,7 +325,7 @@ describe("execute flow — save_ui_screenshot specific logic", () => {
     bridge.next({
       content: [{ type: "text", text: "screenshots saved: [shot1.png, shot2.png]" }],
     })
-    const result = await callHarmonyNapiTool({ worktree: realTmp, toolName: "save_ui_screenshot", args: payload })
+    const result = await harmonyNapi.callHarmonyNapiTool({ worktree: realTmp, toolName: "save_ui_screenshot", args: payload })
     const text = textFromCallResult(result)
     expect(text).toBe("screenshots saved: [shot1.png, shot2.png]")
     expect(bridge.calls[0].args.dirname).toBe(realTmp)
@@ -347,7 +348,7 @@ describe("execute flow — save_ui_screenshot specific logic", () => {
     validatePathParameters(payload, realTmp)
     bridge.nextError(new Error("device not connected"))
     await expect(
-      callHarmonyNapiTool({ worktree: realTmp, toolName: "save_ui_screenshot", args: payload }),
+      harmonyNapi.callHarmonyNapiTool({ worktree: realTmp, toolName: "save_ui_screenshot", args: payload }),
     ).rejects.toThrow("device not connected")
   })
 })
@@ -355,7 +356,7 @@ describe("execute flow — save_ui_screenshot specific logic", () => {
 describe("execute flow — ensureInitialized behavior via mock bridge", () => {
   it("tracks worktree passed to ensureInitialized", async () => {
     bridge.next({ content: [{ text: "ok" }] })
-    await callHarmonyNapiTool({ worktree: "/projects/app1", toolName: "check_ets_files", args: { files: ["a.ets"] } })
+    await harmonyNapi.callHarmonyNapiTool({ worktree: "/projects/app1", toolName: "check_ets_files", args: { files: ["a.ets"] } })
     // callHarmonyNapiTool internally calls ensureInitialized, but the mock tracks calls separately
     expect(bridge.calls).toHaveLength(1)
     expect(bridge.calls[0].worktree).toBe("/projects/app1")

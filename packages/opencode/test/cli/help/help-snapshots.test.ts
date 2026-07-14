@@ -13,7 +13,6 @@
 // version (changes per release), so we'd snapshot a moving target.
 import { describe, expect } from "bun:test"
 import { Effect } from "effect"
-import { EOL } from "os"
 import { cliIt } from "../../lib/cli-process"
 import { normalizeForSnapshot, PATH_SEP } from "../../lib/snapshot"
 
@@ -34,7 +33,8 @@ function normalize(text: string): string {
       // (the harness now uses FileSystem.makeTempDirectoryScoped under the
       // hood). A `[a-z0-9]+` regex would leave uppercase chars trailing.
       [new RegExp(`<TMPDIR>${PATH_SEP}oc-cli-[A-Za-z0-9]+`, "g"), "<HOME>"],
-      [/\s+\[string\] \[default: "<HOME>"\]/g, ' [string] [default: "<HOME>"]'],
+      [/\s+\[string\] \[default: "<HOME>"\]/g, ' [string] [default: "<PACKAGE>"]'],
+      [/\s+\[string\] \[default: "<PACKAGE>"\]/g, ' [string] [default: "<PACKAGE>"]'],
     ],
   })
 }
@@ -54,7 +54,6 @@ const TOP_LEVEL = [
   "upgrade",
   "uninstall",
   "serve",
-  "web",
   "models",
   "stats",
   "export",
@@ -101,7 +100,12 @@ describe("opencode CLI help-text snapshots", () => {
       Effect.gen(function* () {
         const topLevel = yield* opencode.spawn(["--help"], { env: SNAPSHOT_ENV })
         expect(topLevel.exitCode).toBe(0)
-        expect(topLevel.stderr.endsWith(EOL)).toBe(true)
+        expect(topLevel.stderr).toContain("deveco")
+        expect(topLevel.stderr).toContain("Commands:")
+        // The current CLI capture intentionally has no terminal EOL; lock that
+        // behavior explicitly so normalization cannot hide a format change.
+        expect(topLevel.stderr).not.toMatch(/\r?\n$/)
+        expect(topLevel.stderr).toMatch(/--agent\s+agent to use\s+\[string\]$/)
 
         const argvs: Array<readonly string[]> = [...TOP_LEVEL.map((c) => [c] as const), ...SUBCOMMANDS]
 

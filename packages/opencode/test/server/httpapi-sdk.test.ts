@@ -3,9 +3,11 @@ import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { Deferred, Effect, Layer } from "effect"
 import type * as Scope from "effect/Scope"
+import { chmod, stat } from "node:fs/promises"
 import { HttpServer } from "effect/unstable/http"
 import { ChildProcessSpawner } from "effect/unstable/process"
 import { FSUtil } from "@opencode-ai/core/fs-util"
+import { Global } from "@opencode-ai/core/global"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { createOpencodeClient } from "@opencode-ai/sdk/v2"
@@ -57,6 +59,10 @@ type TestServices =
   | InstanceStore.Service
   | HttpServer.HttpServer
 type TestScope = Scope.Scope | TestServices
+type RipgrepBackup = { data: Uint8Array; mode: number } | undefined
+type RipgrepFixture = { target: string; backup: RipgrepBackup; unlock: () => void }
+
+let ripgrepFixtureLock = Promise.resolve()
 
 function client(
   serverPath: ServerPath,
@@ -121,6 +127,78 @@ function capture(request: () => Promise<SdkResult>) {
       error: result.error,
     })),
   )
+}
+
+function withFakeRipgrep<A, E, R>(self: Effect.Effect<A, E, R>) {
+  return Effect.acquireUseRelease(
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const target = path.join(Global.Path.bin, process.platform === "win32" ? "rg.exe" : "rg")
+      return yield* Effect.promise(async () => {
+        const previous = ripgrepFixtureLock
+        let unlock = () => {}
+        ripgrepFixtureLock = new Promise<void>((resolve) => {
+          unlock = resolve
+        })
+        await previous
+
+        let backup: RipgrepBackup
+        let replaced = false
+        try {
+          const file = Bun.file(target)
+          backup = (await file.exists())
+            ? { data: new Uint8Array(await file.arrayBuffer()), mode: (await stat(target)).mode }
+            : undefined
+          await fs.ensureDir(Global.Path.bin).pipe(Effect.runPromise)
+          replaced = true
+          await fs.remove(target, { force: true }).pipe(Effect.runPromise)
+          const proc = Bun.spawn(
+            [
+              process.execPath,
+              "build",
+              "--compile",
+              path.join(import.meta.dir, "../fixture/fake-ripgrep.ts"),
+              "--outfile",
+              target,
+            ],
+            { stdout: "pipe", stderr: "pipe" },
+          )
+          const [stdout, stderr, code] = await Promise.all([
+            new Response(proc.stdout).text(),
+            new Response(proc.stderr).text(),
+            proc.exited,
+          ])
+          if (code !== 0) throw new Error(stderr.trim() || stdout.trim() || `failed to compile fake ripgrep (${code})`)
+          return { target, backup, unlock } satisfies RipgrepFixture
+        } catch (error) {
+          try {
+            if (replaced) await restoreRipgrep(fs, target, backup)
+          } finally {
+            unlock()
+          }
+          throw error
+        }
+      })
+    }),
+    () => self,
+    (fixture) =>
+      FSUtil.Service.use((fs) =>
+        Effect.promise(async () => {
+          try {
+            await restoreRipgrep(fs, fixture.target, fixture.backup)
+          } finally {
+            fixture.unlock()
+          }
+        }),
+      ),
+  )
+}
+
+async function restoreRipgrep(fs: FSUtil.Interface, target: string, backup: RipgrepBackup) {
+  await fs.remove(target, { force: true }).pipe(Effect.runPromise)
+  if (!backup) return
+  await Bun.write(target, backup.data)
+  if (process.platform !== "win32") await chmod(target, backup.mode & 0o777)
 }
 
 function captureThrown(request: () => Promise<unknown>) {
@@ -219,7 +297,10 @@ function httpapiInstance<A, E>(
   )
 }
 
-function serverPathParity<A, E>(name: string, scenario: (serverPath: ServerPath) => Effect.Effect<A, E, TestScope>) {
+function serverPathParity<A, E>(
+  name: string,
+  scenario: (serverPath: ServerPath) => Effect.Effect<A, E, TestScope>,
+) {
   it.live(name, scenario("raw"))
 }
 
@@ -358,49 +439,53 @@ describe("HttpApi SDK", () => {
     "uses the generated SDK for safe instance routes",
     { serverPath: "raw", git: false, setup: writeStandardFiles },
     ({ sdk }) =>
-      Effect.gen(function* () {
-        const file = yield* call(() => sdk.file.read({ path: "hello.txt" }))
-        const session = yield* call(() => sdk.session.create({ title: "sdk" }))
-        const listed = yield* call(() => sdk.session.list({ roots: true, limit: 10 }))
+      withFakeRipgrep(
+        Effect.gen(function* () {
+          const file = yield* call(() => sdk.file.read({ path: "hello.txt" }))
+          const session = yield* call(() => sdk.session.create({ title: "sdk" }))
+          const listed = yield* call(() => sdk.session.list({ roots: true, limit: 10 }))
 
-        expect(file.response.status).toBe(200)
-        expect(file.data).toMatchObject({ content: "hello" })
-        expect(session.response.status).toBe(200)
-        expect(session.data).toMatchObject({ title: "sdk" })
-        expect(listed.response.status).toBe(200)
-        expect(listed.data?.map((item) => item.id)).toContain(session.data?.id)
+          expect(file.response.status).toBe(200)
+          expect(file.data).toMatchObject({ content: "hello" })
+          expect(session.response.status).toBe(200)
+          expect(session.data).toMatchObject({ title: "sdk" })
+          expect(listed.response.status).toBe(200)
+          expect(listed.data?.map((item) => item.id)).toContain(session.data?.id)
 
-        yield* Effect.all([
-          expectStatus(() => sdk.project.current(), 200),
-          expectStatus(() => sdk.config.get(), 200),
-          expectStatus(() => sdk.config.providers(), 200),
-          expectStatus(() => sdk.find.files({ query: "hello", limit: 10 }), 200),
-        ])
-      }),
+          yield* Effect.all([
+            expectStatus(() => sdk.project.current(), 200),
+            expectStatus(() => sdk.config.get(), 200),
+            expectStatus(() => sdk.config.providers(), 200),
+            expectStatus(() => sdk.find.files({ query: "hello", limit: 10 }), 200),
+          ])
+        }),
+      ),
   )
 
   httpapi(
     "routes configured SDK directory and workspace for v2 location GETs",
-    withProject("raw", { setup: writeStandardFiles }, ({ directory }) =>
-      Effect.gen(function* () {
-        const workspaceID = "wrk_sdk"
-        let request: Request | undefined
-        const sdk = yield* client("raw", directory, {
-          workspaceID,
-          onRequest: (value) => (request = value),
-        })
-        const found = yield* call(() => sdk.v2.fs.find({ query: "hello", type: "file" }))
-        const url = new URL(request!.url)
+    withFakeRipgrep(
+      withProject("raw", { setup: writeStandardFiles }, ({ directory }) =>
+        Effect.gen(function* () {
+          const workspaceID = "wrk_sdk"
+          let request: Request | undefined
+          const sdk = yield* client("raw", directory, {
+            workspaceID,
+            onRequest: (value) => (request = value),
+          })
+          const found = yield* call(() => sdk.v2.fs.find({ query: "hello", type: "file" }))
+          const url = new URL(request!.url)
 
-        expect(found.response.status).toBe(200)
-        expect(found.data).toMatchObject({ data: [{ path: "hello.txt", type: "file" }] })
-        expect(url.searchParams.get("directory")).toBe(directory)
-        expect(url.searchParams.get("workspace")).toBe(workspaceID)
-        expect(url.searchParams.get("location[directory]")).toBe(directory)
-        expect(url.searchParams.get("location[workspace]")).toBe(workspaceID)
-        expect(request!.headers.has("x-deveco-directory")).toBe(false)
-        expect(request!.headers.has("x-deveco-workspace")).toBe(false)
-      }),
+          expect(found.response.status).toBe(200)
+          expect(found.data).toMatchObject({ data: [{ path: "hello.txt", type: "file" }] })
+          expect(url.searchParams.get("directory")).toBe(directory)
+          expect(url.searchParams.get("workspace")).toBe(workspaceID)
+          expect(url.searchParams.get("location[directory]")).toBe(directory)
+          expect(url.searchParams.get("location[workspace]")).toBe(workspaceID)
+          expect(request!.headers.has("x-deveco-directory")).toBe(false)
+          expect(request!.headers.has("x-deveco-workspace")).toBe(false)
+        }),
+      ),
     ),
   )
 
@@ -510,54 +595,56 @@ describe("HttpApi SDK", () => {
   )
 
   serverPathParity("matches generated SDK instance read routes", (serverPath) =>
-    withProject(serverPath, { git: true, setup: writeStandardFiles }, ({ sdk, directory }) =>
-      Effect.gen(function* () {
-        const project = yield* capture(() => sdk.project.current())
-        const projects = yield* capture(() => sdk.project.list())
-        const paths = yield* capture(() => sdk.path.get())
-        const config = yield* capture(() => sdk.config.get())
-        const providers = yield* capture(() => sdk.config.providers())
-        const file = yield* capture(() => sdk.file.read({ path: "hello.txt" }))
-        const files = yield* capture(() => sdk.file.list({ path: "." }))
-        const fileStatus = yield* capture(() => sdk.file.status())
-        const findFiles = yield* capture(() => sdk.find.files({ query: "hello", limit: 10 }))
-        const findText = yield* capture(() => sdk.find.text({ pattern: "sdk-parity" }))
-        const agents = yield* capture(() => sdk.app.agents())
-        const skills = yield* capture(() => sdk.app.skills())
-        const tools = yield* capture(() => sdk.tool.ids())
-        const vcs = yield* capture(() => sdk.vcs.get())
-        const formatter = yield* capture(() => sdk.formatter.status())
-        const lsp = yield* capture(() => sdk.lsp.status())
+    withFakeRipgrep(
+      withProject(serverPath, { git: true, setup: writeStandardFiles }, ({ sdk, directory }) =>
+        Effect.gen(function* () {
+          const project = yield* capture(() => sdk.project.current())
+          const projects = yield* capture(() => sdk.project.list())
+          const paths = yield* capture(() => sdk.path.get())
+          const config = yield* capture(() => sdk.config.get())
+          const providers = yield* capture(() => sdk.config.providers())
+          const file = yield* capture(() => sdk.file.read({ path: "hello.txt" }))
+          const files = yield* capture(() => sdk.file.list({ path: "." }))
+          const fileStatus = yield* capture(() => sdk.file.status())
+          const findFiles = yield* capture(() => sdk.find.files({ query: "hello", limit: 10 }))
+          const findText = yield* capture(() => sdk.find.text({ pattern: "sdk-parity" }))
+          const agents = yield* capture(() => sdk.app.agents())
+          const skills = yield* capture(() => sdk.app.skills())
+          const tools = yield* capture(() => sdk.tool.ids())
+          const vcs = yield* capture(() => sdk.vcs.get())
+          const formatter = yield* capture(() => sdk.formatter.status())
+          const lsp = yield* capture(() => sdk.lsp.status())
 
-        return {
-          statuses: statuses({
-            project,
-            projects,
-            paths,
-            config,
-            providers,
-            file,
-            files,
-            fileStatus,
-            findFiles,
-            findText,
-            agents,
-            skills,
-            tools,
-            vcs,
-            formatter,
-            lsp,
-          }),
-          project: { worktreeSelected: record(project.data).worktree === directory },
-          paths: { directorySelected: record(paths.data).directory === directory },
-          file: record(file.data).content,
-          hasProject: array(projects.data).length > 0,
-          foundFile: JSON.stringify(findFiles.data).includes("hello.txt"),
-          foundText: JSON.stringify(findText.data ?? null).includes("sdk-parity"),
-          listedFile: JSON.stringify(files.data).includes("hello.txt"),
-          vcs: { hasBranch: typeof record(vcs.data).branch === "string" },
-        }
-      }),
+          return {
+            statuses: statuses({
+              project,
+              projects,
+              paths,
+              config,
+              providers,
+              file,
+              files,
+              fileStatus,
+              findFiles,
+              findText,
+              agents,
+              skills,
+              tools,
+              vcs,
+              formatter,
+              lsp,
+            }),
+            project: { worktreeSelected: record(project.data).worktree === directory },
+            paths: { directorySelected: record(paths.data).directory === directory },
+            file: record(file.data).content,
+            hasProject: array(projects.data).length > 0,
+            foundFile: JSON.stringify(findFiles.data).includes("hello.txt"),
+            foundText: JSON.stringify(findText.data ?? null).includes("sdk-parity"),
+            listedFile: JSON.stringify(files.data).includes("hello.txt"),
+            vcs: { hasBranch: typeof record(vcs.data).branch === "string" },
+          }
+        }),
+      ),
     ),
   )
 
@@ -813,6 +900,7 @@ describe("HttpApi SDK", () => {
           }),
         )
         const sessionID = String(record(session.data).id)
+        const skills = yield* capture(() => sdk.app.skills())
         const prompt = yield* capture(() =>
           sdk.session.prompt({
             sessionID,
@@ -824,6 +912,8 @@ describe("HttpApi SDK", () => {
         const inputs = yield* llm.inputs
 
         expect(session.status).toBe(200)
+        expect(skills.status).toBe(200)
+        expect(skills.data).toEqual(expect.arrayContaining([expect.objectContaining({ name: "project-rest-skill" })]))
         expect(prompt.status).toBe(200)
         expect(JSON.stringify(inputs[0])).toContain("project-rest-skill")
       }),

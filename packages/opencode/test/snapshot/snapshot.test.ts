@@ -186,6 +186,7 @@ it.instance(
   "symlink handling",
   withTrackedSnapshot(({ tmp, snapshot, before }) =>
     Effect.gen(function* () {
+      if (process.platform === "win32") return // Windows requires admin for symlinks
       yield* Effect.promise(() => fs.symlink(`${tmp.path}/a.txt`, `${tmp.path}/link.txt`, "file"))
       expect((yield* snapshot.patch(before)).files).toContain(fwd(tmp.path, "link.txt"))
     }),
@@ -379,6 +380,7 @@ it.instance(
   "nested symlinks",
   withTrackedSnapshot(({ tmp, snapshot, before }) =>
     Effect.gen(function* () {
+      if (process.platform === "win32") return // Windows requires admin for symlinks
       yield* mkdirp(`${tmp.path}/sub/dir`)
       yield* write(`${tmp.path}/sub/dir/target.txt`, "target content")
       yield* Effect.promise(() => fs.symlink(`${tmp.path}/sub/dir/target.txt`, `${tmp.path}/sub/dir/link.txt`, "file"))

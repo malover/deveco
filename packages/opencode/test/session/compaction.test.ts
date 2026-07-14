@@ -28,7 +28,7 @@ import * as SessionProcessorModule from "../../src/session/processor"
 import { ExitQueue } from "../../src/session/exit-queue"
 import { Snapshot } from "../../src/snapshot"
 import { ProviderTest } from "../fake/provider"
-import { testEffect } from "../lib/effect"
+import { awaitWithTimeout, testEffect } from "../lib/effect"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { TestConfig } from "../fixture/config"
 import { RuntimeFlags } from "@/effect/runtime-flags"
@@ -44,6 +44,26 @@ const summary = Layer.succeed(
     computeDiff: () => Effect.succeed([]),
   }),
 )
+
+const compactionAgent = Layer.mock(Agent.Service, {
+  get: () =>
+    Effect.succeed({
+      name: "compaction",
+      mode: "subagent" as const,
+      permission: [],
+      options: {},
+    }),
+})
+
+const noPlugins = Layer.mock(Plugin.Service)({
+  trigger: <Name extends string, Input, Output>(_name: Name, _input: Input, output: Output) => Effect.succeed(output),
+  list: () => Effect.succeed([]),
+  init: () => Effect.void,
+})
+
+const noSnapshots = Layer.mock(Snapshot.Service, {
+  track: () => Effect.succeed(undefined),
+})
 
 const ref = {
   providerID: ProviderV2.ID.make("test"),
@@ -271,6 +291,7 @@ function withCompaction(options?: CompactionProcessOptions) {
 function compactionProcessLayer(options?: CompactionProcessOptions) {
   const events = EventV2Bridge.defaultLayer
   const status = SessionStatus.layer.pipe(Layer.provide(events))
+  const config = options?.config ?? cfg()
   const processor = options?.llm
     ? SessionProcessorModule.SessionProcessor.layer.pipe(
         Layer.provide(summary),
@@ -283,14 +304,14 @@ function compactionProcessLayer(options?: CompactionProcessOptions) {
   return Layer.mergeAll(SessionCompaction.layer.pipe(Layer.provide(processor)), processor, events, status).pipe(
     Layer.provide(SessionNs.defaultLayer),
     Layer.provide((options?.provider ?? wide()).layer),
-    Layer.provide(Snapshot.defaultLayer),
+    Layer.provide(noSnapshots),
     Layer.provide(options?.llm ?? LLM.defaultLayer),
     Layer.provide(Permission.defaultLayer),
-    Layer.provide(Agent.defaultLayer),
-    Layer.provide(options?.plugin ?? Plugin.defaultLayer),
+    Layer.provide(compactionAgent),
+    Layer.provide(options?.plugin ?? noPlugins),
     Layer.provide(status),
     Layer.provide(events),
-    Layer.provide(options?.config ?? Config.defaultLayer),
+    Layer.provide(config),
     Layer.provide(RuntimeFlags.layer({ experimentalEventSystem: true })),
     Layer.provide(EventV2Bridge.defaultLayer),
   )
@@ -874,7 +895,7 @@ describe("session.compaction.process", () => {
         auto: false,
       })
 
-      yield* Deferred.await(done).pipe(Effect.timeout("500 millis"))
+      yield* awaitWithTimeout(Deferred.await(done), "compacted event was not published", "500 millis")
       expect(result).toBe("continue")
       expect(seen).toBe(true)
     }),
@@ -1252,10 +1273,11 @@ describe("session.compaction.process", () => {
           })
           .pipe(Effect.forkChild)
 
-        yield* Deferred.await(ready).pipe(Effect.timeout("1 second"))
+        yield* awaitWithTimeout(Deferred.await(ready), "compaction never entered retry backoff", "1 second")
+        yield* Effect.yieldNow
         const start = Date.now()
-        yield* Fiber.interrupt(fiber)
-        const exit = yield* Fiber.await(fiber).pipe(Effect.timeout("250 millis"))
+        yield* Fiber.interrupt(fiber).pipe(Effect.timeout("250 millis"))
+        const exit = yield* Fiber.await(fiber)
 
         expect(Exit.isFailure(exit)).toBe(true)
         if (Exit.isFailure(exit)) {
@@ -1286,7 +1308,11 @@ describe("session.compaction.process", () => {
             })
             .pipe(Effect.forkChild)
 
-          yield* Deferred.await(ready).pipe(Effect.timeout("1 second"))
+          yield* awaitWithTimeout(
+            Deferred.await(ready),
+            "compaction plugin hook was not reached before abort",
+            "1 second",
+          )
           yield* Fiber.interrupt(fiber)
           const exit = yield* Fiber.await(fiber).pipe(Effect.timeout("250 millis"))
           const all = yield* ssn.messages({ sessionID: session.id })

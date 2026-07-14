@@ -189,10 +189,12 @@ describe("tool.read external_directory permission", () => {
 
         const { items, next } = asks()
         const target = path.join(dir, "test.txt")
-        const alt = target
-          .replace(/^[A-Za-z]:/, "")
-          .replaceAll("\\", "/")
-          .toLowerCase()
+
+        // Test that the read tool normalizes a win32 path that uses forward slashes
+        // and lowercase casing. Use the file's own path (which has a drive letter)
+        // since a drive-stripped root-relative path won't resolve to `dir` on CI
+        // Windows runners where the temp dir lives on a different drive than CWD.
+        const alt = Filesystem.normalizePath(target).replaceAll("\\", "/").toLowerCase()
 
         yield* exec(dir, { filePath: alt }, next)
         const read = items.find((item) => item.permission === "read")

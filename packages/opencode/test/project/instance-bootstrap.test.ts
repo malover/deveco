@@ -3,15 +3,16 @@ import { existsSync } from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
-import { Cause, Effect, Exit, Fiber, Layer } from "effect"
-import { bootstrap as cliBootstrap } from "../../src/cli/bootstrap"
+import { Global } from "@opencode-ai/core/global"
+import { Effect, Layer } from "effect"
 import { InstanceLayer } from "../../src/project/instance-layer"
 import { InstanceStore } from "../../src/project/instance-store"
 import { disposeAllInstances, tmpdirScoped } from "../fixture/fixture"
+import { markPluginDependenciesReady } from "../fixture/plugin"
 import { testEffect } from "../lib/effect"
-import { waitGlobalBusEvent } from "../server/global-bus"
 
 const it = testEffect(Layer.mergeAll(InstanceLayer.layer, CrossSpawnSpawner.defaultLayer))
+const cliIt = testEffect(CrossSpawnSpawner.defaultLayer)
 
 // InstanceBootstrap must run before any code touches the instance —
 // originally tracked by PRs #25389 and #25449, now a permanent
@@ -27,6 +28,7 @@ afterEach(async () => {
 
 const bootstrapFixture = Effect.gen(function* () {
   const dir = yield* tmpdirScoped({ git: true })
+  yield* Effect.promise(() => markPluginDependenciesReady(Global.Path.config))
   const marker = path.join(dir, "config-hook-fired")
   const pluginFile = path.join(dir, "plugin.ts")
   yield* Effect.promise(() =>
@@ -55,10 +57,36 @@ const bootstrapFixture = Effect.gen(function* () {
   return { directory: dir, marker }
 })
 
-function waitDisposed(directory: string) {
-  return waitGlobalBusEvent({
-    message: "timed out waiting for CLI bootstrap instance disposal",
-    predicate: (event) => event.payload.type === "server.instance.disposed" && event.directory === directory,
+function runCliBootstrap(directory: string, marker: string, mode: "success" | "reject") {
+  return Effect.promise(async () => {
+    const worker = Bun.spawn(
+      [
+        process.execPath,
+        "run",
+        "--conditions=browser",
+        path.join(import.meta.dir, "../fixture/instance-bootstrap-worker.ts"),
+        directory,
+        marker,
+        mode,
+      ],
+      {
+        env: process.env,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    )
+    const killTimer = setTimeout(() => worker.kill(), 15_000)
+    try {
+      const [exitCode, stdout, stderr] = await Promise.all([
+        worker.exited,
+        new Response(worker.stdout).text(),
+        new Response(worker.stderr).text(),
+      ])
+      if (exitCode !== 0) throw new Error(`CLI bootstrap worker failed: ${stderr || stdout}`)
+    } finally {
+      clearTimeout(killTimer)
+      worker.kill()
+    }
   })
 }
 
@@ -73,28 +101,21 @@ it.live("InstanceStore.provide runs InstanceBootstrap before effect", () =>
   }),
 )
 
-it.live("CLI bootstrap runs InstanceBootstrap before callback", () =>
+cliIt.live("CLI bootstrap runs InstanceBootstrap before callback", () =>
   Effect.gen(function* () {
     const tmp = yield* bootstrapFixture
 
-    yield* Effect.promise(() => cliBootstrap(tmp.directory, async () => "ok"))
+    yield* runCliBootstrap(tmp.directory, tmp.marker, "success")
 
     expect(existsSync(tmp.marker)).toBe(true)
   }),
 )
 
-it.live("CLI bootstrap disposes the instance when the callback rejects", () =>
+cliIt.live("CLI bootstrap disposes the instance when the callback rejects", () =>
   Effect.gen(function* () {
     const tmp = yield* bootstrapFixture
-    const disposed = yield* waitDisposed(tmp.directory).pipe(Effect.forkScoped({ startImmediately: true }))
 
-    const exit = yield* Effect.promise(() =>
-      cliBootstrap(tmp.directory, async () => Promise.reject(new Error("boom"))),
-    ).pipe(Effect.exit)
-
-    expect(Exit.isFailure(exit)).toBe(true)
-    if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toMatchObject({ message: "boom" })
-    yield* Fiber.join(disposed)
+    yield* runCliBootstrap(tmp.directory, tmp.marker, "reject")
   }),
 )
 

@@ -1144,9 +1144,17 @@ describe("tool.shell abort", () => {
       projectRoot,
       Effect.gen(function* () {
         const updates: string[] = []
+        // Use cross-shell compatible chaining with a small delay to ensure
+        // multiple metadata updates. bash/cmd use `&&` + `sleep`, PowerShell
+        // uses `;` + `Start-Sleep`.
+        const sh = Shell.name(Shell.acceptable())
+        const isPowerShell = sh === "pwsh" || sh === "powershell"
+        const command = isPowerShell
+          ? 'Write-Output "first"; Start-Sleep -Milliseconds 100; Write-Output "second"'
+          : 'echo first && sleep 0.1 && echo second'
         const result = yield* run(
           {
-            command: `echo first && sleep 0.1 && echo second`,
+            command,
             description: "Streaming test",
           },
           {

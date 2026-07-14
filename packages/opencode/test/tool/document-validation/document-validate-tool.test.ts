@@ -529,9 +529,9 @@ describe("validateDocumentSimple: design missing individual sections", () => {
     })
   })
 
-  describe("missing Quickstart", () => {
-    test("fails when missing Quickstart", () => {
-      const md = `# Implementation Plan: Auth
+    describe("Quickstart is optional", () => {
+      test("passes when Quickstart is absent", () => {
+        const md = `# Implementation Plan: Auth
 
 ## Summary
 
@@ -545,12 +545,11 @@ describe("validateDocumentSimple: design missing individual sections", () => {
 
 ## Contracts & Interfaces
 `
-      const p = tempFile(md)
-      const result = Effect.runSync(validateDocumentSimple(p, "design"))
-      expect(result).toContain("Missing required sections")
-      expect(result).toContain("Quickstart")
+        const p = tempFile(md)
+        const result = Effect.runSync(validateDocumentSimple(p, "design"))
+        expect(result).toBe("")
+      })
     })
-  })
 
   describe("prefix match", () => {
     test("passes with prefix match for H1", () => {

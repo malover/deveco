@@ -23,7 +23,8 @@ describe("LLM deveco proxy headers regression guard", () => {
   test("detects deveco provider prefix for project ID routing", () => {
     const llmSource = readSource("packages/opencode/src/session/llm.ts")
     const requestSource = readSource("packages/opencode/src/session/llm/request.ts")
-    const source = llmSource.includes("deveco") ? llmSource : requestSource
-    expect(source).toMatch(/providerID\.startsWith\("deveco"\)/)
+    const hasProviderCheck = (s: string) => s.includes('startsWith("opencode")') && s.includes('startsWith("deveco")')
+    const source = hasProviderCheck(llmSource) ? llmSource : requestSource
+    expect(source).toMatch(/providerID\.startsWith\("opencode"\)[\s\S]*\|\|[\s\S]*providerID\.startsWith\("deveco"\)/)
   })
 })

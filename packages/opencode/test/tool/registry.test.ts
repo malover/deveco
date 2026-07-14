@@ -6,7 +6,7 @@ import { Effect, Layer, Result, Schema } from "effect"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { ToolRegistry } from "@/tool/registry"
 import { Tool } from "@/tool/tool"
-import { disposeAllInstances, TestInstance } from "../fixture/fixture"
+import { disposeAllInstances, TestInstance, tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { TestConfig } from "../fixture/config"
 import { Config } from "@/config/config"
@@ -19,6 +19,9 @@ import { MessageID, SessionID } from "@/session/schema"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
+import { ProjectV2 } from "@opencode-ai/core/project"
+import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
+import { InstanceRef } from "@/effect/instance-ref"
 
 const configLayer = TestConfig.layer({
   directories: () => InstanceState.directory.pipe(Effect.map((dir) => [path.join(dir, ".deveco")])),
@@ -49,17 +52,35 @@ const brokenPluginLayer = Layer.succeed(
 )
 
 const root = LayerNode.group([ToolRegistry.node, Agent.node])
-const replacements = [
+const replacements = (experimentalBackgroundSubagents: boolean) => [
   LayerNode.replace(Config.node, configLayer),
-  LayerNode.replace(RuntimeFlags.node, RuntimeFlags.layer()),
+  LayerNode.replace(RuntimeFlags.node, RuntimeFlags.layer({ experimentalBackgroundSubagents })),
 ]
 
-const it = testEffect(LayerNode.buildLayer(root, { replacements }))
+const it = testEffect(LayerNode.buildLayer(root, { replacements: replacements(false) }))
+const background = testEffect(LayerNode.buildLayer(root, { replacements: replacements(true) }))
 const withBrokenPlugin = testEffect(
   LayerNode.buildLayer(root, {
-    replacements: [...replacements, LayerNode.replace(Plugin.node, brokenPluginLayer)],
+    replacements: [...replacements(false), LayerNode.replace(Plugin.node, brokenPluginLayer)],
   }),
 )
+
+const withRegistryInstance = <A, E, R>(self: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    const directory = yield* tmpdirScoped()
+    return yield* self.pipe(
+      Effect.provideService(InstanceRef, {
+        directory,
+        worktree: directory,
+        project: {
+          id: ProjectV2.ID.make("registry-test"),
+          worktree: directory,
+          time: { created: 0, updated: 0 },
+          sandboxes: [],
+        },
+      }),
+    )
+  }).pipe(Effect.provide(CrossSpawnSpawner.defaultLayer))
 
 afterEach(async () => {
   await disposeAllInstances()
@@ -75,8 +96,10 @@ describe("tool.registry", () => {
     }),
   )
 
-  it.instance("hides task background parameter unless experimental background subagents are enabled", () =>
-    Effect.gen(function* () {
+  it.live(
+    "hides task background parameter unless experimental background subagents are enabled",
+    withRegistryInstance(
+      Effect.gen(function* () {
       const registry = yield* ToolRegistry.Service
       const agent = yield* Agent.Service
       const build = yield* agent.get("build")
@@ -89,7 +112,31 @@ describe("tool.registry", () => {
 
       expect(task?.jsonSchema).toBeDefined()
       expect((task?.jsonSchema?.properties as Record<string, unknown> | undefined)?.background).toBeUndefined()
-    }),
+      }),
+    ),
+  )
+
+  background.live(
+    "exposes task background parameter when experimental background subagents are enabled",
+    withRegistryInstance(
+      Effect.gen(function* () {
+        const registry = yield* ToolRegistry.Service
+        const agent = yield* Agent.Service
+        const build = yield* agent.get("build")
+        if (!build) throw new Error("build agent not found")
+        const task = (yield* registry.tools({
+          providerID: ProviderV2.ID.opencode,
+          modelID: ModelV2.ID.make("test"),
+          agent: build,
+        })).find((tool) => tool.id === "task")
+
+        expect(task).toBeDefined()
+        if (!task) throw new Error("task tool not found")
+        expect(
+          (ToolJsonSchema.fromTool(task).properties as Record<string, unknown> | undefined)?.background,
+        ).toBeDefined()
+      }),
+    ),
   )
 
   it.instance("loads tools from .deveco/tool (singular)", () =>

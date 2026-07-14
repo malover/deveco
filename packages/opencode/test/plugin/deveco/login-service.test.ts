@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, mock, test } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test"
+import { AppRuntime } from "@/effect/app-runtime"
 import { LoginCancelledError, UnsupportedRegionError } from "@/plugin/deveco/errors"
 import type { CallbackData, HttpResponse, TokenCheckResponse } from "@/plugin/deveco/types"
 
@@ -11,50 +12,23 @@ let mockServerInstance: {
 }
 
 let mockSaveAuthToDisk: (key: string, info: Record<string, unknown> | null) => Promise<void>
-let mockExecShouldFail = false
+let mockOpenLoginPageShouldFail = false
 
-mock.module("@/plugin/deveco/local-auth-server", () => ({
-  LocalAuthServer: class MockLocalAuthServer {
-    start() { return mockServerInstance.start() }
-    waitForCallback(timeout: number) { return mockServerInstance.waitForCallback(timeout) }
-    stop() { return mockServerInstance.stop() }
-    cancel() { mockServerInstance.cancel() }
-    getPort() { return mockServerInstance.getPort() }
-  },
-}))
-
-mock.module("child_process", () => {
-  const mockCp = {
-    exec: function (...args: unknown[]) {
-      const cb = args[args.length - 1]
-      if (typeof cb !== "function") return
-      if (mockExecShouldFail) {
-        cb(new Error("exec failed"), "", "")
-      } else {
-        cb(null, "", "")
-      }
-    },
-    spawn: () => ({ on: () => {}, kill: () => true, unref: () => {} }),
-    fork: () => ({ on: () => {}, send: () => false, kill: () => true }),
-    execSync: () => Buffer.from(""),
-    execFileSync: () => Buffer.from(""),
-    execFile: function (...args: unknown[]) {
-      const cb = args[args.length - 1]
-      if (typeof cb === "function") cb(null, "", "")
-    },
-    spawnSync: () => ({ pid: 0, output: [null, Buffer.from(""), Buffer.from("")], status: 0, signal: null }),
-  }
-  return { ...mockCp, default: mockCp }
-})
-
-mock.module("@/plugin/deveco/storage", () => ({
-  saveAuthToDisk: (key: string, info: Record<string, unknown> | null) => mockSaveAuthToDisk(key, info),
-  authFilePath: () => "/tmp/mock-auth.json",
-  loadAccessTokenFromDisk: () => "",
-  hasDevecoOAuthEntry: () => false,
-}))
-
+const localAuthServer = await import("@/plugin/deveco/local-auth-server")
+const storage = await import("@/plugin/deveco/storage")
+const localAuthServerStartSpy = spyOn(localAuthServer.LocalAuthServer.prototype, "start")
+const localAuthServerWaitForCallbackSpy = spyOn(localAuthServer.LocalAuthServer.prototype, "waitForCallback")
+const localAuthServerStopSpy = spyOn(localAuthServer.LocalAuthServer.prototype, "stop")
+const localAuthServerCancelSpy = spyOn(localAuthServer.LocalAuthServer.prototype, "cancel")
+const localAuthServerGetPortSpy = spyOn(localAuthServer.LocalAuthServer.prototype, "getPort")
+const saveAuthToDiskSpy = spyOn(storage, "saveAuthToDisk")
+const appRuntimeRunPromiseSpy = spyOn(AppRuntime, "runPromise")
 const { LoginService } = await import("@/plugin/deveco/login-service")
+type OpenLoginPage = (port: number, clientSecret: string) => Promise<void>
+const openLoginPageSpy = spyOn(
+  LoginService.prototype as unknown as Record<"openLoginPage", OpenLoginPage>,
+  "openLoginPage",
+)
 const { httpClient } = await import("@/plugin/deveco/http-client")
 const { tokenStorage } = await import("@/plugin/deveco/token-storage")
 
@@ -114,15 +88,40 @@ function mockHttpClientForLogin(
 mockServerInstance = makeServer()
 mockSaveAuthToDisk = mock(async () => {})
 
+beforeEach(() => {
+  mockServerInstance = makeServer()
+  mockSaveAuthToDisk = mock(async () => {})
+  mockOpenLoginPageShouldFail = false
+  localAuthServerStartSpy.mockReset().mockImplementation(() => mockServerInstance.start())
+  localAuthServerWaitForCallbackSpy.mockReset().mockImplementation((timeout: number) => mockServerInstance.waitForCallback(timeout))
+  localAuthServerStopSpy.mockReset().mockImplementation(() => mockServerInstance.stop())
+  localAuthServerCancelSpy.mockReset().mockImplementation(() => mockServerInstance.cancel())
+  localAuthServerGetPortSpy.mockReset().mockImplementation(() => mockServerInstance.getPort())
+  saveAuthToDiskSpy.mockReset().mockImplementation((key: string, info: Record<string, unknown> | null) => mockSaveAuthToDisk(key, info))
+  appRuntimeRunPromiseSpy.mockReset().mockResolvedValue(undefined)
+  openLoginPageSpy.mockReset().mockImplementation(() => {
+    if (mockOpenLoginPageShouldFail) return Promise.reject(new Error("Failed to open login page"))
+    return Promise.resolve()
+  })
+})
+
 afterEach(() => {
   httpClient.get = savedHttpClientGet
   httpClient.parseJson = savedHttpClientParseJson
   tokenStorage.saveToken = savedTokenStorageSaveToken
   tokenStorage.loadToken = savedTokenStorageLoadToken
   tokenStorage.clearToken = savedTokenStorageClearToken
-  mockServerInstance = makeServer()
-  mockSaveAuthToDisk = mock(async () => {})
-  mockExecShouldFail = false
+})
+
+afterAll(() => {
+  localAuthServerStartSpy.mockRestore()
+  localAuthServerWaitForCallbackSpy.mockRestore()
+  localAuthServerStopSpy.mockRestore()
+  localAuthServerCancelSpy.mockRestore()
+  localAuthServerGetPortSpy.mockRestore()
+  saveAuthToDiskSpy.mockRestore()
+  appRuntimeRunPromiseSpy.mockRestore()
+  openLoginPageSpy.mockRestore()
 })
 
 describe("LoginService.parseJwt", () => {
@@ -346,7 +345,7 @@ describe("LoginService.login", () => {
   })
 
   test("should return error result and stop server when openLoginPage fails", async () => {
-    mockExecShouldFail = true
+    mockOpenLoginPageShouldFail = true
     const stopSpy = mock(() => Promise.resolve())
     mockServerInstance = makeServer({ stop: stopSpy })
     mockHttpClientForLogin()

@@ -18,25 +18,48 @@ function request(route: string, directory: string, init: RequestInit = {}) {
   )
 }
 
-const Event = Schema.Struct({
+// Wire format: server.connected carries Location.Info (with project),
+// subsequent EventV2 payloads carry Location.Ref (directory + optional workspaceID, no project).
+const LocationInfo = Schema.Struct({
+  directory: Schema.String,
+  workspaceID: Schema.optional(Schema.String),
+  project: Schema.Struct({ id: Schema.String, directory: Schema.String }),
+})
+
+const LocationRef = Schema.Struct({
+  directory: Schema.String,
+  workspaceID: Schema.optional(Schema.String),
+})
+
+const ConnectedEvent = Schema.Struct({
   id: Schema.String,
-  type: Schema.String,
-  location: Schema.Struct({
-    directory: Schema.String,
-    project: Schema.Struct({ id: Schema.String, directory: Schema.String }),
-  }),
+  type: Schema.Literal("server.connected"),
+  location: LocationInfo,
   data: Schema.Unknown,
 })
 
-async function readEvent(reader: ReadableStreamDefaultReader<Uint8Array>) {
+const EventV2Payload = Schema.Struct({
+  id: Schema.String,
+  type: Schema.String,
+  location: LocationRef,
+  data: Schema.Unknown,
+})
+
+async function readConnectedEvent(reader: ReadableStreamDefaultReader<Uint8Array>) {
   const value = await reader.read()
   if (value.done) throw new Error("event stream closed")
-  return Schema.decodeUnknownSync(Event)(JSON.parse(new TextDecoder().decode(value.value).replace(/^data: /, "")))
+  return Schema.decodeUnknownSync(ConnectedEvent)(
+    JSON.parse(new TextDecoder().decode(value.value).replace(/^data: /, "")),
+  )
 }
 
 async function readEventType(reader: ReadableStreamDefaultReader<Uint8Array>, type: string) {
   for (let index = 0; index < 20; index++) {
-    const event = await readEvent(reader)
+    const value = await reader.read()
+    if (value.done) throw new Error("event stream closed")
+    const event = Schema.decodeUnknownSync(EventV2Payload)(
+      JSON.parse(new TextDecoder().decode(value.value).replace(/^data: /, "")),
+    )
     if (event.type === type) return event
   }
   throw new Error(`timed out waiting for ${type}`)
@@ -68,15 +91,23 @@ describe("v2 location HttpApi", () => {
     await using tmp = await tmpdir({ git: true })
     const response = await request("/api/event", tmp.path)
     const reader = response.body!.getReader()
-    expect((await readEvent(reader)).type).toBe("server.connected")
+
+    const connected = await readConnectedEvent(reader)
+    expect(connected.type).toBe("server.connected")
+    expect(connected.location.directory).toBe(tmp.path)
+    expect(connected.location.project.directory).toBe(tmp.path)
+    expect(connected.location.project.id).toBeTruthy()
 
     const created = await request("/session", tmp.path, { method: "POST" })
     expect(created.status).toBe(200)
-    expect(await readEventType(reader, "session.created")).toMatchObject({
-      type: "session.created",
-      location: { directory: tmp.path, project: { directory: tmp.path } },
-      data: { sessionID: expect.any(String) },
+
+    const event = await readEventType(reader, "session.created")
+    expect(event.type).toBe("session.created")
+    expect(event.location.directory).toBe(tmp.path)
+    expect(event.data as Record<string, unknown>).toMatchObject({
+      sessionID: expect.any(String),
     })
+
     await reader.cancel()
   })
 })

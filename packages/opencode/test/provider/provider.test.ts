@@ -75,6 +75,25 @@ const paid = (providers: Record<string, { models: Record<string, { cost: { input
   return Object.values(item.models).filter((model) => model.cost.input > 0).length
 }
 
+const withAuthJson = (contents: string) =>
+  Effect.acquireRelease(
+    Effect.promise(async () => {
+      const authPath = path.join(Global.Path.data, "auth.json")
+      const file = Bun.file(authPath)
+      const original = (await file.exists()) ? await file.text() : undefined
+      await Filesystem.write(authPath, contents)
+      return { authPath, original }
+    }),
+    ({ authPath, original }) =>
+      Effect.promise(async () => {
+        if (original !== undefined) {
+          await Filesystem.write(authPath, original)
+          return
+        }
+        await unlink(authPath)
+      }),
+  )
+
 const languageBaseURL = (language: unknown) => (language as { config: { baseURL: string } }).config.baseURL
 
 const it = testEffect(Layer.mergeAll(Provider.defaultLayer, Env.defaultLayer, Plugin.defaultLayer))
@@ -1741,6 +1760,10 @@ it.instance(
 
 it.effect("opencode loader keeps paid models when config apiKey is present", () =>
   Effect.gen(function* () {
+    yield* setProcessEnv("OPENCODE_API_KEY", "")
+    yield* setProcessEnv("DEVECO_AUTH_CONTENT", "")
+    yield* withAuthJson("{}")
+
     const noneDir = yield* tmpdirScoped()
     const keyedDir = yield* tmpdirScoped({
       config: { provider: { opencode: { options: { apiKey: "test-key" } } } },
@@ -1752,16 +1775,21 @@ it.effect("opencode loader keeps paid models when config apiKey is present", () 
         .pipe(provideInstanceEffect(directory))
         .pipe(Effect.provide(InstanceLayer.layer), Effect.provide(CrossSpawnSpawner.defaultLayer))
 
-    const none = paid(yield* listIn(noneDir))
-    const keyedCount = paid(yield* listIn(keyedDir))
+    const noneProviders = yield* listIn(noneDir)
+    const keyedProviders = yield* listIn(keyedDir)
+    const keyedCount = paid(keyedProviders)
 
-    expect(none).toBe(0)
+    expect(noneProviders[ProviderV2.ID.make("opencode")]).toBeUndefined()
     expect(keyedCount).toBeGreaterThan(0)
   }).pipe(provideMultiInstance),
 )
 
 it.effect("opencode loader keeps paid models when auth exists", () =>
   Effect.gen(function* () {
+    yield* setProcessEnv("OPENCODE_API_KEY", "")
+    yield* setProcessEnv("DEVECO_AUTH_CONTENT", "")
+    const auth = yield* withAuthJson("{}")
+
     const noneDir = yield* tmpdirScoped()
     const keyedDir = yield* tmpdirScoped()
 
@@ -1771,23 +1799,16 @@ it.effect("opencode loader keeps paid models when auth exists", () =>
         .pipe(provideInstanceEffect(directory))
         .pipe(Effect.provide(InstanceLayer.layer), Effect.provide(CrossSpawnSpawner.defaultLayer))
 
-    const none = paid(yield* listIn(noneDir))
+    const noneProviders = yield* listIn(noneDir)
 
-    const authPath = path.join(Global.Path.data, "auth.json")
-    const original = yield* Effect.promise(() => Filesystem.readText(authPath).catch(() => undefined))
-
-    yield* Effect.acquireRelease(
-      Effect.promise(() => Filesystem.write(authPath, JSON.stringify({ opencode: { type: "api", key: "test-key" } }))),
-      () =>
-        Effect.promise(async () => {
-          if (original !== undefined) await Filesystem.write(authPath, original)
-          else await unlink(authPath).catch(() => undefined)
-        }),
+    yield* Effect.promise(() =>
+      Filesystem.write(auth.authPath, JSON.stringify({ opencode: { type: "api", key: "test-key" } })),
     )
 
-    const keyedCount = paid(yield* listIn(keyedDir))
+    const keyedProviders = yield* listIn(keyedDir)
+    const keyedCount = paid(keyedProviders)
 
-    expect(none).toBe(0)
+    expect(noneProviders[ProviderV2.ID.make("opencode")]).toBeUndefined()
     expect(keyedCount).toBeGreaterThan(0)
   }).pipe(provideMultiInstance),
 )

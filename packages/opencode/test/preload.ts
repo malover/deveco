@@ -3,32 +3,16 @@
 import os from "os"
 import path from "path"
 import fs from "fs/promises"
-import { setTimeout as sleep } from "node:timers/promises"
-import { afterAll } from "bun:test"
+import { randomUUID } from "node:crypto"
+import { cleanupTestRoot } from "./lib/preload-cleanup"
 
 // Set XDG env vars FIRST, before any src/ imports
-const dir = path.join(os.tmpdir(), "opencode-test-data-" + process.pid)
+const dir = path.join(os.tmpdir(), `opencode-test-data-${process.pid}-${randomUUID()}`)
 await fs.mkdir(dir, { recursive: true })
-afterAll(async () => {
-  const { AppRuntime } = await import("../src/effect/app-runtime")
-  await AppRuntime.dispose()
-
-  const busy = (error: unknown) =>
-    typeof error === "object" && error !== null && "code" in error && error.code === "EBUSY"
-  const rm = async (left: number): Promise<void> => {
-    Bun.gc(true)
-    await sleep(100)
-    return fs.rm(dir, { recursive: true, force: true }).catch((error) => {
-      if (!busy(error)) throw error
-      if (left <= 1 && process.platform !== "win32") throw error
-      if (left <= 1) return
-      return rm(left - 1)
-    })
-  }
-
-  // Windows can keep SQLite WAL handles alive until GC finalizers run, so we
-  // force GC and retry teardown to avoid flaky EBUSY in test cleanup.
-  await rm(30)
+// Bun can reuse a worker runtime after a file-level afterAll hook has run.
+// Keep this root alive until that worker actually exits.
+process.once("exit", () => {
+  cleanupTestRoot(dir)
 })
 
 process.env["XDG_DATA_HOME"] = path.join(dir, "share")

@@ -1,4 +1,5 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { Entry } from "@opencode-ai/core/filesystem/schema"
 import { describe, expect } from "bun:test"
 import path from "path"
 import { Cause, Effect, Exit, Layer } from "effect"
@@ -6,6 +7,7 @@ import { GlobTool } from "../../src/tool/glob"
 import { SessionID, MessageID } from "../../src/session/schema"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { Ripgrep } from "@opencode-ai/core/ripgrep"
+import { RelativePath } from "@opencode-ai/core/schema"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Global } from "@opencode-ai/core/global"
 import { Truncate } from "@/tool/truncate"
@@ -23,7 +25,12 @@ const toolLayer = (flags: Partial<RuntimeFlags.Info> = {}) =>
   Layer.mergeAll(
     CrossSpawnSpawner.defaultLayer,
     FSUtil.defaultLayer,
-    Ripgrep.defaultLayer,
+    Layer.mock(Ripgrep.Service, {
+      glob: () =>
+        Effect.succeed([
+          new Entry({ path: RelativePath.make("a.ts"), type: "file", mime: "text/typescript" }),
+        ]),
+    }),
     Truncate.defaultLayer,
     Agent.defaultLayer,
     Git.defaultLayer,

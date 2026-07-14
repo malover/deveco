@@ -115,10 +115,12 @@ describe("installation", () => {
 
   describe("Service.latest", () => {
     let latestUrl = ""
-    testEffect(testLayer((request) => {
-      latestUrl = request.url
-      return jsonResponse({ version: "1.2.3" })
-    })).effect("reads the latest version from the deveco npm registry", () =>
+    testEffect(
+      testLayer((request) => {
+        latestUrl = request.url
+        return jsonResponse({ version: "1.2.3" })
+      }),
+    ).effect("reads the latest version from the deveco npm registry", () =>
       Effect.gen(function* () {
         const result = yield* Installation.use.latest("npm")
         expect(result).toBe("1.2.3")
@@ -129,23 +131,45 @@ describe("installation", () => {
   })
 
   describe("Service.method", () => {
-    testEffect(testLayer(() => jsonResponse({}), (cmd) => (cmd === "npm" ? "@deveco/deveco-code" : ""))).effect(
-      "detects npm when the global npm list contains the deveco package",
-      () =>
-        Effect.gen(function* () {
-          expect(yield* Installation.use.method()).toBe("npm")
-        }),
+    testEffect(
+      testLayer(
+        () => jsonResponse({}),
+        (cmd) => (cmd === "npm" ? "@deveco/deveco-code" : ""),
+      ),
+    ).effect("detects npm when the global npm list contains the deveco package", () =>
+      Effect.gen(function* () {
+        expect(yield* Installation.use.method()).toBe("npm")
+      }),
     )
 
-    testEffect(testLayer(() => jsonResponse({}), (cmd) => (cmd === "bun" ? "@deveco/deveco-code" : ""))).effect(
-      "detects bun when the global bun list contains the deveco package",
-      () =>
-        Effect.gen(function* () {
-          expect(yield* Installation.use.method()).toBe("bun")
-        }),
+    testEffect(
+      testLayer(
+        () => jsonResponse({}),
+        (cmd) => (cmd === "pnpm" ? "@deveco/deveco-code" : ""),
+      ),
+    ).effect("detects pnpm when the global pnpm list contains the deveco package", () =>
+      Effect.gen(function* () {
+        expect(yield* Installation.use.method()).toBe("pnpm")
+      }),
     )
 
-    testEffect(testLayer(() => jsonResponse({}), () => "")).effect("falls back to unknown when no manager reports the package", () =>
+    testEffect(
+      testLayer(
+        () => jsonResponse({}),
+        (cmd) => (cmd === "bun" ? "@deveco/deveco-code" : ""),
+      ),
+    ).effect("detects bun when the global bun list contains the deveco package", () =>
+      Effect.gen(function* () {
+        expect(yield* Installation.use.method()).toBe("bun")
+      }),
+    )
+
+    testEffect(
+      testLayer(
+        () => jsonResponse({}),
+        () => "",
+      ),
+    ).effect("falls back to unknown when no manager reports the package", () =>
       Effect.gen(function* () {
         expect(yield* Installation.use.method()).toBe("unknown")
       }),
@@ -155,23 +179,52 @@ describe("installation", () => {
   describe("Service.upgrade", () => {
     const npmCalls: Array<{ cmd: string; args: readonly string[] }> = []
     testEffect(
-      testLayer(() => jsonResponse({}), (cmd, args) => {
-        npmCalls.push({ cmd, args })
-        return ""
-      }),
+      testLayer(
+        () => jsonResponse({}),
+        (cmd, args) => {
+          npmCalls.push({ cmd, args })
+          return ""
+        },
+      ),
     ).effect("runs `npm install -g @deveco/deveco-code@<target>` to upgrade", () =>
       Effect.gen(function* () {
         yield* Installation.use.upgrade("npm", "1.2.3")
-        expect(npmCalls.some((c) => c.cmd === "npm" && c.args.includes("install") && c.args.includes("@deveco/deveco-code@1.2.3"))).toBe(true)
+        expect(
+          npmCalls.some(
+            (c) => c.cmd === "npm" && c.args.includes("install") && c.args.includes("@deveco/deveco-code@1.2.3"),
+          ),
+        ).toBe(true)
+      }),
+    )
+
+    const pnpmCalls: Array<{ cmd: string; args: readonly string[] }> = []
+    testEffect(
+      testLayer(
+        () => jsonResponse({}),
+        (cmd, args) => {
+          pnpmCalls.push({ cmd, args })
+          return ""
+        },
+      ),
+    ).effect("uses the pnpm package manager for the pnpm method", () =>
+      Effect.gen(function* () {
+        yield* Installation.use.upgrade("pnpm", "1.1.0")
+        expect(pnpmCalls).toContainEqual({
+          cmd: "pnpm",
+          args: ["install", "-g", "@deveco/deveco-code@1.1.0"],
+        })
       }),
     )
 
     const bunCalls: Array<{ cmd: string; args: readonly string[] }> = []
     testEffect(
-      testLayer(() => jsonResponse({}), (cmd, args) => {
-        bunCalls.push({ cmd, args })
-        return ""
-      }),
+      testLayer(
+        () => jsonResponse({}),
+        (cmd, args) => {
+          bunCalls.push({ cmd, args })
+          return ""
+        },
+      ),
     ).effect("uses the bun package manager for the bun method", () =>
       Effect.gen(function* () {
         yield* Installation.use.upgrade("bun", "0.9.0")
@@ -179,21 +232,30 @@ describe("installation", () => {
       }),
     )
 
-    testEffect(testLayer(() => jsonResponse({}), (cmd) => (cmd === "npm" ? { code: 1, stderr: "EACCES" } : ""))).effect(
-      "fails with UpgradeFailedError when the installer exits non-zero",
-      () =>
-        Effect.gen(function* () {
-          const result = yield* Installation.use.upgrade("npm", "1.2.3").pipe(Effect.flip)
-          expect(result).toBeInstanceOf(UpgradeFailedError)
-          expect(result.stderr).toBe("EACCES")
-        }),
+    testEffect(
+      testLayer(
+        () => jsonResponse({}),
+        (cmd) => (cmd === "npm" ? { code: 1, stderr: "EACCES" } : ""),
+      ),
+    ).effect("fails with UpgradeFailedError when the installer exits non-zero", () =>
+      Effect.gen(function* () {
+        const result = yield* Installation.use.upgrade("npm", "1.2.3").pipe(Effect.flip)
+        expect(result).toBeInstanceOf(UpgradeFailedError)
+        expect(result.stderr).toBe("Upgrade failed for npm (exit code 1).")
+        expect(result.stderr).not.toContain("EACCES")
+      }),
     )
 
-    testEffect(testLayer(() => jsonResponse({}), () => "")).effect("fails with UpgradeFailedError for an unknown method", () =>
+    testEffect(
+      testLayer(
+        () => jsonResponse({}),
+        () => "",
+      ),
+    ).effect("fails with UpgradeFailedError for an unknown method", () =>
       Effect.gen(function* () {
         const result = yield* Installation.use.upgrade("unknown", "1.2.3").pipe(Effect.flip)
         expect(result).toBeInstanceOf(UpgradeFailedError)
-        expect(result.stderr).toContain("Unknown method")
+        expect(result.stderr).toBe("Unknown installation method: unknown")
       }),
     )
   })
@@ -218,39 +280,32 @@ describe("installation", () => {
       }),
     )
 
-    testEffect(
-      testLayer(
-        () => new Response("install script with token=secret", { status: 200 }),
-        (cmd, args) => {
-          if (cmd === "bash" && args[0] === "--version") return "GNU bash"
-          if (cmd === "bash" || cmd === "sh") return { code: 1, stderr: "script output with token=secret" }
-          return ""
-        },
-      ),
-    ).effect("returns sanitized typed errors when the curl install script fails", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(Installation.use.upgrade("curl", "9.9.9"))
-        expect(error).toBeInstanceOf(Installation.UpgradeFailedError)
-        expect(error.stderr).toBe("Upgrade failed for curl (exit code 1).")
-        expect(error.message).toBe(error.stderr)
-        expect(error.stderr).not.toContain("secret")
-        expect(error.stderr).not.toContain("script output")
-      }),
+    testEffect(testLayer(() => new Response("install script with token=secret", { status: 200 }))).effect(
+      "returns a typed error for unsupported curl upgrades",
+      () =>
+        Effect.gen(function* () {
+          const error = yield* Effect.flip(Installation.use.upgrade("curl", "9.9.9"))
+          expect(error).toBeInstanceOf(Installation.UpgradeFailedError)
+          expect(error.stderr).toBe("Unknown installation method: curl")
+          expect(error.message).toBe(error.stderr)
+          expect(error.stderr).not.toContain("secret")
+        }),
     )
 
+    const shellCalls: Array<{ cmd: string; args: readonly string[] }> = []
     testEffect(
       testLayer(
         () => new Response("install script", { status: 200 }),
         (cmd, args) => {
-          if (cmd === "bash" && args[0] === "--version") return { code: 1, stderr: "missing" }
-          if (cmd === "bash") return { code: 1, stderr: "should not execute installer with bash" }
-          if (cmd === "sh") return "ok"
+          shellCalls.push({ cmd, args })
           return ""
         },
       ),
-    ).effect("falls back to sh when bash is unavailable during curl upgrade", () =>
+    ).effect("does not invoke a shell installer for unsupported curl upgrades", () =>
       Effect.gen(function* () {
-        yield* Installation.use.upgrade("curl", "9.9.9")
+        const error = yield* Effect.flip(Installation.use.upgrade("curl", "9.9.9"))
+        expect(error.stderr).toBe("Unknown installation method: curl")
+        expect(shellCalls.some((call) => call.cmd === "bash" || call.cmd === "sh")).toBe(false)
       }),
     )
   })

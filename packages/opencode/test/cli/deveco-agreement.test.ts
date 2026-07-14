@@ -1,42 +1,25 @@
-import { describe, expect, mock, test, beforeAll, afterAll } from "bun:test"
+import { describe, expect, test, beforeAll, afterAll, spyOn } from "bun:test"
 import http from "http"
 
 let refreshTokenCalls = 0
 let saveAuthCalls: Array<{ key: string; info: Record<string, unknown> }> = []
 
-void mock.module("@/plugin/deveco", () => ({
-  devecoAuth: {
-    refreshToken: async () => {
-      refreshTokenCalls++
-      return { accessToken: "new-refreshed-token", refreshToken: "new-refresh-token" }
-    },
-    getSession: async () => ({
-      userId: "test-user",
-      userName: "test",
-      accessToken: "old-expired-token",
-      refreshToken: "old-refresh-token",
-      jwtToken: "test-jwt",
-      countryCode: "CN",
-      expires: Date.now() - 1000,
-    }),
-    isTokenExpired: () => true,
-    getUserId: async () => "test-user",
-  },
-  saveAuthToDisk: async (key: string, info: Record<string, unknown>) => {
-    saveAuthCalls.push({ key, info })
-  },
-  ACCESS_TOKEN_EXPIRES_MS: 30 * 60 * 1000,
-  // Stubs for remaining exports to satisfy bun's module resolution
-  DevEcoAuthPlugin: async () => ({}),
-  DevEcoAuth: class {},
-  hasDevecoOAuthEntry: () => false,
-  ensureValidToken: async () => {},
-  __resetTokenRefreshState: () => {},
-  sessionChatIdMap: new Map(),
-  PROVIDER_ID: "deveco",
-}))
+const deveco = await import("@/plugin/deveco")
+const refreshTokenSpy = spyOn(deveco.devecoAuth, "refreshToken").mockImplementation(async () => {
+  refreshTokenCalls++
+  return { accessToken: "new-refreshed-token", refreshToken: "new-refresh-token", isRealName: true }
+})
+const saveAuthToDiskSpy = spyOn(deveco, "saveAuthToDisk").mockImplementation(async (key, info) => {
+  if (info === null) throw new Error("expected refreshed auth info")
+  saveAuthCalls.push({ key, info })
+})
 
 const { agreementService, AgreementStatus } = await import("../../src/cli/deveco-agreement")
+
+afterAll(() => {
+  saveAuthToDiskSpy.mockRestore()
+  refreshTokenSpy.mockRestore()
+})
 
 describe("agreement session timeout retry", () => {
   let server: http.Server
@@ -137,18 +120,7 @@ describe("agreement session timeout retry", () => {
     refreshTokenCalls = 0
     saveAuthCalls = []
 
-    mock.module("@/plugin/deveco", () => ({
-      devecoAuth: {
-        refreshToken: async () => null,
-        getSession: async () => null,
-        isTokenExpired: () => true,
-        getUserId: async () => null,
-      },
-      saveAuthToDisk: async (key: string, info: Record<string, unknown>) => {
-        saveAuthCalls.push({ key, info })
-      },
-      ACCESS_TOKEN_EXPIRES_MS: 30 * 60 * 1000,
-    }))
+    refreshTokenSpy.mockResolvedValueOnce(null)
 
     const result = await agreementService.checkAllAgreements("expired-token", "test-user", { get: () => false })
 

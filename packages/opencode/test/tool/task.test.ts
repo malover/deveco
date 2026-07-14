@@ -48,7 +48,7 @@ const layer = (flags: Partial<RuntimeFlags.Info> = {}) =>
     RuntimeFlags.layer(flags),
   ).pipe(Layer.provide(Ripgrep.defaultLayer))
 
-const it = testEffect(layer())
+const it = testEffect(layer({ experimentalBackgroundSubagents: false }))
 const background = testEffect(layer({ experimentalBackgroundSubagents: true }))
 
 function defer<T>() {

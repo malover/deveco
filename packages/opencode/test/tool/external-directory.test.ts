@@ -115,8 +115,8 @@ describe("tool.assertExternalDirectory", () => {
           yield* Effect.promise(() => Bun.write(path.join(outerTmp, "outside.txt"), "x"))
 
           const target = path.join(outerTmp, "outside.txt")
+          // Keep drive letter (lowercased) so pathResolve doesn't anchor to CWD
           const alt = target
-            .replace(/^[A-Za-z]:/, "")
             .replaceAll("\\", "/")
             .toLowerCase()
 
