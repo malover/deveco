@@ -29,6 +29,7 @@ import { DbCommand } from "./cli/cmd/db"
 import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
+import { checkOnStartup as crashCheckOnStartup, cleanupOnExit as crashCleanupOnExit } from "./cli/crash-detect"
 
 const args = hideBin(process.argv)
 
@@ -71,6 +72,7 @@ const cli = yargs(args)
       process.env.DEVECO_PURE = "1"
     }
 
+    crashCheckOnStartup()
     Heap.start()
 
     process.env.AGENT = "1"
@@ -138,5 +140,6 @@ try {
   // Most notably, some docker-container-based MCP servers don't handle such signals unless
   // run using `docker run --init`.
   // Explicitly exit to avoid any hanging subprocesses.
+  crashCleanupOnExit()
   process.exit()
 }

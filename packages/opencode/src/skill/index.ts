@@ -16,6 +16,7 @@ import { ConfigMarkdown } from "@/config/markdown"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Glob } from "@opencode-ai/core/util/glob"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { Discovery } from "./discovery"
 import { Defaults } from "./defaults"
 import { isRecord } from "@/util/record"
@@ -211,7 +212,7 @@ const discoverSkills = Effect.fnUntraced(function* (
     const expanded = item.startsWith("~/") ? path.join(global.home, item.slice(2)) : item
     const dir = path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
     if (!(yield* fsys.isDir(dir))) {
-      yield* Effect.logWarning("skill path not found", { path: dir })
+      yield* Effect.logWarning("skill path not found", { path: sanitizePath(dir) })
       continue
     }
 

@@ -10,6 +10,7 @@
 import { registerDevEcoExtensions } from "@opencode-ai/tui/deveco-extensions"
 import { DevEcoHomeBody } from "./home-body"
 import { DialogPrivacy } from "./dialog-privacy"
+import { DialogCollect } from "./dialog-collect"
 import { openComplainPage } from "./complain"
 import { Auth } from "@/auth"
 import { LOCAL_CREDENTIALS_CORRUPTED_MESSAGE } from "@/auth/messages"
@@ -48,5 +49,6 @@ export function registerDevEcoTuiExtensions(): void {
     openComplainPage,
     pluralize,
     privacyDialog: DialogPrivacy,
+    collectDialog: DialogCollect,
   })
 }

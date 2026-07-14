@@ -1,5 +1,6 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { FSUtil } from "@opencode-ai/core/fs-util"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { EventV2 } from "@opencode-ai/core/event"
 import * as LSPClient from "./client"
@@ -344,7 +345,7 @@ export const layer = Layer.effect(
     })
 
     const touchFile = Effect.fn("LSP.touchFile")(function* (input: string, diagnostics?: "document" | "full") {
-      yield* Effect.logInfo("touching file", { file: input })
+      yield* Effect.logInfo("touching file", { file: sanitizePath(input) })
       const clients = yield* getClients(input)
       yield* Effect.promise(() =>
         Promise.all(

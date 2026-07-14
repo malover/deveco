@@ -5,6 +5,7 @@ import { Ripgrep } from "@opencode-ai/core/ripgrep"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Location } from "@opencode-ai/core/location"
 import { AbsolutePath, RelativePath } from "@opencode-ai/core/schema"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { Effect, Layer, Option } from "effect"
 import ignore from "ignore"
 import path from "path"
@@ -51,7 +52,7 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
       yield* Effect.logInfo("find file", {
         query: ctx.query.query,
         type,
-        directory,
+        directory: sanitizePath(directory),
         limit,
         results: found.length,
         duration: Math.round(performance.now() - started),

@@ -2,6 +2,7 @@ import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { httpClient } from "@opencode-ai/core/effect/layer-node-platform"
 import { serviceUse } from "@opencode-ai/core/effect/service-use"
 import path from "path"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { pathToFileURL } from "url"
 import os from "os"
 import { mergeDeep } from "remeda"
@@ -12,7 +13,7 @@ import { Auth } from "../auth"
 import { Env } from "../env"
 import { applyEdits, modify } from "jsonc-parser"
 
-import { InstallationLocal, InstallationVersion } from "@opencode-ai/core/installation/version"
+import { InstallationLocal } from "@opencode-ai/core/installation/version"
 // @ts-expect-error — workspace package JSON import (resolves at build time)
 import pluginPkg from "@opencode-ai/plugin/package.json"
 import { existsSync } from "fs"
@@ -240,7 +241,7 @@ export const layer = Layer.effect(
     })
 
     const loadFile = Effect.fnUntraced(function* (filepath: string, env?: Record<string, string>) {
-      yield* Effect.logInfo("loading", { path: filepath })
+      yield* Effect.logInfo("loading", { path: sanitizePath(filepath) })
       const text = yield* readConfigFile(filepath)
       if (!text) return {} as Info
       return yield* loadConfig(text, { path: filepath }, env)
@@ -452,7 +453,10 @@ export const layer = Layer.effect(
               Effect.exit,
               Effect.tap((exit) =>
                 Exit.isFailure(exit)
-                  ? Effect.logWarning("background dependency install failed", { dir, error: String(exit.cause) })
+                  ? Effect.logWarning("background dependency install failed", {
+                      dir: sanitizePath(dir),
+                      error: String(exit.cause),
+                    })
                   : Effect.void,
               ),
               Effect.asVoid,

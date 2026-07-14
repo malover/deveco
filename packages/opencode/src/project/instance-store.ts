@@ -1,4 +1,5 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { GlobalBus } from "@/bus/global"
 import { serviceUse } from "@opencode-ai/core/effect/service-use"
 import { WorkspaceContext } from "@/control-plane/workspace-context"
@@ -10,6 +11,7 @@ import { type InstanceContext } from "./instance-context"
 import { InstanceBootstrap } from "./bootstrap-service"
 import { InstanceBootstrap as InstanceBootstrapGraph } from "./bootstrap"
 import * as Project from "./project"
+import { cleanupOnExit } from "@/cli/crash-detect.ts"
 
 export interface LoadInput {
   directory: string
@@ -92,7 +94,7 @@ export const layer: Layer.Layer<Service, never, Project.Service | InstanceBootst
       )
 
     const disposeContext = Effect.fn("InstanceStore.disposeContext")(function* (ctx: InstanceContext) {
-      yield* Effect.logInfo("disposing instance", { directory: ctx.directory })
+      yield* Effect.logInfo("disposing instance", { directory: sanitizePath(ctx.directory) })
       yield* Effect.promise(() => runDisposers(ctx.directory))
       yield* emitDisposed({ directory: ctx.directory, project: ctx.project.id })
     })
@@ -115,7 +117,7 @@ export const layer: Layer.Layer<Service, never, Project.Service | InstanceBootst
           const entry: Entry = { deferred: Deferred.makeUnsafe<InstanceContext>() }
           cache.set(directory, entry)
           yield* Effect.gen(function* () {
-            yield* Effect.logInfo("creating instance", { directory: directory })
+            yield* Effect.logInfo("creating instance", { directory: sanitizePath(directory) })
             yield* completeLoad(directory, input, entry)
           }).pipe(Effect.forkIn(scope, { startImmediately: true }))
           return yield* restore(Deferred.await(entry.deferred))
@@ -131,7 +133,7 @@ export const layer: Layer.Layer<Service, never, Project.Service | InstanceBootst
           const entry: Entry = { deferred: Deferred.makeUnsafe<InstanceContext>() }
           cache.set(directory, entry)
           yield* Effect.gen(function* () {
-            yield* Effect.logInfo("reloading instance", { directory: directory })
+            yield* Effect.logInfo("reloading instance", { directory: sanitizePath(directory) })
             if (previous) {
               yield* Deferred.await(previous.deferred).pipe(Effect.ignore)
               yield* Effect.promise(() => runDisposers(directory))
@@ -175,10 +177,13 @@ export const layer: Layer.Layer<Service, never, Project.Service | InstanceBootst
               yield* removeEntry(item[0], item[1])
               return
             }
-            yield* disposeEntry(item[0], item[1], exit.value)
+            yield * disposeEntry(item[0], item[1], exit.value)
           }),
         { discard: true },
       )
+      // Delete crash-detect flag file while runtime is still active
+      yield* Effect.sync(() => cleanupOnExit())
+      yield* Effect.logInfo("crash flag file cleaned up")
     })
 
     const cachedDisposeAll = yield* Effect.cachedWithTTL(disposeAllOnce(), Duration.zero)

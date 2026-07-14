@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as path from "path"
 import { FSUtil } from "@opencode-ai/core/fs-util"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import * as Bom from "../util/bom"
 
 export const PatchSchema = Schema.Struct({
@@ -527,14 +528,14 @@ export const applyHunksToFiles = Effect.fn("Patch.applyHunksToFiles")(function* 
       case "add": {
         yield* fs.writeWithDirs(hunk.path, hunk.contents)
         added.push(hunk.path)
-        yield* Effect.logInfo(`Added file: ${hunk.path}`)
+        yield* Effect.logInfo(`Added file: ${sanitizePath(hunk.path)}`)
         break
       }
 
       case "delete": {
         yield* fs.remove(hunk.path)
         deleted.push(hunk.path)
-        yield* Effect.logInfo(`Deleted file: ${hunk.path}`)
+        yield* Effect.logInfo(`Deleted file: ${sanitizePath(hunk.path)}`)
         break
       }
 
@@ -546,11 +547,11 @@ export const applyHunksToFiles = Effect.fn("Patch.applyHunksToFiles")(function* 
           yield* fs.writeWithDirs(hunk.move_path, Bom.join(fileUpdate.content, fileUpdate.bom))
           yield* fs.remove(hunk.path)
           modified.push(hunk.move_path)
-          yield* Effect.logInfo(`Moved file: ${hunk.path} -> ${hunk.move_path}`)
+          yield* Effect.logInfo(`Moved file: ${sanitizePath(hunk.path)} -> ${sanitizePath(hunk.move_path)}`)
         } else {
           yield* fs.writeWithDirs(hunk.path, Bom.join(fileUpdate.content, fileUpdate.bom))
           modified.push(hunk.path)
-          yield* Effect.logInfo(`Updated file: ${hunk.path}`)
+          yield* Effect.logInfo(`Updated file: ${sanitizePath(hunk.path)}`)
         }
         break
       }

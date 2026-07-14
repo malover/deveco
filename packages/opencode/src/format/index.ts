@@ -3,6 +3,7 @@ import { Effect, Layer, Context, Schema } from "effect"
 import { serviceUse } from "@opencode-ai/core/effect/service-use"
 import { ChildProcess } from "effect/unstable/process"
 import { AppProcess } from "@opencode-ai/core/process"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { InstanceState } from "@/effect/instance-state"
 import path from "path"
 import { mergeDeep } from "remeda"
@@ -72,7 +73,7 @@ export const layer = Layer.effect(
 
         function formatFile(filepath: string) {
           return Effect.gen(function* () {
-            yield* Effect.logInfo("formatting", { file: filepath })
+            yield* Effect.logInfo("formatting", { file: sanitizePath(filepath) })
             const formatters = yield* Effect.promise(() => getFormatter(path.extname(filepath)))
 
             if (!formatters.length) return false

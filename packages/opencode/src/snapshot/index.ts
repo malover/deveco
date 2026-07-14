@@ -3,6 +3,7 @@ import { Cause, Duration, Effect, Layer, Schedule, Schema, Semaphore, Context } 
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { formatPatch, structuredPatch } from "diff"
 import path from "path"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { AppProcess } from "@opencode-ai/core/process"
 import { InstanceState } from "@/effect/instance-state"
 import { FSUtil } from "@opencode-ai/core/fs-util"
@@ -339,7 +340,7 @@ export const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Serv
               yield* add()
               const result = yield* git(args(["write-tree"]), { cwd: state.directory })
               const hash = result.text.trim()
-              yield* Effect.logInfo("tracking", { hash, cwd: state.directory, git: state.gitdir })
+              yield* Effect.logInfo("tracking", { hash, cwd: sanitizePath(state.directory), git: sanitizePath(state.gitdir) })
               return hash
             }),
           )
@@ -422,7 +423,7 @@ export const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Serv
               }
 
               const single = Effect.fnUntraced(function* (op: (typeof ops)[number]) {
-                yield* Effect.logInfo("reverting", { file: op.file, hash: op.hash })
+                yield* Effect.logInfo("reverting", { file: sanitizePath(op.file), hash: op.hash })
                 const result = yield* git([...core, ...args(["checkout", op.hash, "--", op.file])], {
                   cwd: state.worktree,
                 })
@@ -432,12 +433,12 @@ export const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Serv
                 })
                 if (tree.code === 0 && tree.text.trim()) {
                   yield* Effect.logInfo("file existed in snapshot but checkout failed, keeping", {
-                    file: op.file,
+                    file: sanitizePath(op.file),
                     hash: op.hash,
                   })
                   return
                 }
-                yield* Effect.logInfo("file did not exist in snapshot, deleting", { file: op.file, hash: op.hash })
+                yield* Effect.logInfo("file did not exist in snapshot, deleting", { file: sanitizePath(op.file), hash: op.hash })
                 yield* remove(op.file)
               })
 
@@ -512,7 +513,7 @@ export const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Serv
 
                 for (const op of run) {
                   if (have.has(op.rel)) continue
-                  yield* Effect.logInfo("file did not exist in snapshot, deleting", { file: op.file, hash: op.hash })
+                  yield* Effect.logInfo("file did not exist in snapshot, deleting", { file: sanitizePath(op.file), hash: op.hash })
                   yield* remove(op.file)
                 }
 

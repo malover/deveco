@@ -58,6 +58,9 @@ export type DevEcoPluralize = (count: number, singular: string, plural: string) 
 /** Privacy settings dialog. Shown via the `/privacy` command. */
 export type DevEcoPrivacyDialog = () => JSX.Element
 
+/** Log collection dialog. Shown via the `/collect` command or crash detection. */
+export type DevEcoCollectDialog = (props: { triggerType?: string }) => JSX.Element
+
 /**
  * DevEco extensions. Registered once at startup. Members may be absent when
  * the host runs without DevEco features (generic upstream mode).
@@ -68,6 +71,7 @@ export type DevEcoExtensions = {
   openComplainPage?: DevEcoComplainOpener
   pluralize?: DevEcoPluralize
   privacyDialog?: DevEcoPrivacyDialog
+  collectDialog?: DevEcoCollectDialog
 }
 
 let registered: DevEcoExtensions = {}
@@ -85,4 +89,20 @@ export function getDevEcoExtensions(): DevEcoExtensions {
 /** Reset registrations (used by tests). */
 export function resetDevEcoExtensions(): void {
   registered = {}
+}
+
+// --- Crash dialog pending flag ---
+
+let pendingCrashTriggerType: string | null = null
+
+/** Set pending crash dialog with trigger type (called before TUI render when crash is detected). */
+export function setPendingCrashDialog(triggerType: string): void {
+  pendingCrashTriggerType = triggerType
+}
+
+/** Consume pending crash dialog. Returns trigger type if a crash was detected, null otherwise. */
+export function consumePendingCrashDialog(): string | null {
+  const v = pendingCrashTriggerType
+  pendingCrashTriggerType = null
+  return v
 }

@@ -79,7 +79,7 @@ import {
   useBindings,
   useOpencodeKeymap,
 } from "./keymap"
-import { getDevEcoExtensions } from "./deveco-extensions"
+import { getDevEcoExtensions, consumePendingCrashDialog } from "./deveco-extensions"
 import path from "path"
 
 import type { EventSource } from "./context/sdk"
@@ -498,6 +498,19 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         })
       }
     })
+  })
+
+  // Show crash log collection dialog after UI is fully loaded
+  let crashDialogShown = false
+  createEffect(() => {
+    if (crashDialogShown || sync.status !== "complete") return
+    const triggerType = consumePendingCrashDialog()
+    if (!triggerType) return
+    crashDialogShown = true
+    const CollectDialog = getDevEcoExtensions().collectDialog
+    if (CollectDialog) {
+      dialog.replace(() => <CollectDialog triggerType={triggerType} />)
+    }
   })
 
   let continued = false
@@ -1023,6 +1036,24 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
                   return
                 }
                 dialog.replace(() => <PrivacyDialog />)
+              },
+              category: t("category.system"),
+            },
+            {
+              name: "collect.open",
+              title: "Collect Logs",
+              description: "Select and upload log files to cloud",
+              slashName: "collect",
+              run: () => {
+                const CollectDialog = getDevEcoExtensions().collectDialog
+                if (!CollectDialog) {
+                  toast.show({
+                    message: "Log collection not available",
+                    variant: "error",
+                  })
+                  return
+                }
+                dialog.replace(() => <CollectDialog triggerType="00001" />)
               },
               category: t("category.system"),
             },

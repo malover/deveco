@@ -1,6 +1,7 @@
 export * as Pty from "./pty"
 
 import type { Disp, Proc } from "#pty"
+import path from "path"
 import { Context, Effect, Layer, Schema, Types } from "effect"
 import { Config } from "./config"
 import { EventV2 } from "./event"
@@ -8,6 +9,7 @@ import { Location } from "./location"
 import { NonNegativeInt, PositiveInt } from "./schema"
 import { PtyID } from "./pty/schema"
 import { Shell } from "./shell"
+import { sanitizePath } from "./sanitize-path"
 import { lazy } from "./util/lazy"
 
 const BUFFER_LIMIT = 1024 * 1024 * 2
@@ -208,7 +210,7 @@ export const layer = Layer.effect(
         env.LC_CTYPE = "C.UTF-8"
         env.LANG = "C.UTF-8"
       }
-      yield* Effect.logInfo("creating session", { id, cmd: command, args, cwd })
+      yield* Effect.logInfo("creating session", { id, cmd: command, args, cwd: sanitizePath(cwd) })
       const { spawn } = yield* Effect.promise(() => pty())
       const proc = yield* Effect.sync(() => spawn(command, args, { name: "xterm-256color", cwd, env }))
       const info: Info = {
@@ -289,7 +291,7 @@ export const layer = Layer.effect(
     const attach = Effect.fn("Pty.attach")(function* (id: PtyID, input: AttachInput) {
       const session = yield* requireSession(id)
       if (session.info.status !== "running") return yield* new ExitedError({ ptyID: id })
-      yield* Effect.logInfo("client attached to session", { id, directory: location.directory })
+      yield* Effect.logInfo("client attached to session", { id, directory: sanitizePath(location.directory) })
       const token = {}
       const subscriber: Subscriber = {
         onData: input.onData,

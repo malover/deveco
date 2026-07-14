@@ -23,6 +23,7 @@ import { PermissionV2 } from "./permission"
 import { PermissionSaved } from "./permission/saved"
 import { FileSystem } from "./filesystem"
 import { Ripgrep } from "./ripgrep"
+import { sanitizePath } from "./sanitize-path"
 import { Watcher } from "./filesystem/watcher"
 import { LocationMutation } from "./location-mutation"
 import { FileMutation } from "./file-mutation"
@@ -51,7 +52,7 @@ import { FetchHttpClient } from "effect/unstable/http"
 export class LocationServiceMap extends LayerMap.Service<LocationServiceMap>()("@opencode/example/LocationServiceMap", {
   lookup: (ref: Location.Ref) => {
     const boot = Layer.effectDiscard(
-      Effect.logInfo("booting location services", { directory: ref.directory, workspaceID: ref.workspaceID }),
+      Effect.logInfo("booting location services", { directory: sanitizePath(ref.directory), workspaceID: ref.workspaceID }),
     )
     const location = Location.layer(ref)
     const systemContext = SystemContextBuiltIns.locationLayer

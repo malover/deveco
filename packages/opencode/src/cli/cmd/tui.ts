@@ -216,6 +216,14 @@ export const TuiThreadCommand = cmd({
         // TUI free of `deveco` imports (breaks the workspace cycle).
         const { registerDevEcoTuiExtensions } = await import("@/cli/deveco-ui/register")
         registerDevEcoTuiExtensions()
+
+        // If crash was detected on startup, show collect dialog when TUI renders
+        const { consumeCrashInfo } = await import("@/cli/crash-detect")
+        const { setPendingCrashDialog } = await import("@opencode-ai/tui/deveco-extensions")
+        if (consumeCrashInfo()) {
+          setPendingCrashDialog("00002")
+        }
+
         await Effect.runPromise(
           run({
             url: transport.url,

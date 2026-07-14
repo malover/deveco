@@ -4,6 +4,7 @@ import querystring from "querystring"
 import { resolveAgreementConfig, getPrivacyAcceptedKey, getSignPendingKey, type AgreementConfig } from "@/cli/deveco-legal"
 import { devecoAuth, saveAuthToDisk, ACCESS_TOKEN_EXPIRES_MS } from "@/plugin/deveco"
 import { Effect } from "effect"
+import { hashUserId } from "@opencode-ai/core/sanitize-path"
 
 async function log(effect: Effect.Effect<void>) {
   const { AppRuntime } = await import("@/effect/app-runtime")
@@ -548,14 +549,15 @@ class AgreementService {
       return
     }
 
-    await log(Effect.logInfo("found pending offline agreement sign, retrying...", { service: "deveco-agreement", userId }))
+    const hashedUserId = await hashUserId(userId)
+    await log(Effect.logInfo("found pending offline agreement sign, retrying...", { service: "deveco-agreement", userId: hashedUserId }))
     const signResult = await this.signAgreement(accessToken, false)
 
     if (signResult.isUpload) {
       kvStore.set(getSignPendingKey(userId), false)
-      await log(Effect.logInfo("pending offline agreement sign synced successfully", { service: "deveco-agreement", userId }))
+      await log(Effect.logInfo("pending offline agreement sign synced successfully", { service: "deveco-agreement", userId: hashedUserId }))
     } else {
-      await log(Effect.logWarning("pending offline agreement sign retry failed", { service: "deveco-agreement", error: signResult.error ?? "unknown error", userId }))
+      await log(Effect.logWarning("pending offline agreement sign retry failed", { service: "deveco-agreement", error: signResult.error ?? "unknown error", userId: hashedUserId }))
     }
   }
 }

@@ -11,6 +11,7 @@ import { Flag } from "../flag/flag"
 import { FSUtil } from "../fs-util"
 import { Git } from "../git"
 import { Location } from "../location"
+import { sanitizePath } from "../sanitize-path"
 import { lazy } from "../util/lazy"
 import { Ignore } from "./ignore"
 import { Protected } from "./protected"
@@ -69,7 +70,7 @@ export const layer = Layer.effect(
     const location = yield* Location.Service
     if (!backend) {
       yield* Effect.logError("watcher backend not supported", {
-        directory: location.directory,
+        directory: sanitizePath(location.directory),
         platform: process.platform,
       })
       return Service.of({})
@@ -78,7 +79,7 @@ export const layer = Layer.effect(
     const w = watcher()
     if (!w) return Service.of({})
 
-    yield* Effect.logInfo("watcher backend", { directory: location.directory, platform: process.platform, backend })
+    yield* Effect.logInfo("watcher backend", { directory: sanitizePath(location.directory), platform: process.platform, backend })
     const events = yield* EventV2.Service
     const fs = yield* FSUtil.Service
     const git = yield* Git.Service
@@ -104,7 +105,7 @@ export const layer = Layer.effect(
         Effect.timeout(SUBSCRIBE_TIMEOUT_MS),
         Effect.catchCause((cause) => {
           pending.then((subscription) => subscription.unsubscribe()).catch(() => {})
-          return Effect.logError("failed to subscribe", { directory, cause: Cause.pretty(cause) })
+          return Effect.logError("failed to subscribe", { directory: sanitizePath(directory), cause: Cause.pretty(cause) })
         }),
       )
     }

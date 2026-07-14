@@ -1,6 +1,7 @@
 export * as TuiConfig from "./tui"
 
 import path from "path"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { mergeDeep, unique } from "remeda"
 import { Cause, Context, Effect, Fiber, Layer } from "effect"
 import { ConfigParse } from "@/config/parse"
@@ -120,7 +121,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
       // can sync-throw — those become defects, which orElseSucceed wouldn't catch.
       Effect.catchCause((cause) =>
         Effect.logWarning("skipping invalid tui config", {
-          path: configFilepath,
+          path: sanitizePath(configFilepath),
           reason: FormatError(Cause.squash(cause)) ?? FormatUnknownError(Cause.squash(cause)),
         }).pipe(Effect.as({} as Info)),
       ),
@@ -134,13 +135,13 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
       const text = yield* afs.readFileStringSafe(filepath).pipe(
         Effect.catchCause((cause) =>
           Effect.logWarning("failed to read tui config", {
-            path: filepath,
+            path: sanitizePath(filepath),
             reason: FormatError(Cause.squash(cause)) ?? FormatUnknownError(Cause.squash(cause)),
           }).pipe(Effect.as(undefined)),
         ),
       )
       if (!text) return {} as Info
-      yield* Effect.logInfo("loading tui config", { path: filepath })
+      yield* Effect.logInfo("loading tui config", { path: sanitizePath(filepath) })
       return yield* load(text, filepath)
     })
 
@@ -149,7 +150,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
       const data = yield* loadFile(file)
       if (Object.keys(data).length) {
         appliedOrder += 1
-        yield* Effect.logInfo("applying tui config", { path: file, order: appliedOrder })
+        yield* Effect.logInfo("applying tui config", { path: sanitizePath(file), order: appliedOrder })
       }
       acc.result = mergeDeep(acc.result, data)
       if (!data.plugin?.length) return

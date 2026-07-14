@@ -1,4 +1,5 @@
 import path from "path"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { Effect, Layer, Context, Schema } from "effect"
 import { withStatics } from "@opencode-ai/core/schema"
 import { FSUtil } from "@opencode-ai/core/fs-util"
@@ -22,11 +23,11 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const fsys = yield* FSUtil.Service
 
-    const { specDir } = yield* Defaults.ensure(InstallationVersion, fsys).pipe(Effect.orDie)
-
+    const { specDir } = yield * Defaults.ensure(InstallationVersion, fsys).pipe(Effect.orDie)
+    const sanitizeDir = sanitizePath(specDir)
     yield* Effect.logInfo("spec resources initialized", {
-      commands: path.join(specDir, "commands"),
-      templates: path.join(specDir, "templates"),
+      commands: path.join(sanitizeDir, "commands"),
+      templates: path.join(sanitizeDir, "templates"),
     })
 
     const get = Effect.fn("Spec.get")(function* () {

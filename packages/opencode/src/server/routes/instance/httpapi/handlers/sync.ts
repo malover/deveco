@@ -15,6 +15,7 @@ import { Effect, Scope } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
 import { HistoryPayload, ReplayPayload, SessionPayload } from "../groups/sync"
+import path from "path"
 
 export const syncHandlers = HttpApiBuilder.group(InstanceHttpApi, "sync", (handlers) =>
   Effect.gen(function* () {
@@ -45,7 +46,7 @@ export const syncHandlers = HttpApiBuilder.group(InstanceHttpApi, "sync", (handl
         events: payload.length,
         first: payload[0]?.seq,
         last: payload.at(-1)?.seq,
-        directory: ctx.payload.directory,
+        directory: path.basename(ctx.payload.directory),
       })
       const ownerID = yield* InstanceState.workspaceID
       yield* events.replayAll(payload, { ownerID, strictOwner: true })

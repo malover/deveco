@@ -1,5 +1,6 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import path from "path"
+import { sanitizePath } from "@opencode-ai/core/sanitize-path"
 import { Global } from "@opencode-ai/core/global"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Effect, Exit, Layer, Option, RcMap, Schema, Context, TxReentrantLock } from "effect"
@@ -89,7 +90,7 @@ const MIGRATIONS: Migration[] = [
     for (const projectDir of projectDirs) {
       const full = path.join(project, projectDir)
       if (!(yield* fs.isDir(full))) continue
-      yield* Effect.logInfo(`migrating project ${projectDir}`)
+      yield* Effect.logInfo(`migrating project ${sanitizePath(projectDir)}`)
       let projectID = projectDir
       let worktree = "/"
 
@@ -141,7 +142,7 @@ const MIGRATIONS: Migration[] = [
           absolute: true,
         })) {
           const dest = path.join(dir, "session", projectID, path.basename(sessionFile))
-          yield* Effect.logInfo("copying", { sessionFile, dest })
+          yield* Effect.logInfo("copying", { sessionFile: sanitizePath(sessionFile), dest: sanitizePath(dest) })
           const session = yield* fs.readJson(sessionFile)
           const info = decodeSession(session, { onExcessProperty: "preserve" })
           yield* fs.writeWithDirs(dest, JSON.stringify(session, null, 2))
@@ -153,8 +154,8 @@ const MIGRATIONS: Migration[] = [
           })) {
             const next = path.join(dir, "message", info.value.id, path.basename(msgFile))
             yield* Effect.logInfo("copying", {
-              msgFile,
-              dest: next,
+              msgFile: sanitizePath(msgFile),
+              dest: sanitizePath(next),
             })
             const message = yield* fs.readJson(msgFile)
             const item = decodeMessage(message, { onExcessProperty: "preserve" })
@@ -169,8 +170,8 @@ const MIGRATIONS: Migration[] = [
               const out = path.join(dir, "part", item.value.id, path.basename(partFile))
               const part = yield* fs.readJson(partFile)
               yield* Effect.logInfo("copying", {
-                partFile,
-                dest: out,
+                partFile: sanitizePath(partFile),
+                dest: sanitizePath(out),
               })
               yield* fs.writeWithDirs(out, JSON.stringify(part, null, 2))
             }
