@@ -510,64 +510,23 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
     return Math.min(filteredProviders().length, Math.max(cap, 5));
   });
 
-  const privacyBodyHeight = createMemo(
-    () => props.bodySlotHeight ?? Math.max(6, Math.floor(dimensions().height / 2) - 12),
-  );
-
-  /** Minimum rows always reserved for checkbox, hint, Agree, and Cancel (never scroll away). */
-  const PRIVACY_FOOTER_MIN_ROWS = 6;
-
-  /** Reserved rows below the agreement scrollbox (checkbox / options may wrap on narrow terminals). */
-  const privacyFooterRows = createMemo(() => {
-    const termW = Math.floor(dimensions().width);
-    const pad = homeContentPadX(termW);
-    const contentW = Math.max(20, Math.min(HOME_CONTENT_MAX_WIDTH, termW) - pad * 2);
-    const lineRows = (text: string) => Math.max(1, Math.ceil(text.length / contentW));
-    const checkboxRows = lineRows('☐  I have read and agree to the above agreements');
-    const hintRows = lineRows('(Press Space or click to check)');
-    const agreeRows = lineRows('> 1. Agree (check first)');
-    const cancelRows = 1;
-    let rows = checkboxRows + hintRows + agreeRows + cancelRows;
-    if (signBusy()) rows += 1;
-    if (signError() !== null) rows += 1;
-    return Math.max(PRIVACY_FOOTER_MIN_ROWS, rows);
-  });
-
-  const privacyScrollHeight = createMemo(() => {
-    const slot = privacyBodyHeight();
-    // marginTop={1} between scrollbox and footer; footer rows are never sacrificed.
-    return Math.max(1, slot - privacyFooterRows() - 1);
-  });
-
-  const privacyContentWidth = createMemo(() => {
-    const termW = Math.floor(dimensions().width);
-    const pad = homeContentPadX(termW);
-    return Math.max(20, Math.min(HOME_CONTENT_MAX_WIDTH, termW) - pad * 2);
-  });
-
-  const privacyAgreementContentRows = createMemo(() => {
-    const w = privacyContentWidth();
-    const lineRows = (text: string) => Math.max(1, Math.ceil(text.length / w));
-    const intro = lineRows(
-      'Please read and agree to the following agreements to start the HarmonyOS development journey.',
-    );
-    const termsLink = lineRows('DevEco Code AI Terms Of Use');
-    const privacyLink = lineRows('DevEco Code AI Privacy Policy');
-    // section labels + marginTop spacers between blocks
-    return intro + 2 + termsLink + 2 + privacyLink;
-  });
-
-  const privacyScrollbarVisible = createMemo(
-    () => privacyAgreementContentRows() > privacyScrollHeight(),
-  );
+  /** Fixed height (rows) for the top content zone across all onboarding pages.
+   *  Keeps numbered options at the same vertical position on every page. */
+  const TOP_ZONE_HEIGHT = 8;
 
   const privacyVerticalScrollbar = createMemo(() => ({
-    visible: privacyScrollbarVisible(),
     trackOptions: {
       backgroundColor: theme.backgroundElement,
       foregroundColor: theme.border,
     },
   }));
+
+  // Let the framework auto-show/hide the scrollbar based on content overflow
+  createEffect(() => {
+    if (step() === 'privacy' && privacyScroll) {
+      setTimeout(() => privacyScroll?.verticalScrollBar.resetVisibilityControl(), 0);
+    }
+  });
 
   const scrollPrivacyBy = (delta: number) => {
     if (!privacyScroll) {
@@ -1000,18 +959,14 @@ if (st === 'entry') {
     }
   });
 
-  const onboardingJustify = createMemo(() => (step() === 'privacy' ? 'flex-start' : 'center'));
-
   return (
     <box
       flexDirection='column'
-      gap={step() === 'privacy' ? 1 : 2}
+      gap={2}
       flexShrink={0}
       width='100%'
       alignItems='center'
-      justifyContent={onboardingJustify()}
-      maxHeight={step() === 'privacy' ? props.bodySlotHeight : undefined}
-      minHeight={0}
+      justifyContent='center'
     >
       <Show when={step() === 'privacy'}>
         <Show when={checkingStatus()}>
@@ -1034,7 +989,7 @@ if (st === 'entry') {
         </Show>
         <Show when={!checkingStatus() && sessionExpired()}>
           <OnboardingContent>
-            <text fg={theme.error} selectable={false} marginBottom={1}>
+            <text fg={theme.error} selectable={false} marginBottom={2}>
               Your login session has expired. Please sign in again.
             </text>
             <box flexDirection='column'>
@@ -1054,49 +1009,55 @@ if (st === 'entry') {
         </Show>
         <Show when={!checkingStatus() && !networkErrorNoCache() && !sessionExpired()}>
           <OnboardingContent>
-            <box flexDirection='column' width='100%' minHeight={0} maxHeight={privacyBodyHeight()}>
+            <box flexDirection='column' width='100%' minHeight={0} maxHeight={props.bodySlotHeight}>
+              {/* Top zone: scrollbox shrinks when terminal is compressed */}
               <scrollbox
                 ref={(r: ScrollBoxRenderable) => (privacyScroll = r)}
                 flexShrink={1}
                 minHeight={0}
-                maxHeight={privacyScrollHeight()}
+                maxHeight={TOP_ZONE_HEIGHT - 1}
                 width='100%'
                 verticalScrollbarOptions={privacyVerticalScrollbar()}
               >
-                <text fg={theme.text} selectable={false} wrapMode='word'>
-                  Please read and agree to the following agreements to start the HarmonyOS development journey.
-                </text>
-                <text fg={theme.textMuted} selectable={false} marginTop={1}>
-                  Terms Of Use:
-                </text>
-                <Link href={agreementConfig().terms_url} fg={theme.primary}>
-                  DevEco Code AI Terms Of Use
-                </Link>
-                <text fg={theme.textMuted} selectable={false} marginTop={1}>
-                  Privacy Policy:
-                </text>
-                <Link href={agreementConfig().privacy_url} fg={theme.primary}>
-                  DevEco Code AI Privacy Policy
-                </Link>
+                <box flexDirection='column' alignItems='center' width='100%'>
+                  <text fg={theme.text} selectable={false} wrapMode='word'>
+                    Please read and agree to the following agreements to start the HarmonyOS development journey:
+                  </text>
+                  <box flexDirection='column' marginTop={1}>
+                    <box flexDirection='row' gap={1}>
+                      <text fg={theme.primary} selectable={false}>a.</text>
+                      <Link href={agreementConfig().terms_url} fg={theme.primary}>
+                        DevEco Code AI Terms Of Use
+                      </Link>
+                    </box>
+                    <box flexDirection='row' gap={1} marginTop={1}>
+                      <text fg={theme.primary} selectable={false}>b.</text>
+                      <Link href={agreementConfig().privacy_url} fg={theme.primary}>
+                        DevEco Code AI Privacy Policy
+                      </Link>
+                    </box>
+                  </box>
+                </box>
               </scrollbox>
 
-              <box flexDirection='column' flexShrink={0} marginTop={1}>
-                <box onMouseUp={() => setCheckboxChecked(!checkboxChecked())} flexShrink={0}>
-                  <text fg={theme.text} selectable={false} wrapMode='word'>
-                    {checkboxChecked() ? '☑' : '☐'}  I have read and agree to the above agreements
-                  </text>
-                </box>
-                <text fg={theme.textMuted} selectable={false} flexShrink={0}>
-                  (Press Space or click to check)
+              {/* Bottom zone: checkbox + options (never scroll away) */}
+              <box flexDirection='column' alignItems='center' flexShrink={0} marginTop={1}>
+              <box onMouseUp={() => setCheckboxChecked(!checkboxChecked())} flexShrink={0}>
+                <text fg={checkboxChecked() ? theme.success : theme.text} selectable={false} wrapMode='word'>
+                  {checkboxChecked() ? '[✓]' : '[ ]'}  I have read and agree to the above agreements
                 </text>
+              </box>
+              <text fg={theme.textMuted} selectable={false} flexShrink={0}>
+                (Press Space or click to check)
+              </text>
+              <box flexDirection='column' marginTop={1}>
                 <text
                   fg={privacyIndex() === 0 && checkboxChecked() ? theme.success : theme.textMuted}
                   selectable={false}
                   flexShrink={0}
-                  marginTop={1}
                 >
                   {selectionLead(privacyIndex() === 0)}
-                  1. Agree {!checkboxChecked() ? '(check first)' : ''}
+                  1. Agree (check first)
                 </text>
                 <text fg={privacyIndex() === 1 ? theme.success : theme.text} selectable={false} flexShrink={0}>
                   {selectionLead(privacyIndex() === 1)}
@@ -1114,12 +1075,13 @@ if (st === 'entry') {
                 </Show>
               </box>
             </box>
+            </box>
           </OnboardingContent>
         </Show>
       </Show>
       <Show when={step() === 'entry'}>
         <OnboardingContent>
-            <text fg={theme.text} attributes={1} selectable={false} marginBottom={1}>
+            <text fg={theme.text} attributes={1} selectable={false} marginBottom={2}>
               Get started with DevEco Code
             </text>
             <box flexDirection='column'>

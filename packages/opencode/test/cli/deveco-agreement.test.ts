@@ -26,6 +26,14 @@ void mock.module("@/plugin/deveco", () => ({
     saveAuthCalls.push({ key, info })
   },
   ACCESS_TOKEN_EXPIRES_MS: 30 * 60 * 1000,
+  // Stubs for remaining exports to satisfy bun's module resolution
+  DevEcoAuthPlugin: async () => ({}),
+  DevEcoAuth: class {},
+  hasDevecoOAuthEntry: () => false,
+  ensureValidToken: async () => {},
+  __resetTokenRefreshState: () => {},
+  sessionChatIdMap: new Map(),
+  PROVIDER_ID: "deveco",
 }))
 
 const { agreementService, AgreementStatus } = await import("../../src/cli/deveco-agreement")
