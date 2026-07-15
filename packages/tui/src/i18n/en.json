@@ -215,7 +215,8 @@
     "cmd_review_desc": "review changes [commit|branch|pr], defaults to uncommitted",
     "show_tips": "Show tips",
     "hide_tips": "Hide tips",
-    "commands": "Commands"
+    "commands": "Commands",
+    "release_notes": "View release notes"
   },
   "dialog": {
     "search": "Search",
@@ -464,7 +465,14 @@
     "diff_help_expand_all_action": "Expand all folders",
     "diff_help_expand_all_description": "Open every folder in the file tree",
     "diff_help_mark_reviewed_action": "Mark reviewed",
-    "diff_help_mark_reviewed_description": "Toggle reviewed state for the selected file"
+    "diff_help_mark_reviewed_description": "Toggle reviewed state for the selected file",
+    "title_release_notes": "Release Notes",
+    "no_release_notes": "No release notes available",
+    "release_notes_current": "current",
+    "release_notes_prerelease": "pre-release",
+    "action_back": "Back",
+    "release_notes_prev": "Previous version",
+    "release_notes_next": "Next version"
   },
   "permission": {
     "no_diff": "No diff provided",

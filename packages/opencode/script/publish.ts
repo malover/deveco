@@ -47,8 +47,7 @@ await $`mkdir -p ./dist/${pkg.name}/bin`
 await $`cp ./script/postinstall.mjs ./dist/${pkg.name}/postinstall.mjs`
 await Bun.file(`./dist/${pkg.name}/LICENSE`).write(await Bun.file("../../LICENSE").text())
 await Bun.file(`./dist/${pkg.name}/README.md`).write(await Bun.file("../../README.md").text())
-await $`mkdir -p ./dist/${pkg.name}/assets/readme`
-await $`cp ../../assets/readme/readme-screenshot.png ./dist/${pkg.name}/assets/readme/readme-screenshot.png`
+await $`cp ../../CHANGELOG.md ./dist/${pkg.name}/CHANGELOG.md`
 await Bun.file(`./dist/${pkg.name}/bin/${pkg.name}.exe`).write(
   [
     `echo "Error: ${pkg.name}-ai's postinstall script was not run." >&2`,
@@ -84,7 +83,7 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
         "postinstall.mjs",
         "LICENSE",
         "README.md",
-        "assets/**/*",
+        "CHANGELOG.md",
       ],
       optionalDependencies: binaries,
     },

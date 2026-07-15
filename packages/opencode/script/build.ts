@@ -361,12 +361,15 @@ for (const item of targets) {
   }
 
   await $`rm -rf ./dist/${name}/bin/tui`
-  await $`mkdir -p ./dist/${name}/assets/readme`
-  await $`cp ../../assets/readme/readme-screenshot.png ./dist/${name}/assets/readme/readme-screenshot.png`
 
   await fs.promises.copyFile(
     path.join(dir, "README.md"),
     path.join(dir, "dist", name, "bin", "README.md"),
+  )
+
+  await fs.promises.copyFile(
+    path.join(dir, "..", "..", "CHANGELOG.md"),
+    path.join(dir, "dist", name, "CHANGELOG.md"),
   )
 
   await Bun.file(`dist/${name}/package.json`).write(
@@ -380,7 +383,7 @@ for (const item of targets) {
         files: [
           "bin/**/*",
           "vendor/**/*",
-          "assets/**/*",
+          "CHANGELOG.md",
           "README.md",
         ],
         ...(item.abi ? { libc: [item.abi] } : {}),

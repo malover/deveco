@@ -47,6 +47,7 @@ import { DialogHelp } from "./ui/dialog-help"
 import { DialogAgent } from "./component/dialog-agent"
 import { DialogSessionList } from "./component/dialog-session-list"
 import { DialogWorkspaceList } from "./component/dialog-workspace-list"
+import { DialogConfirm } from "./ui/dialog-confirm"
 import { DialogConsoleOrg } from "./component/dialog-console-org"
 import { ThemeProvider, useTheme } from "./context/theme"
 import { Home } from "./routes/home"
@@ -55,7 +56,6 @@ import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
 import { DialogAlert } from "./ui/dialog-alert"
-import { DialogConfirm } from "./ui/dialog-confirm"
 import { ToastProvider, useToast } from "./ui/toast"
 import { isDefaultTitle } from "./util/session"
 import { KVProvider, useKV } from "./context/kv"
@@ -810,6 +810,31 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
           dialog.clear()
         },
         category: t("category.system"),
+      },
+      {
+        name: "release.notes",
+        title: t("command.release_notes"),
+        category: t("category.system"),
+        slashName: "release-notes",
+        slashAliases: ["rn"],
+        run: async () => {
+          // Dynamic import: the changelog loader and the release notes
+          // component tree are only needed when the user invokes
+          // /release-notes. Defers that cost to first use.
+          const { loadChangelog } = await import("./release-notes/bundled")
+          const data = await loadChangelog()
+          if (!data) {
+            toast.show({ message: t("dialog.no_release_notes"), variant: "info" })
+            return
+          }
+          const { DialogReleaseNoteVersions } = await import("./component/dialog-release-note-versions")
+          dialog.replace(() => (
+            <DialogReleaseNoteVersions
+              releases={data.releases}
+              getBody={data.getBody}
+            />
+          ))
+        },
       },
       {
         name: "app.exit",

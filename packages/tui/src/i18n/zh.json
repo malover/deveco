@@ -215,7 +215,8 @@
     "cmd_review_desc": "审查变更 [commit|branch|pr]，默认审查未提交的变更",
     "show_tips": "显示提示",
     "hide_tips": "隐藏提示",
-    "commands": "命令"
+    "commands": "命令",
+    "release_notes": "查看版本说明"
   },
   "dialog": {
     "search": "搜索",
@@ -464,7 +465,14 @@
     "diff_help_expand_all_action": "展开所有文件夹",
     "diff_help_expand_all_description": "打开文件树中所有文件夹",
     "diff_help_mark_reviewed_action": "标记已审阅",
-    "diff_help_mark_reviewed_description": "切换所选文件的已审阅状态"
+    "diff_help_mark_reviewed_description": "切换所选文件的已审阅状态",
+    "title_release_notes": "版本说明",
+    "no_release_notes": "暂无版本说明",
+    "release_notes_current": "当前",
+    "release_notes_prerelease": "预发布",
+    "action_back": "返回",
+    "release_notes_prev": "上一个版本",
+    "release_notes_next": "下一个版本"
   },
   "permission": {
     "no_diff": "没有提供差异信息",

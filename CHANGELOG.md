@@ -1,0 +1,96 @@
+# Changelog
+
+## v0.1.2 (2026-07-09)
+
+### DevEco Code 核心
+
+#### 新特性
+
+- 全面更新 `arkts` 技能知识库，扩展 ArkUI 组件参考与 API 护栏，提升代码生成准确性（`638c180`）
+
+#### 优化
+
+- goal 模式 `plan.md` 工程结构输出对齐 ArkUI 最佳实践（`3b11304`）
+
+#### 缺陷修复
+
+- 加固认证链路：改进 token 刷新错误处理，启动时自动检测 JWT 过期并提示重登录（`802431c`、`b45c586`）
+- 修复 `arkts-check` 对 `$$` / `$` 绑定语法糖的假阳性告警（`f427e94`）
+- plan 模式阶段评审检测需求范围变化并强制回溯（`16e4024`）
+
+#### 重构
+
+- 登录与 `DEVECO_HOME` 检测迁移至 TUI onboarding，统一引导入口（`7c26d1e`）
+- 清理过时 `arkui-knowledge` 技能引用（`43b826e`）
+- 提示词补充 DevEco Studio 签名配置手动操作提醒（`6cc90ad`）
+
+### TUI 终端界面
+
+#### 优化
+
+- `/feedback` 跳转修正为 GitCode issues 页面（`a8ba6c8`）
+
+#### 缺陷修复
+
+- 恢复主视图选中即复制（copy-on-select）功能（`5901beb`）
+
+## v0.1.1 (2026-07-02)
+
+### DevEco Code 核心
+
+#### 新特性
+
+- 新增 `arkts_check` 静态检查工具，于项目构建前置执行，并替代原有的 `check_ets_files` 校验（`30ebb05`、`f7afb1b`、`471fd82`）
+- 新增 `debug` 调试命令，并完善其中文使用说明（`32bfb77`、`0ea5493`）
+- 为 DevEco Code 推理模型启用 `thinking` 参数，支持推理过程输出（`766e2d6`）
+- 默认启用后台 subagent 运行时开关，提升并行任务处理能力（`7eb2c42`）
+- 模板复制脚本（`copy-template.mjs`）执行完成后，会话工作目录自动切换至生成的项目根目录（`44a56b1`）
+- 新增 Windows baseline 版本包发布，以兼容不支持 AVX2 指令集的 CPU（`f198b45`）
+
+#### 优化
+
+- 强化 goal 模式需求澄清能力，并在 spec-implementation 阶段抽离专用 subagent 承载实现（`615b731`、`4963e0d`）
+- 工具调用支持并行执行，缩短多工具场景耗时（`9c89cc1`）
+- 加固 `arkts_check` 的 `ensureScriptOnDisk` 校验，提升脚本落盘检查的稳健性（`b6790b0`）
+- 主包打包纳入 `README.md` 与 `assets/` 资源，保障安装后文档与素材随包可用（`1d54cef`）
+- 调整一项 runtime flag 默认值为 `false`，收敛默认行为（`0fdb5fc`）
+
+#### 缺陷修复
+
+- 加固 token 刷新链路：整合刷新逻辑、防御空 `accessToken`、新增 `SESSION_EXPIRED` 状态并在刷新时同步更新内存态 token，避免会话因令牌失效而中断（`b545602`、`17ad7a5`、`cb71b79`）
+- `deveco-create-project` 的 SDK 错误改为立即终止而非回退兜底，并完善 SDK 版本确认逻辑（含 codeCheck），防止错误被静默吞没（`c185817`、`8b3270b`、`2277984`）
+- 修复复制模板时 `modelVersion` 与 `EntryAbility_label` 字段未正确同步的问题（`d438216`）
+- 修复内置技能提取与开发模式加载失效的问题（`0e9dee5`）
+- 升级 `@deveco-codegenie/mcp-bridge` 至 1.1.11，并将其从 `minimumReleaseAge` 发布门禁中豁免（`f60775a`、`c93e1cc`）
+- 恢复 deveco-code 打包的自定义构建配置，并补回 ripgrep / mcp-bridge 下载的 postinstall 钩子，保障安装期二进制就位（`5ff55b5`、`107cfb8`）
+- 对齐 `build.ts` 与 `pipeline-build.ts` 中的 vendor 路径，消除本地与流水线构建产物差异（`7dded29`）
+- 修复 PowerShell 下中文输出乱码，保障 Windows 终端中文可读（`5d72cbb`）
+
+#### 重构
+
+- 将全部 `Log.create` 调用迁移至 `Effect.log*`，并移除旧版 Log 模块，统一日志体系（`d169b1c`）
+
+#### 文档
+
+- 上线离线文档站点，并于 README 中补充访问入口（`42b361f`）
+- 移除冗余的 overview 条目与 Releases 下载说明，精简文档表述（`6c7e6a5`）
+- 在 UI 校验文档中澄清多模态模型的使用方式，避免误用（`4453391`）
+
+### TUI 终端界面
+
+#### 新特性
+
+- 落地中英文国际化首版，覆盖命令菜单、权限提示、`/init`、`/review` 等交互节点，支持运行时语言切换（`999e6df`、`89d5698`、`093451b`、`80b4eb7`、`ba3701d`）
+- 点击 logo 时新增交互式爆破动效，增强启动时刻的视觉反馈（`bace2c3`）
+- `@` 弹层新增「输入即过滤」提示，提升智能体 / 文件检索的引导性（`d86ac61`）
+
+#### 优化
+
+- 默认启用会话滚动条，改善长会话浏览体验（`05e6a93`）
+
+#### 缺陷修复
+
+- 移除 `/language` 斜杠命令（保留调色板入口）并清理冗余的 `prompt.*` i18n 键（`fac0737`、`57ed63b`）
+- 退出尾声 logo 配色与 CLI banner 调色板对齐，统一视觉收尾（`f0a93b4`）
+- 恢复 `DEVECO_HOME` 自动检测与登录检查（含 `requireLogin` 前置校验），避免未登录态误入主界面（`b33e8d4`、`cd4a560`）
+- 修复 `unknown component type: spinner` 运行报错，消除启动期组件渲染异常（`912ab20`）
