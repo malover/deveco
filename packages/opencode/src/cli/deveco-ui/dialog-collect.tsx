@@ -9,7 +9,7 @@ import { useTerminalDimensions } from "@opentui/solid"
 import open from "open"
 import { AGREEMENT_DEFAULTS } from "@/cli/deveco-legal"
 import { listLogFiles, packLogs, uploadLogs, logInfo, logError } from "@/cli/cmd/debug/log-export"
-import { markUploadFailed, clearUploadFailed } from "@/cli/crash-detect"
+import { deleteCrashedFlag } from "@/cli/crash-detect"
 
 interface LogFile {
   path: string
@@ -31,11 +31,11 @@ export function DialogCollect(props: { triggerType?: string }) {
 
   const logFiles = createMemo<LogFile[]>(() => listLogFiles())
 
-  // Initialize all checked synchronously (before first render)
+  // Initialize: deveco group checked, mcp group unchecked
   const initialFiles = logFiles()
   const initialChecked: Record<number, boolean> = {}
   for (let i = 0; i < initialFiles.length; i++) {
-    initialChecked[i] = true
+    initialChecked[i] = initialFiles[i].group !== "mcp"
   }
   const [checked, setChecked] = createStore<Record<number, boolean>>(initialChecked)
   const [agree, setAgree] = createSignal(false)
@@ -193,14 +193,11 @@ export function DialogCollect(props: { triggerType?: string }) {
       logInfo("manual log upload started", { size: archive.length, files: selected.length })
       await uploadLogs(archive, props.triggerType ?? "00001")
       logInfo("manual log upload completed")
-      clearUploadFailed()
+      deleteCrashedFlag()
       toast.show({ message: "Logs uploaded successfully", variant: "success" })
       dialog.clear()
     } catch (e) {
       logError("manual log upload failed", { error: String(e) })
-      if(props.triggerType === "00002") {
-        markUploadFailed()
-      }
       toast.show({ message: `Upload log failed.`, variant: "error" })
     } finally {
       setUploading(false)
