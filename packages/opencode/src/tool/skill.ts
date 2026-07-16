@@ -2,9 +2,12 @@ import path from "path"
 import { pathToFileURL } from "url"
 import { Effect, Schema } from "effect"
 import { Ripgrep } from "@opencode-ai/core/ripgrep"
+import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Skill } from "../skill"
 import * as Tool from "./tool"
 import DESCRIPTION from "./skill.txt"
+
+const FILES_WHITELIST = "FILES.md"
 
 export const Parameters = Schema.Struct({
   name: Schema.String.annotate({ description: "The name of the skill from available_skills" }),
@@ -22,6 +25,7 @@ export const SkillTool = Tool.define(
   Effect.gen(function* () {
     const skill = yield* Skill.Service
     const ripgrep = yield* Ripgrep.Service
+    const fsys = yield* FSUtil.Service
 
     return {
       description: DESCRIPTION,
@@ -47,6 +51,51 @@ export const SkillTool = Tool.define(
 
           const dir = path.dirname(info.location)
           const base = pathToFileURL(dir).href
+
+          if (yield* fsys.existsSafe(path.join(dir, FILES_WHITELIST))) {
+            const content = yield* fsys.readFileString(path.join(dir, FILES_WHITELIST)).pipe(Effect.orDie);
+            const { notes, files } = content.split("\n").reduce(
+              (acc, line) => {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith("#")) return acc;
+                if (trimmed.startsWith("@note ")) {
+                  acc.notes.push(trimmed.slice(6));
+                } else {
+                  acc.files.push(path.resolve(dir, trimmed));
+                }
+                return acc;
+              },
+              { notes: [] as string[], files: [] as string[] },
+            );
+            const existing = yield* Effect.all(
+              files.map((f) => fsys.existsSafe(f).pipe(Effect.map((ok) => (ok ? f : null)))),
+              { concurrency: "unbounded" },
+            );
+            const entries = [...notes, ...existing.filter((f): f is string => f !== null)];
+            return {
+              title: `Loaded skill: ${info.name}`,
+              output: [
+                `<skill_content name="${info.name}">`,
+                `# Skill: ${info.name}`,
+                "",
+                info.content.trim(),
+                "",
+                `Base directory for this skill: ${base}`,
+                "Relative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.",
+                "Note: file list is sampled.",
+                "",
+                "<skill_files>",
+                entries.map((e) => `<file>${e}</file>`).join("\n"),
+                "</skill_files>",
+                "</skill_content>",
+              ].join("\n"),
+              metadata: {
+                name: info.name,
+                dir,
+              },
+            };
+          }
+
           const files = yield* ripgrep.find({
             cwd: dir,
             pattern: "!**/SKILL.md",
@@ -54,7 +103,8 @@ export const SkillTool = Tool.define(
             follow: false,
             signal: ctx.abort,
             limit: 10,
-          })
+          });
+          const entries = files.map((file) => path.resolve(dir, file.path));
 
           return {
             title: `Loaded skill: ${info.name}`,
@@ -69,7 +119,7 @@ export const SkillTool = Tool.define(
               "Note: file list is sampled.",
               "",
               "<skill_files>",
-              files.map((file) => `<file>${path.resolve(dir, file.path)}</file>`).join("\n"),
+              entries.map((e) => `<file>${e}</file>`).join("\n"),
               "</skill_files>",
               "</skill_content>",
             ].join("\n"),
