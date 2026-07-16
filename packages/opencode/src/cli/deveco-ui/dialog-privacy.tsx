@@ -10,7 +10,8 @@ export function DialogPrivacy() {
   const dialog = useDialog()
   const kv = useKV()
 
-  const analyticsEnabled = () => kv.get(ANALYTICS_ENABLED_KEY, true)
+  const analyticsEnabled = () => kv.get("analytics_enabled", true)
+  const crashUploadEnabled = () => kv.get("crash_upload_enabled", true)
   const toolImprovementEnabled = () => kv.get(TOOL_IMPROVEMENT_ENABLED_KEY, true)
 
   const options = createMemo(() => [
@@ -51,6 +52,18 @@ export function DialogPrivacy() {
       onSelect: () => {
         const current = toolImprovementEnabled()
         kv.set(TOOL_IMPROVEMENT_ENABLED_KEY, !current)
+        dialog.clear()
+      },
+    },
+    {
+      title: crashUploadEnabled() ? "Disable Crash Detect" : "Enable Crash Detect",
+      description: crashUploadEnabled()
+        ? "Turn off automatic log collection"
+        : "Turn on automatic log collection",
+      value: "toggle-crash-upload",
+      onSelect: () => {
+        const current = crashUploadEnabled()
+        kv.set("crash_upload_enabled", !current)
         dialog.clear()
       },
     },

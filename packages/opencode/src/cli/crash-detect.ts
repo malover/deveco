@@ -5,6 +5,7 @@ import { InstallationVersion } from "@opencode-ai/core/installation/version"
 
 const logDir = Global.Path.log
 const ownFlagFile = path.join(logDir, `.running-${process.pid}`)
+const kvPath = path.join(Global.Path.state, "kv.json")
 
 interface FlagContent {
   pid: number
@@ -13,7 +14,7 @@ interface FlagContent {
 }
 
 let crashedFlag: FlagContent | undefined
-let crashedFlagFile: string | undefined
+let crashedFlagFiles: string[] = []
 
 /** Check if a process with the given PID is still alive (cross-platform). */
 function isProcessAlive(pid: number): boolean {
@@ -38,6 +39,17 @@ function scanRunningFiles(): string[] {
   }
 }
 
+/** Read crash_upload_enabled from kv.json (default: true). */
+function isCrashUploadEnabled(): boolean {
+  try {
+    if (!fs.existsSync(kvPath)) return true
+    const kv = JSON.parse(fs.readFileSync(kvPath, "utf-8")) as Record<string, unknown>
+    return kv?.crash_upload_enabled !== false
+  } catch {
+    return true
+  }
+}
+
 /**
  * Called at startup. Scans all .running-* files for dead PIDs (crash detection),
  * then writes own .running-{pid} file.
@@ -46,14 +58,17 @@ function scanRunningFiles(): string[] {
  * for the TUI to consume via consumeCrashInfo() and show the collect dialog.
  */
 export async function checkOnStartup(): Promise<void> {
+  // 0. If upload is disabled, skip crash detection entirely
+  if (!isCrashUploadEnabled()) return
   // 1. Scan all .running-* files for dead PIDs
   for (const file of scanRunningFiles()) {
     try {
       const flag = JSON.parse(fs.readFileSync(file, "utf-8")) as FlagContent
       if (!isProcessAlive(flag.pid)) {
-        crashedFlag = flag
-        crashedFlagFile = file
-        break // handle one crash at a time
+        if (!crashedFlag) {
+          crashedFlag = flag // first crash found, used for dialog
+        }
+        crashedFlagFiles.push(file)
       }
     } catch {}
   }
@@ -69,14 +84,15 @@ export function consumeCrashInfo(): FlagContent | undefined {
   return info
 }
 
-/** Delete the crashed process's flag file — called after successful upload. */
+/** Delete all crashed flag files (except own) — called after successful upload. */
 export function deleteCrashedFlag(): void {
-  if (crashedFlagFile) {
+  for (const file of crashedFlagFiles) {
+    if (file === ownFlagFile) continue
     try {
-      fs.rmSync(crashedFlagFile, { force: true })
+      fs.rmSync(file, { force: true })
     } catch {}
-    crashedFlagFile = undefined
   }
+  crashedFlagFiles = []
 }
 
 function writeFlag(): void {
