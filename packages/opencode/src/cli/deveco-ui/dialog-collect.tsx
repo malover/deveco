@@ -223,7 +223,8 @@ export function DialogCollect(props: { triggerType?: string }) {
         <scrollbox
           ref={(r: ScrollBoxRenderable) => (scroll = r)}
           maxHeight={scrollMaxHeight()}
-          scrollbarOptions={{ visible: true }}
+          verticalScrollbarOptions={{ visible: true }}
+          horizontalScrollbarOptions={{ visible: false }}
         >
           <For each={fields().filter((f) => f.type !== "agree" && f.type !== "upload")}>
             {(field, fi) => {
