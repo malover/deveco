@@ -42,12 +42,28 @@ function scanRunningFiles(): string[] {
 /** Read crash_upload_enabled from kv.json (default: true). */
 function isCrashUploadEnabled(): boolean {
   try {
-    if (!fs.existsSync(kvPath)) return true
-    const kv = JSON.parse(fs.readFileSync(kvPath, "utf-8")) as Record<string, unknown>
-    return kv?.crash_upload_enabled !== false
+    if (!fs.existsSync(kvPath)) {
+      return true;
+    }
+    const kv = JSON.parse(fs.readFileSync(kvPath, 'utf-8')) as Record<string, unknown>;
+    return kv?.crash_upload_enabled !== false;
   } catch {
-    return true
+    return true;
   }
+}
+
+/** Scan .running-* file for dead PID and collect crashed flags. */
+function detectCrashedFlag(file: string): void {
+  try {
+    const flag = JSON.parse(fs.readFileSync(file, 'utf-8')) as FlagContent;
+    if (isProcessAlive(flag.pid)) {
+      return;
+    }
+    if (!crashedFlag) {
+      crashedFlag = flag;
+    }
+    crashedFlagFiles.push(file);
+  } catch {}
 }
 
 /**
@@ -58,23 +74,13 @@ function isCrashUploadEnabled(): boolean {
  * for the TUI to consume via consumeCrashInfo() and show the collect dialog.
  */
 export async function checkOnStartup(): Promise<void> {
-  // 0. If upload is disabled, skip crash detection entirely
-  if (!isCrashUploadEnabled()) return
-  // 1. Scan all .running-* files for dead PIDs
-  for (const file of scanRunningFiles()) {
-    try {
-      const flag = JSON.parse(fs.readFileSync(file, "utf-8")) as FlagContent
-      if (!isProcessAlive(flag.pid)) {
-        if (!crashedFlag) {
-          crashedFlag = flag // first crash found, used for dialog
-        }
-        crashedFlagFiles.push(file)
-      }
-    } catch {}
+  if (!isCrashUploadEnabled()) {
+    return;
   }
-
-  // 2. Write own flag file IMMEDIATELY (synchronous, before any async work)
-  writeFlag()
+  for (const file of scanRunningFiles()) {
+    detectCrashedFlag(file);
+  }
+  writeFlag();
 }
 
 /** Consume crash info (if any). Returns undefined after first call. */
@@ -87,12 +93,14 @@ export function consumeCrashInfo(): FlagContent | undefined {
 /** Delete all crashed flag files (except own) — called after successful upload. */
 export function deleteCrashedFlag(): void {
   for (const file of crashedFlagFiles) {
-    if (file === ownFlagFile) continue
+    if (file === ownFlagFile) {
+      continue;
+    }
     try {
-      fs.rmSync(file, { force: true })
+      fs.rmSync(file, { force: true });
     } catch {}
   }
-  crashedFlagFiles = []
+  crashedFlagFiles = [];
 }
 
 function writeFlag(): void {
