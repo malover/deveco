@@ -39,7 +39,7 @@ import { useLocal } from "@opencode-ai/tui/context/local"
 import { Prompt, type PromptRef } from "@opencode-ai/tui/component/prompt"
 import { usePluginRuntime } from "@opencode-ai/tui/plugin/runtime"
 import { HomeSessionDestinationProvider } from "@opencode-ai/tui/routes/home/session-destination"
-import { Toast } from "@opencode-ai/tui/ui/toast"
+import { Toast, useToast } from "@opencode-ai/tui/ui/toast"
 import type { SyncObject } from "@opencode-ai/tui/deveco-extensions"
 import { agreementService, AgreementStatus } from "@/cli/deveco-agreement"
 import { devecoAuth, hasDevecoOAuthEntry, ensureValidToken, loadIsRealNameFromDisk } from "@/plugin/deveco"
@@ -62,6 +62,7 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
   const kv = useKV()
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
+  const toast = useToast()
 
   const [devecoReady, setDevecoReady] = createSignal<boolean | null>(null)
   const [devecoInitialStep, setDevecoInitialStep] = createSignal<"entry" | "privacy" | "deveco-home">("entry")
@@ -173,6 +174,13 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
     } else if (checkResult.overallStatus === AgreementStatus.SESSION_EXPIRED) {
       finishCheck(true)
     } else {
+      if (checkResult.overallStatus === AgreementStatus.NEED_RE_SIGN) {
+        toast.show({
+          variant: "warning",
+          message: "Agreements updated — please review.",
+          duration: 6000,
+        })
+      }
       finishCheck(false, "privacy")
     }
 
