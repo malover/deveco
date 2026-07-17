@@ -52,6 +52,12 @@ declare const DEVECO_SKIP_AGREEMENT: boolean | undefined
 // TODO: what is the best way to do this?
 let once = false
 
+// Cache the auth check result so /new (or /clear) doesn't re-run it.
+// Only populated when the check succeeds (user is authed + compliant).
+let authCheckCached = false
+let cachedAuthCanEnter = false
+let cachedDevecoReady = false
+
 const placeholder = {
   normal: ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"],
   shell: ["ls -la", "git status", "pwd"],
@@ -79,6 +85,8 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
    * or the privacy agreement screen.
    */
   const finishCheck = (sessionExpired: boolean, step: "entry" | "privacy" = "entry") => {
+    // Don't cache failure states — clear any previous cache
+    authCheckCached = false
     if (sessionExpired) setDevecoSessionExpired(true)
     setDevecoInitialStep(step)
     setDevecoReady(false)
@@ -139,6 +147,9 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
       (typeof DEVECO_SKIP_AGREEMENT !== "undefined" && DEVECO_SKIP_AGREEMENT) ||
       process.env.DEVECO_SKIP_AGREEMENT === "1"
     ) {
+      authCheckCached = true
+      cachedAuthCanEnter = true
+      cachedDevecoReady = sync.status === "complete"
       setAuthCanEnter(true)
       setAuthCheckDone(true)
       if (sync.status === "complete") {
@@ -165,6 +176,9 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
     const checkResult = await agreementService.checkAllAgreements(accessToken, userId, kv)
 
     if (checkResult.canEnter) {
+      authCheckCached = true
+      cachedAuthCanEnter = true
+      cachedDevecoReady = sync.status === "complete"
       setAuthCanEnter(true)
       setAuthCheckDone(true)
       void agreementService.retryPendingSign(accessToken, userId, kv)
@@ -196,6 +210,14 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
   }
 
   onMount(() => {
+    if (authCheckCached) {
+      setAuthCheckDone(true)
+      setAuthCanEnter(cachedAuthCanEnter)
+      if (cachedDevecoReady || sync.status === "complete") {
+        setDevecoReady(true)
+      }
+      return
+    }
     void runDevecoCheck()
   })
 
