@@ -95,7 +95,10 @@ async function collectRemovalTargets(args: UninstallArgs, method: Installation.M
     { path: Global.Path.state, label: "State", keep: false },
   ]
 
-  return { directories, shellConfig: null, binary: null }
+  const shellConfig = method === "curl" ? await getShellConfigFile() : null
+  const binary = method === "curl" ? process.execPath : null
+
+  return { directories, shellConfig, binary }
 }
 
 async function showRemovalSummary(targets: RemovalTargets, method: Installation.Method) {
@@ -124,7 +127,7 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
     prompts.log.info(`  ✓ Shell PATH in ${shortenPath(targets.shellConfig)}`)
   }
 
-  if (method !== "unknown") {
+  if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string> = {
       npm: "npm uninstall -g @deveco/deveco-code",
       pnpm: "pnpm uninstall -g @deveco/deveco-code",
@@ -160,7 +163,18 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
     spinner.stop(`Removed ${dir.label}`)
   }
 
-  if (method !== "unknown") {
+  if (targets.shellConfig) {
+    spinner.start("Cleaning shell config...")
+    const err = await cleanShellConfig(targets.shellConfig).catch((e) => e)
+    if (err) {
+      spinner.stop("Failed to clean shell config", 1)
+      errors.push(`Shell config: ${err.message}`)
+    } else {
+      spinner.stop("Cleaned shell config")
+    }
+  }
+
+  if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string[]> = {
       npm: ["npm", "uninstall", "-g", "@deveco/deveco-code"],
       pnpm: ["pnpm", "uninstall", "-g", "@deveco/deveco-code"],
@@ -180,6 +194,18 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
     }
   }
 
+  // curl: don't auto-delete binary — show manual rm commands (safety: binary may be running)
+  if (method === "curl" && targets.binary) {
+    UI.empty()
+    prompts.log.message("To finish removing the binary, run:")
+    prompts.log.info(`  rm "${targets.binary}"`)
+
+    const installDir = path.dirname(path.dirname(targets.binary))
+    if (installDir.includes(".deveco")) {
+      prompts.log.info(`  rmdir "${installDir}" 2>/dev/null`)
+    }
+  }
+
   if (errors.length > 0) {
     UI.empty()
     prompts.log.warn("Some operations failed:")
@@ -190,6 +216,70 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
   UI.empty()
   prompts.log.success("Thank you for using DevEco Code!")
+}
+
+async function getShellConfigFile(): Promise<string | null> {
+  const shell = path.basename(process.env.SHELL || "bash")
+  const home = os.homedir()
+  const zdotdir = process.env.ZDOTDIR || home
+  const xdgConfig = process.env.XDG_CONFIG_HOME || path.join(home, ".config")
+
+  const configFiles: Record<string, string[]> = {
+    fish: [path.join(xdgConfig, "fish", "config.fish")],
+    zsh: [
+      path.join(zdotdir, ".zshrc"),
+      path.join(zdotdir, ".zshenv"),
+      path.join(xdgConfig, "zsh", ".zshrc"),
+      path.join(xdgConfig, "zsh", ".zshenv"),
+    ],
+    bash: [
+      path.join(home, ".bashrc"),
+      path.join(home, ".bash_profile"),
+      path.join(home, ".profile"),
+      path.join(xdgConfig, "bash", ".bashrc"),
+      path.join(xdgConfig, "bash", ".bash_profile"),
+    ],
+    ash: [path.join(home, ".ashrc"), path.join(home, ".profile")],
+    sh: [path.join(home, ".ashrc"), path.join(home, ".profile")],
+  }
+
+  const candidates = configFiles[shell] || configFiles.bash
+
+  for (const file of candidates) {
+    const exists = await fs
+      .access(file)
+      .then(() => true)
+      .catch(() => false)
+    if (!exists) continue
+
+    const content = await Filesystem.readText(file).catch(() => "")
+    if (content.includes("# deveco") || content.includes(".deveco/bin")) {
+      return file
+    }
+  }
+
+  return null
+}
+
+async function cleanShellConfig(file: string) {
+  const content = await Filesystem.readText(file)
+  const lines = content.split("\n")
+
+  const filtered = lines.filter((line) => {
+    const trimmed = line.trim()
+    if (trimmed === "# deveco") return false
+    if (trimmed.startsWith("export PATH=") && trimmed.includes(".deveco/bin")) return false
+    if (trimmed.startsWith("fish_add_path") && trimmed.includes(".deveco")) return false
+    return true
+  })
+
+  // Remove trailing blank lines
+  while (filtered.length > 0 && filtered[filtered.length - 1].trim() === "") {
+    filtered.pop()
+  }
+
+  const output = filtered.join("\n") + "\n"
+  await Filesystem.write(file, output)
 }
 
 async function getDirectorySize(dir: string): Promise<number> {

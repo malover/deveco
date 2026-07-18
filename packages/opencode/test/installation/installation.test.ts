@@ -128,6 +128,37 @@ describe("installation", () => {
         expect(latestUrl).toContain(`/${InstallationChannel}`)
       }),
     )
+    let tagsUrl = ""
+    testEffect(testLayer((request) => {
+      tagsUrl = request.url
+      if (request.url.includes("/tags")) {
+        return jsonResponse([
+          { name: "v0.1.3" },
+          { name: "v0.1.2" },
+          { name: "v0.1.1" },
+          { name: "v0.1.0" },
+          { name: "some-non-version-tag" },
+        ])
+      }
+      return jsonResponse({ version: "1.2.3" })
+    })).effect("reads the latest version from GitCode tags API for curl installs", () =>
+      Effect.gen(function* () {
+        const result = yield* Installation.use.latest("curl")
+        expect(result).toBe("0.1.3")
+        expect(tagsUrl).toContain("gitcode.com/api/v5/repos")
+        expect(tagsUrl).toContain("openharmony-sig/deveco-code")
+        expect(tagsUrl).toContain("/tags")
+      }),
+    )
+
+    testEffect(testLayer(() => jsonResponse([{ name: "release-candidate" }, { name: "nightly" }]))).effect(
+      "fails when GitCode has no semver version tags for curl installs",
+      () =>
+        Effect.gen(function* () {
+          const exit = yield* Installation.use.latest("curl").pipe(Effect.exit)
+          expect(exit._tag).toBe("Failure")
+        }),
+    )
   })
 
   describe("Service.method", () => {
@@ -162,6 +193,33 @@ describe("installation", () => {
       Effect.gen(function* () {
         expect(yield* Installation.use.method()).toBe("bun")
       }),
+    )
+
+    testEffect(testLayer(() => jsonResponse({}), () => "")).effect(
+      "does not false-positive curl when execPath is not a .deveco/bin path",
+      () =>
+        Effect.gen(function* () {
+          const method = yield* Installation.use.method()
+          expect(method).not.toBe("curl")
+        }),
+    )
+
+    testEffect(testLayer(() => jsonResponse({}), () => "")).effect(
+      "detects curl when execPath contains .deveco/bin",
+      () =>
+        Effect.gen(function* () {
+          const original = process.execPath
+          try {
+            Object.defineProperty(process, "execPath", {
+              value: "/home/testuser/.deveco/bin/deveco",
+              configurable: true,
+            })
+            const method = yield* Installation.use.method()
+            expect(method).toBe("curl")
+          } finally {
+            Object.defineProperty(process, "execPath", { value: original, configurable: true })
+          }
+        }),
     )
 
     testEffect(
@@ -280,32 +338,36 @@ describe("installation", () => {
       }),
     )
 
-    testEffect(testLayer(() => new Response("install script with token=secret", { status: 200 }))).effect(
-      "returns a typed error for unsupported curl upgrades",
-      () =>
-        Effect.gen(function* () {
-          const error = yield* Effect.flip(Installation.use.upgrade("curl", "9.9.9"))
-          expect(error).toBeInstanceOf(Installation.UpgradeFailedError)
-          expect(error.stderr).toBe("Unknown installation method: curl")
-          expect(error.message).toBe(error.stderr)
-          expect(error.stderr).not.toContain("secret")
-        }),
+    testEffect(
+      testLayer(
+        () => new Response("install script with token=secret", { status: 200 }),
+        (cmd) => {
+          if (cmd === "sh" || cmd === "bash") return { code: 1, stderr: "token=secret command output" }
+          return ""
+        },
+      ),
+    ).effect("sanitizes typed errors for failed curl upgrades", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(Installation.use.upgrade("curl", "9.9.9"))
+        expect(error).toBeInstanceOf(Installation.UpgradeFailedError)
+        expect(error.stderr).not.toContain("secret")
+        expect(error.stderr).not.toContain("command output")
+      }),
     )
 
-    const shellCalls: Array<{ cmd: string; args: readonly string[] }> = []
+    const curlShellCalls: Array<{ cmd: string; args: readonly string[] }> = []
     testEffect(
       testLayer(
         () => new Response("install script", { status: 200 }),
         (cmd, args) => {
-          shellCalls.push({ cmd, args })
+          curlShellCalls.push({ cmd, args })
           return ""
         },
       ),
-    ).effect("does not invoke a shell installer for unsupported curl upgrades", () =>
+    ).effect("invokes a shell installer for curl upgrades", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(Installation.use.upgrade("curl", "9.9.9"))
-        expect(error.stderr).toBe("Unknown installation method: curl")
-        expect(shellCalls.some((call) => call.cmd === "bash" || call.cmd === "sh")).toBe(false)
+        yield* Installation.use.upgrade("curl", "9.9.9")
+        expect(curlShellCalls.some((call) => call.cmd === "sh")).toBe(true)
       }),
     )
   })

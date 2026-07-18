@@ -75,6 +75,14 @@ export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedErr
 // Response schemas for external version APIs
 const NpmPackage = Schema.Struct({ version: Schema.String })
 
+const GITCODE_OWNER = process.env.GITCODE_OWNER || "openharmony-sig"
+const GITCODE_REPO = process.env.GITCODE_REPO || "deveco-code"
+const GITCODE_API = `https://gitcode.com/api/v5/repos/${GITCODE_OWNER}/${GITCODE_REPO}`
+const INSTALL_SCRIPT_URL = `https://raw.gitcode.com/${GITCODE_OWNER}/${GITCODE_REPO}/raw/develop/install`
+
+const GitCodeTag = Schema.Struct({ name: Schema.String })
+const GitCodeTags = Schema.Array(GitCodeTag)
+
 export interface Interface {
   readonly info: () => Effect.Effect<Info>
   readonly method: () => Effect.Effect<Method>
@@ -147,14 +155,14 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
 
     const upgradeCurl = Effect.fnUntraced(
       function* (target: string) {
-        const response = yield* httpOk.execute(HttpClientRequest.get("https://opencode.ai/install"))
+        const response = yield* httpOk.execute(HttpClientRequest.get(INSTALL_SCRIPT_URL))
         const body = yield* response.text
         const bodyBytes = new TextEncoder().encode(body)
         const shell = yield* upgradeScriptShell()
         const result = yield* appProcess.run(
           ChildProcess.make(shell, [], {
             stdin: Stream.make(bodyBytes),
-            env: { VERSION: target },
+            env: { VERSION: target, GITCODE_OWNER, GITCODE_REPO },
             extendEnv: true,
           }),
         )
@@ -176,6 +184,7 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
         }
       }),
       method: Effect.fn("Installation.method")(function* () {
+        if (process.execPath.includes(path.join(".deveco", "bin"))) return "curl" as Method
         const exec = process.execPath.toLowerCase()
 
         const checks: Array<{ name: Method; command: () => Effect.Effect<string> }> = [
@@ -205,6 +214,22 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
       latest: Effect.fn("Installation.latest")(function* (installMethod?: Method) {
         const detectedMethod = installMethod || (yield* result.method())
 
+        if (detectedMethod === "curl") {
+          const response = yield* httpOk.execute(
+            HttpClientRequest.get(`${GITCODE_API}/tags?per_page=100`).pipe(HttpClientRequest.acceptJson),
+          )
+          const tags = yield* HttpClientResponse.schemaBodyJson(GitCodeTags)(response)
+          const versionTags = tags
+            .map((t) => t.name)
+            .filter((n) => /^v?\d+\.\d+\.\d+$/.test(n))
+            .map((n) => n.replace(/^v/, ""))
+            .sort((a, b) => semver.rcompare(a, b))
+          if (!versionTags.length) {
+            return yield* Effect.fail(new Error("No version tags found on GitCode"))
+          }
+          return versionTags[0]
+        }
+
         const response = yield* httpOk.execute(
           HttpClientRequest.get(
             `${yield* NpmConfig.registry(process.cwd())}/@deveco%2fdeveco-code/${InstallationChannel}`,
@@ -224,6 +249,9 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
             break
           case "bun":
             upgradeResult = yield* run(["bun", "install", "-g", `@deveco/deveco-code@${target}`])
+            break
+          case "curl":
+            upgradeResult = yield* upgradeCurl(target)
             break
           default:
             return yield* new UpgradeFailedError({ stderr: `Unknown installation method: ${m}` })
