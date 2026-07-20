@@ -9,6 +9,7 @@ import { useSDK } from '@opencode-ai/tui/context/sdk';
 import { DialogSelect } from '@opencode-ai/tui/ui/dialog-select';
 import { DialogPrompt } from '@opencode-ai/tui/ui/dialog-prompt';
 import { Link } from '@opencode-ai/tui/ui/link';
+import open from 'open';
 import { devecoAuth, ACCESS_TOKEN_EXPIRES_MS, saveAuthToDisk } from '@/plugin/deveco';
 import { useKV } from '@opencode-ai/tui/context/kv';
 import { resolveAgreementConfig, getPrivacyAcceptedKey, getSignPendingKey, type AgreementConfig } from '@/cli/deveco-legal';
@@ -743,6 +744,9 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
       if (evt.name === 'return') {
         evt.preventDefault();
         if (realnameIndex() === 0) {
+          // "Authenticate" — open real-name authentication page in browser
+          // and return to entry page where user can sign in or exit
+          open('https://developer.huawei.com/consumer/cn/personalcenter/myInfo/personalInfo').catch(() => {});
           setStep('entry');
         } else {
           void exit();
@@ -1258,7 +1262,7 @@ if (st === 'entry') {
           <box flexDirection='column' marginTop={1}>
             <text fg={realnameIndex() === 0 ? theme.success : theme.text} selectable={false}>
               {selectionLead(realnameIndex() === 0)}
-              1. Sign in again
+              1. Authenticate
             </text>
             <text fg={realnameIndex() === 1 ? theme.success : theme.text} selectable={false}>
               {selectionLead(realnameIndex() === 1)}

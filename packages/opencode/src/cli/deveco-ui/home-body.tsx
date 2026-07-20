@@ -57,6 +57,8 @@ let once = false
 let authCheckCached = false
 let cachedAuthCanEnter = false
 let cachedDevecoReady = false
+// Cache DEVECO_HOME check — only check on initial startup, skip on /new
+let devecoHomeChecked = false
 
 const placeholder = {
   normal: ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"],
@@ -135,12 +137,15 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
 
     const userId = session.userId || (await devecoAuth.getUserId()) || ""
 
-    // Check if DEVECO_HOME is configured — if not, prompt for it before agreement
-    if (!(await hasConfiguredDevEcoHome())) {
-      setDevecoInitialStep("deveco-home")
-      setDevecoReady(false)
-      setAuthCheckDone(true)
-      return
+    // Check if DEVECO_HOME is configured — only on initial startup, skip on /new
+    if (!devecoHomeChecked) {
+      devecoHomeChecked = true
+      if (!(await hasConfiguredDevEcoHome())) {
+        setDevecoInitialStep("deveco-home")
+        setDevecoReady(false)
+        setAuthCheckDone(true)
+        return
+      }
     }
 
     if (
