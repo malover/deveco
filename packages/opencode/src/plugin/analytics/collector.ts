@@ -1,13 +1,39 @@
-import type { AnalyticsEvent, SessionContext, ToolExecution, Operations, ModifiedFile, FileDiffInfo } from "./types"
-import { isBuiltinTool, isMcpTool, isSkillTool } from "./types"
-import { getOrCreateDeviceId, getUserid, getOsName, getOsVersion, getVersion } from "./storage"
-import { devecoAuth } from "../deveco"
-import { Flock } from "@opencode-ai/core/util/flock"
-import { Filesystem } from "@/util/filesystem"
-import { Global } from "@opencode-ai/core/global"
-import path from "path"
-import fs from "fs"
 import crypto from "crypto"
+import fs from "fs"
+import path from "path"
+import { Flock } from "@opencode-ai/core/util/flock"
+import { Global } from "@opencode-ai/core/global"
+import { Filesystem } from "@/util/filesystem"
+import { createEnvironmentFields } from "./events"
+import type { AiSessionEvent, Operations, SessionContext } from "./types"
+import { isBuiltinTool, isMcpTool, isSkillTool } from "./types"
+
+export type SessionStart = {
+  sessionID: string
+  messageId: string
+  sourceVersion: string
+  providerId: string
+  modelId: string
+  agentName: string
+}
+
+interface SessionCollectorDependencies {
+  analyticsEnabled(): Promise<boolean>
+}
+
+async function readAnalyticsEnabled(): Promise<boolean> {
+  const file = path.join(Global.Path.state, "kv.json")
+  try {
+    const kv = await Flock.withLock(`tui-kv:${file}`, () => Filesystem.readJson<Record<string, unknown>>(file))
+    return typeof kv.analytics_enabled === "boolean" ? kv.analytics_enabled : true
+  } catch {
+    return true
+  }
+}
+
+const defaultDependencies: SessionCollectorDependencies = {
+  analyticsEnabled: readAnalyticsEnabled,
+}
 
 function stripJson5Comments(text: string): string {
   return text.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
@@ -37,239 +63,143 @@ function readBundleName(projectPath: string): string {
     const raw = fs.readFileSync(appJson5Path, "utf8")
     const cleaned = stripJson5Comments(raw).replace(/,(\s*[}\]])/g, "$1")
     const parsed = JSON.parse(cleaned) as Record<string, unknown>
-    const app = typeof parsed.app === "object" && parsed.app !== null ? parsed.app as Record<string, unknown> : undefined
+    const app =
+      typeof parsed.app === "object" && parsed.app !== null ? (parsed.app as Record<string, unknown>) : undefined
     return typeof app?.bundleName === "string" ? app.bundleName : ""
   } catch {
     return ""
   }
 }
 
-async function getAnalyticsEnabled(): Promise<boolean> {
-  const kvPath = path.join(Global.Path.state, "kv.json")
-  const lockKey = `tui-kv:${kvPath}`
-
-  try {
-    const kv = await Flock.withLock(lockKey, () =>
-      Filesystem.readJson<Record<string, any>>(kvPath)
-    )
-    return kv?.analytics_enabled ?? true
-  } catch {
-    return true
-  }
-}
-
 export class SessionCollector {
   private context: SessionContext | null = null
-  private version: string = "0.0.0"
-  private loggedIn: boolean = false
+  private loggedIn = false
+
+  constructor(private readonly dependencies: SessionCollectorDependencies = defaultDependencies) {}
 
   async init(): Promise<void> {
-    this.version = getVersion()
-    this.loggedIn = await devecoAuth.isLoggedIn()
+    // Login state is set by the plugin boundary so collection has one eligibility path.
   }
 
   setLoggedIn(loggedIn: boolean): void {
     this.loggedIn = loggedIn
-    if (!loggedIn) {
-      this.context = null
-    }
+    if (!loggedIn) this.context = null
   }
 
   async shouldCollect(): Promise<boolean> {
-    const enabled = await getAnalyticsEnabled()
-    return this.loggedIn && enabled
+    return this.loggedIn && (await this.dependencies.analyticsEnabled())
   }
 
-  startSession(sessionID: string, modelId: string, query: string, agentName: string, messageID: string): void {
-    if (!this.loggedIn) {
-      return
-    }
+  startSession(input: SessionStart): void {
+    if (!this.loggedIn) return
     this.context = {
-      sessionID,
-      messageID,
-      modelId,
-      agentName,
-      query,
+      sessionID: input.sessionID,
+      messageId: input.messageId,
+      sourceVersion: input.sourceVersion,
+      providerId: input.providerId,
+      modelId: input.modelId,
+      agentName: input.agentName,
       startTime: Date.now(),
       firstResponseTime: null,
-      answer: "",
-      inputTokens: 0,
-      outputTokens: 0,
       modifiedFiles: new Map(),
       toolExecutions: [],
       toolCounts: new Map(),
-      isSuccess: true,
     }
   }
 
-  recordFirstResponse(): void {
-    if (this.context && this.context.firstResponseTime === null) {
-      this.context.firstResponseTime = Date.now()
-    }
+  recordResponseDelta(): void {
+    if (this.context?.firstResponseTime === null) this.context.firstResponseTime = Date.now()
   }
 
-  appendAnswer(delta: string): void {
-    if (this.context) {
-      this.context.answer += delta
-    }
-  }
-
-  setAnswer(answer: string): void {
-    if (this.context) {
-      this.context.answer = answer
-    }
-  }
-
-  setTokenCounts(input: number, output: number): void {
-    if (this.context) {
-      this.context.inputTokens = input
-      this.context.outputTokens = output
-    }
-  }
-
-  addTokenCounts(input: number, output: number): void {
-    if (this.context) {
-      this.context.inputTokens += input
-      this.context.outputTokens += output
-    }
-  }
-
-  recordToolExecution(
-    toolName: string,
-    duration: number,
-    isSuccess: boolean,
-    _args?: Record<string, unknown>,
-  ): void {
+  recordToolExecution(toolName: string, duration: number, isSuccess: boolean): void {
     if (!this.context) return
-
-    const execution: ToolExecution = {
+    this.context.toolExecutions.push({
       toolName,
       duration,
       isSuccess,
       timestamp: Date.now(),
-    }
-    this.context.toolExecutions.push(execution)
-
-    const count = this.context.toolCounts.get(toolName) || 0
-    this.context.toolCounts.set(toolName, count + 1)
-
-    if (!isSuccess) {
-      this.context.isSuccess = false
-    }
+    })
+    this.context.toolCounts.set(toolName, (this.context.toolCounts.get(toolName) || 0) + 1)
   }
 
   recordFileDiff(filePath: string, additions: number, deletions: number): void {
     if (!this.context) return
-
-    const existing = this.context.modifiedFiles.get(filePath)
+    const key = this.fileKey(filePath)
+    const existing = this.context.modifiedFiles.get(key)
     if (existing) {
       existing.additions += additions
       existing.deletions += deletions
-    } else {
-      this.context.modifiedFiles.set(filePath, {
-        additions,
-        deletions,
-      })
+      return
     }
+    this.context.modifiedFiles.set(key, { additions, deletions })
   }
 
-  recordFileEdit(filePath: string, _content: string): void {
-    if (this.context && !this.context.modifiedFiles.has(filePath)) {
-      this.context.modifiedFiles.set(filePath, {
-        additions: 0,
-        deletions: 0,
-      })
-    }
-  }
-
-  markFailure(): void {
-    if (this.context) {
-      this.context.isSuccess = false
-    }
-  }
-
-  isActive(): boolean {
-    return this.context !== null
+  recordFileEdit(filePath: string): void {
+    if (!this.context) return
+    const key = this.fileKey(filePath)
+    if (!this.context.modifiedFiles.has(key)) this.context.modifiedFiles.set(key, { additions: 0, deletions: 0 })
   }
 
   getSessionID(): string | null {
     return this.context?.sessionID || null
   }
 
-  async buildEvent(projectName: string, projectPath: string): Promise<AnalyticsEvent | null> {
+  async buildEvent(projectId: string, projectPath: string): Promise<AiSessionEvent | null> {
     if (!this.context) return null
 
-    const uid = await getOrCreateDeviceId()
-    const userid = await getUserid()
-    const osname = getOsName()
-    const osversion = getOsVersion()
-
-    const hashedProjectName = crypto.createHash("sha256").update(projectName).digest("hex")
-    const bundleName = readBundleName(projectPath)
-
-    const modifiedFileList: ModifiedFile[] = []
-    this.context.modifiedFiles.forEach((info, fileName) => {
-      modifiedFileList.push({
-        fileName,
-        additions: info.additions,
-        deletions: info.deletions,
-      })
+    let totalAdditions = 0
+    let totalDeletions = 0
+    this.context.modifiedFiles.forEach((info) => {
+      totalAdditions += info.additions
+      totalDeletions += info.deletions
     })
 
-    const operations = this.buildOperations()
-
     const totalElapsed = Date.now() - this.context.startTime
-    const firstResultElapsed = this.context.firstResponseTime
-      ? this.context.firstResponseTime - this.context.startTime
-      : totalElapsed
+    const firstResultElapsed =
+      this.context.firstResponseTime === null ? totalElapsed : this.context.firstResponseTime - this.context.startTime
 
     return {
-      sourceType: "DevEco-Code-Cli",
-      sourceVersion: this.version,
+      ...createEnvironmentFields(this.context.sourceVersion),
+      providerId: this.context.providerId,
       modelId: this.context.modelId,
-      uid,
-      userid,
       sessionid: this.context.sessionID,
-      messageID: this.context.messageID,
+      messageId: this.context.messageId,
       agentName: this.context.agentName,
-      query: this.context.query,
-      answer: this.context.answer,
-      inputTokenCount: this.context.inputTokens,
-      outputTokenCount: this.context.outputTokens,
-      projectName: hashedProjectName,
-      bundleName,
-      modifiedFileList,
-      operations,
+      projectId,
+      bundleName: readBundleName(projectPath),
+      modifiedFileCount: this.context.modifiedFiles.size,
+      totalAdditions,
+      totalDeletions,
+      operations: this.buildOperations(),
       toolExecutions: this.context.toolExecutions,
-      isSuccess: this.context.isSuccess,
       totalElapsed,
       firstResultElapsed,
-      os_name: osname,
-      os_version: osversion,
     }
   }
 
+  private fileKey(filePath: string): string {
+    return crypto.createHash("sha256").update(path.resolve(filePath)).digest("hex")
+  }
+
   private buildOperations(): Operations {
-    const builtinTools: Map<string, number> = new Map()
-    const mcpTools: Map<string, number> = new Map()
-    const skillTools: Map<string, number> = new Map()
+    const builtinTools = new Map<string, number>()
+    const mcpTools = new Map<string, number>()
+    const skillTools = new Map<string, number>()
 
     this.context?.toolCounts.forEach((count, toolName) => {
-      if (isSkillTool(toolName)) {
-        skillTools.set(toolName, count)
-      } else if (isMcpTool(toolName)) {
-        mcpTools.set(toolName, count)
-      } else if (isBuiltinTool(toolName)) {
-        builtinTools.set(toolName, count)
-      } else {
-        mcpTools.set(toolName, count)
-      }
+      if (isSkillTool(toolName)) skillTools.set(toolName, count)
+      else if (isMcpTool(toolName)) mcpTools.set(toolName, count)
+      else if (isBuiltinTool(toolName)) builtinTools.set(toolName, count)
+      else mcpTools.set(toolName, count)
     })
 
+    const summaries = (entries: Map<string, number>): { name: string; count: number }[] =>
+      Array.from(entries, ([name, count]) => ({ name, count }))
+
     return {
-      builtinTools: Array.from(builtinTools.entries()).map(([name, count]) => ({ name, count })),
-      mcpTools: Array.from(mcpTools.entries()).map(([name, count]) => ({ name, count })),
-      skillTools: Array.from(skillTools.entries()).map(([name, count]) => ({ name, count })),
+      builtinTools: summaries(builtinTools),
+      mcpTools: summaries(mcpTools),
+      skillTools: summaries(skillTools),
     }
   }
 

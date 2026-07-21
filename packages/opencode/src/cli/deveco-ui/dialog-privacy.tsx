@@ -44,10 +44,10 @@ export function DialogPrivacy() {
       },
     },
     {
-      title: toolImprovementEnabled() ? "Disable Tool Improvement" : "Enable Tool Improvement",
+      title: toolImprovementEnabled() ? "Disable Improvement" : "Enable Improvement",
       description: toolImprovementEnabled()
-        ? "Turn off tool improvement data collection"
-        : "Turn on tool improvement data collection",
+        ? "Stop sharing prompts and replies"
+        : "Share prompts and replies",
       value: "toggle-tool-improvement",
       onSelect: () => {
         const current = toolImprovementEnabled()

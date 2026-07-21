@@ -1,11 +1,5 @@
 import HuaweiEndpoints from "../../../huawei-endpoints.json"
 
-export interface ModifiedFile {
-  fileName: string
-  additions: number
-  deletions: number
-}
-
 export interface ToolExecution {
   toolName: string
   duration: number
@@ -24,30 +18,48 @@ export interface Operations {
   skillTools: ToolSummary[]
 }
 
-export interface AnalyticsEvent {
+export interface AnalyticsEnvironmentFields {
   sourceType: "DevEco-Code-Cli"
   sourceVersion: string
-  modelId: string
-  uid: string
-  userid: string
-  sessionid: string
-  messageID: string
-  agentName: string
-  query: string
-  answer: string
-  inputTokenCount: number
-  outputTokenCount: number
-  projectName: string
-  bundleName: string
-  modifiedFileList: ModifiedFile[]
-  operations: Operations
-  toolExecutions: ToolExecution[]
-  isSuccess: boolean
-  totalElapsed: number
-  firstResultElapsed: number
-  os_name: string
+  os_arch: string
+  os_name: NodeJS.Platform
   os_version: string
 }
+
+export interface AiSessionEvent extends AnalyticsEnvironmentFields {
+  providerId: string
+  modelId: string
+  sessionid: string
+  messageId: string
+  agentName: string
+  projectId: string
+  bundleName: string
+  modifiedFileCount: number
+  totalAdditions: number
+  totalDeletions: number
+  operations: Operations
+  toolExecutions: ToolExecution[]
+  totalElapsed: number
+  firstResultElapsed: number
+}
+
+export const ANALYTICS_ACTION = {
+  AI_SESSION: "DevEcoCodeSession",
+} as const
+
+export type AnalyticsAction = (typeof ANALYTICS_ACTION)[keyof typeof ANALYTICS_ACTION]
+
+export type AnalyticsSubmission = {
+  action: typeof ANALYTICS_ACTION.AI_SESSION
+  event: AiSessionEvent
+}
+
+export interface AnalyticsTransportFields {
+  uid: string
+}
+
+export type AnalyticsQueueSubmission = AnalyticsSubmission
+export type QueuedAnalyticsSubmission = AnalyticsSubmission & AnalyticsTransportFields
 
 export interface FileDiffInfo {
   additions: number
@@ -56,19 +68,16 @@ export interface FileDiffInfo {
 
 export interface SessionContext {
   sessionID: string
-  messageID: string
+  messageId: string
+  sourceVersion: string
+  providerId: string
   modelId: string
   agentName: string
-  query: string
   startTime: number
   firstResponseTime: number | null
-  answer: string
-  inputTokens: number
-  outputTokens: number
   modifiedFiles: Map<string, FileDiffInfo>
   toolExecutions: ToolExecution[]
   toolCounts: Map<string, number>
-  isSuccess: boolean
 }
 
 export interface AnalyticsConfig {
@@ -92,14 +101,9 @@ export const DEFAULT_CONFIG: AnalyticsConfig = {
 }
 
 export interface HuaweiTracePayload {
-  action: string
-  countryCode: string
+  action: AnalyticsAction
   detail: string
-  osArch: string
-  sid: number
   timestamp: number
-  uid: string
-  version: string
 }
 
 export const BUILTIN_TOOLS = new Set([

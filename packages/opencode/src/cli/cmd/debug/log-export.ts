@@ -6,7 +6,8 @@ import { NodeFileSystem } from '@effect/platform-node';
 import { Global } from '@opencode-ai/core/global';
 import { Logging } from '@opencode-ai/core/observability/logging';
 import { ensureValidToken } from '@/plugin/deveco';
-import { getOrCreateUid, getOsName, getOsVersion, getVersion } from '@/plugin/analytics';
+import { getOrCreateDeviceId, getVersion } from '@/plugin/analytics';
+import { createEnvironmentFields } from '@/plugin/analytics/events';
 import { runID } from '@opencode-ai/core/observability/shared';
 
 const baseUrl = process.env.DEVECO_CONTENT_CENTER_URL || 'https://cn.devecostudio.huawei.com/codeGenie';
@@ -226,18 +227,17 @@ async function uploadLogTracePoint(
   fileId?: string,
 ): Promise<void> {
   try {
-    const uid = await getOrCreateUid();
-    const osName = getOsName();
-    const osVersion = getOsVersion();
+    const uid = await getOrCreateDeviceId();
     const version = getVersion();
+    const environment = createEnvironmentFields(version);
     const tracePoint = {
       file_id: fileId,
       uid,
       timestamp: Date.now(),
       source_type: 'DevEco-Code',
       source_version: version,
-      os_name: osName,
-      os_version: osVersion,
+      os_name: environment.os_name,
+      os_version: environment.os_version,
       trace_sid: runID,
       event_type: triggerType,
       is_success: isSuccess,
@@ -246,7 +246,7 @@ async function uploadLogTracePoint(
       action: 'DevEco-Code',
       countryCode: 'CN',
       detail: JSON.stringify(tracePoint),
-      osArch: osName,
+      osArch: environment.os_arch,
       sid: 10200,
       timestamp: Date.now(),
       uid,
