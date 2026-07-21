@@ -140,7 +140,9 @@ export async function uploadLogs(archive: Buffer, triggerType: string = "00001",
       }
     }
   }
-  await uploadLogTracePoint(authToken, false, triggerType)
+  try {
+    await uploadLogTracePoint(authToken, false, triggerType)
+  } catch {}
   throw lastError
 }
 
@@ -274,7 +276,7 @@ async function uploadLogTracePoint(
       uid,
       version,
     }
-    const resp = await fetch(
+    const resp = await fetchWithTimeout(
       `${baseUrl}/cli/trace/upload`,
       {
         method: "POST",
@@ -283,7 +285,8 @@ async function uploadLogTracePoint(
           "Content-Type": "application/json",
         },
         body: JSON.stringify([payload]),
-      }
+      },
+      10_000,
     )
 
     if (resp.ok) {
