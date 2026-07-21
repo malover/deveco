@@ -19,7 +19,7 @@ import { useTerminalDimensions } from "@opentui/solid"
 import { Locale } from "../../util/locale"
 import type { PromptInfo } from "../../prompt/history"
 import { useFrecency } from "../../prompt/frecency"
-import { useBindings, useCommandSlashes, useOpencodeModeStack } from "../../keymap"
+import { useBindings, useCommandSlashes, useOpencodeModeStack, useOpencodeKeymap } from "../../keymap"
 import { displayCharAt, mentionTriggerIndex } from "../../prompt/display"
 import { useI18n } from "../../i18n"
 
@@ -91,6 +91,7 @@ export function Autocomplete(props: {
   const project = useProject()
   const slashes = useCommandSlashes()
   const modeStack = useOpencodeModeStack()
+  const keymap = useOpencodeKeymap()
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
   const frecency = useFrecency()
@@ -529,6 +530,12 @@ export function Autocomplete(props: {
     setStore("selected", 0)
   })
 
+  createEffect(() => {
+    if (store.visible === "/" && search() && options().length === 0) {
+      hideSilent()
+    }
+  })
+
   function move(direction: -1 | 1) {
     if (!store.visible) return
     if (!options().length) return
@@ -552,7 +559,11 @@ export function Autocomplete(props: {
 
   function select() {
     const selected = options()[store.selected]
-    if (!selected) return
+    if (!selected) {
+      hideSilent()
+      keymap.dispatchCommand('prompt.submit');
+      return
+    }
     hide()
     selected.onSelect?.()
   }
@@ -645,6 +656,10 @@ export function Autocomplete(props: {
       visible: mode,
       index: props.input().cursorOffset,
     })
+  }
+
+  function hideSilent() {
+    setStore('visible', false);
   }
 
   function hide() {
