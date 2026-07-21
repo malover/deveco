@@ -16,7 +16,12 @@ import { sessionChatIdMap } from "@/plugin/deveco/session"
 // 真实 @/plugin/deveco/token-refresh：先 spyOn ensureValidToken，再动态导入 auth-plugin，
 // 让 auth-plugin 的 ESM live binding 读取被 spy 包装后的导出。
 
+let improvementEnabled = true
 const tokenRefresh = await import("@/plugin/deveco/token-refresh")
+const privacySettings = await import("@/cli/deveco-privacy-settings")
+const readToolImprovementEnabledSpy = spyOn(privacySettings, "readToolImprovementEnabled").mockImplementation(() =>
+  Promise.resolve(improvementEnabled),
+)
 const { DevEcoAuthPlugin } = await import("@/plugin/deveco/auth-plugin")
 
 type AuthCallbackResult =
@@ -58,6 +63,7 @@ beforeEach(() => {
   capturedFetchCall = null
   sessionChatIdMap.clear()
   globalBusEmitCalls = []
+  improvementEnabled = true
   devecAuthLoginSpy.mockResolvedValue({ success: true, userInfo: sampleUserInfo })
   devecAuthRefreshTokenSpy.mockResolvedValue(null)
   globalBusEmitSpy.mockReset().mockImplementation(((_eventName: "event", event: any) => {
@@ -83,6 +89,7 @@ afterAll(() => {
   devecAuthLoginSpy.mockRestore()
   devecAuthRefreshTokenSpy.mockRestore()
   ensureValidTokenSpy.mockRestore()
+  readToolImprovementEnabledSpy.mockRestore()
 })
 
 async function getFetchFn(
@@ -151,7 +158,10 @@ describe("fetch authorization header handling", () => {
   test("should remove auth entries from array headers and merge remaining", async () => {
     const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
     await fetchFn(testUrl, {
-      headers: [["authorization", "Bearer old-token"], ["x-custom", "custom-value"]] as [string, string][],
+      headers: [
+        ["authorization", "Bearer old-token"],
+        ["x-custom", "custom-value"],
+      ] as [string, string][],
       body: JSON.stringify({ stream: true }),
     })
     const finalHeaders = capturedFetchCall!.init!.headers as Headers
@@ -184,6 +194,50 @@ describe("fetch authorization header handling", () => {
     const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
     await fetchFn(testUrl)
     expect(ensureValidTokenSpy.mock.calls.length).toBe(0)
+  })
+})
+
+describe("fetch tool improvement consent header", () => {
+  test("sets improvement consent on Huawei OAuth inference requests", async () => {
+    improvementEnabled = true
+    const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
+    await fetchFn("https://cn.devecostudio.huawei.com/sse/codeGenie/maas/v2/chat/completions", {
+      body: JSON.stringify({ stream: true }),
+    })
+    expect((capturedFetchCall!.init!.headers as Headers).get("X-DevEco-Improvement-Enabled")).toBe("true")
+  })
+
+  test("does not send improvement consent to non-Huawei inference URLs", async () => {
+    const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
+    await fetchFn("https://example.com/v2/chat/completions", { body: JSON.stringify({ stream: true }) })
+    expect((capturedFetchCall!.init!.headers as Headers).get("X-DevEco-Improvement-Enabled")).toBeNull()
+  })
+
+  test("does not send improvement consent for api-key auth", async () => {
+    const fetchFn = await getFetchFn(() => Promise.resolve({ type: "api", key: "sk-test" }))
+    await fetchFn("https://cn.devecostudio.huawei.com/sse/codeGenie/maas/v2/chat/completions", {
+      body: JSON.stringify({ stream: true }),
+    })
+    expect((capturedFetchCall!.init!.headers as Headers).get("X-DevEco-Improvement-Enabled")).toBeNull()
+  })
+
+  test("sends the same consent value for non-streaming inference", async () => {
+    improvementEnabled = true
+    const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
+    await fetchFn("https://cn.devecostudio.huawei.com/sse/codeGenie/maas/v2/chat/completions", {
+      body: JSON.stringify({ stream: false }),
+    })
+    expect((capturedFetchCall!.init!.headers as Headers).get("X-DevEco-Improvement-Enabled")).toBe("true")
+  })
+
+  test("local false overrides a caller supplied true value", async () => {
+    improvementEnabled = false
+    const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
+    await fetchFn("https://cn.devecostudio.huawei.com/sse/codeGenie/maas/v2/chat/completions", {
+      headers: { "X-DevEco-Improvement-Enabled": "true" },
+      body: JSON.stringify({ stream: true }),
+    })
+    expect((capturedFetchCall!.init!.headers as Headers).get("X-DevEco-Improvement-Enabled")).toBe("false")
   })
 })
 
@@ -231,7 +285,10 @@ describe("fetch token refresh", () => {
     expect(body.error).toContain("re-login")
     expect(globalBusEmitCalls.length).toBe(1)
     expect(globalBusEmitCalls[0].event).toBe("event")
-    const emitPayload = globalBusEmitCalls[0].payload as { directory: string; payload: { type: string; properties: Record<string, string> } }
+    const emitPayload = globalBusEmitCalls[0].payload as {
+      directory: string
+      payload: { type: string; properties: Record<string, string> }
+    }
     expect(emitPayload.directory).toBe("global")
     expect(emitPayload.payload.type).toBe("auth.token_refresh_failed")
     expect(emitPayload.payload.properties.providerID).toBe("deveco")
@@ -350,7 +407,9 @@ describe("fetch URL rewriting", () => {
 
   test("should strip trailing slash before rewriting for non-streaming request", async () => {
     const fetchFn = await getFetchFn(() => Promise.resolve(validOauthAuth))
-    await fetchFn("https://api.devecostudio.huawei.com/v2/chat/completions/", { body: JSON.stringify({ stream: false }) })
+    await fetchFn("https://api.devecostudio.huawei.com/v2/chat/completions/", {
+      body: JSON.stringify({ stream: false }),
+    })
     const input = capturedFetchCall!.input
     expect(input instanceof URL).toBe(true)
     expect((input as URL).pathname).toBe("/v2/no-stream/chat/completions")
@@ -365,7 +424,13 @@ describe("authorize callback", () => {
     const result = await callback()
     const after = Date.now()
     expect(result.type).toBe("success")
-    const r = result as AuthCallbackResult & { type: "success"; access: string; refresh: string; expires: number; provider: string }
+    const r = result as AuthCallbackResult & {
+      type: "success"
+      access: string
+      refresh: string
+      expires: number
+      provider: string
+    }
     expect(r.provider).toBe(PROVIDER_ID)
     expect(r.access).toBe("access-token-123")
     expect(r.refresh).toBe("refresh-token-456")
@@ -378,7 +443,9 @@ describe("authorize callback", () => {
     const callback = await getAuthorizeCallback()
     const result = await callback()
     expect(result.type).toBe("failed")
-    expect((result as AuthCallbackResult & { type: "failed"; error: string }).error).toBe("Login succeeded but no access token received")
+    expect((result as AuthCallbackResult & { type: "failed"; error: string }).error).toBe(
+      "Login succeeded but no access token received",
+    )
   })
 
   test("should return failed with error when userInfo has empty accessToken", async () => {
@@ -387,7 +454,9 @@ describe("authorize callback", () => {
     const callback = await getAuthorizeCallback()
     const result = await callback()
     expect(result.type).toBe("failed")
-    expect((result as AuthCallbackResult & { type: "failed"; error: string }).error).toBe("Login succeeded but no access token received")
+    expect((result as AuthCallbackResult & { type: "failed"; error: string }).error).toBe(
+      "Login succeeded but no access token received",
+    )
   })
 
   test("should return failed without error when login is cancelled", async () => {

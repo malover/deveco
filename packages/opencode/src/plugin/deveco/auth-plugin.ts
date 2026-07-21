@@ -5,6 +5,7 @@ import { OAUTH_DUMMY_KEY } from "@/auth"
 import { Global } from "@opencode-ai/core/global"
 import { GlobalBus } from "@/bus/global"
 import { Effect } from "effect"
+import { TOOL_IMPROVEMENT_HEADER, readToolImprovementEnabled } from "@/cli/deveco-privacy-settings"
 
 async function log(effect: Effect.Effect<void>) {
   const { AppRuntime } = await import("@/effect/app-runtime")
@@ -14,6 +15,17 @@ import { devecoAuth } from "./auth"
 import { sessionChatIdMap } from "./session"
 import { ensureValidToken } from "./token-refresh"
 import { ACCESS_TOKEN_EXPIRES_MS, PROVIDER_ID } from "./types"
+
+export { TOOL_IMPROVEMENT_HEADER }
+
+export function isHuaweiInferenceRequest(input: RequestInfo | URL) {
+  const url = input instanceof URL ? input : new URL(typeof input === "string" ? input : input.url)
+  return (
+    url.origin === "https://cn.devecostudio.huawei.com" &&
+    url.pathname.startsWith("/sse/codeGenie/maas/v2/") &&
+    url.pathname.endsWith("/chat/completions")
+  )
+}
 
 export async function DevEcoAuthPlugin(_input: PluginInput): Promise<Hooks> {
   return {
@@ -45,7 +57,9 @@ export async function DevEcoAuthPlugin(_input: PluginInput): Promise<Hooks> {
                 if (newToken) {
                   currentAuth.access = newToken
                 } else {
-                  await log(Effect.logError("DevEco Code token refresh failed, user needs to re-login", { service: "deveco" }))
+                  await log(
+                    Effect.logError("DevEco Code token refresh failed, user needs to re-login", { service: "deveco" }),
+                  )
                   GlobalBus.emit("event", {
                     directory: "global",
                     payload: {
@@ -91,8 +105,7 @@ export async function DevEcoAuthPlugin(_input: PluginInput): Promise<Hooks> {
             headers.set("lang", "en")
 
             const sessionId = headers.get("x-deveco-session") || headers.get("x-session-affinity")
-            const chatId =
-              (sessionId && sessionChatIdMap.get(sessionId)) || crypto.randomUUID().replace(/-/g, "")
+            const chatId = (sessionId && sessionChatIdMap.get(sessionId)) || crypto.randomUUID().replace(/-/g, "")
             headers.set("Chat-Id", chatId)
             if (sessionId) {
               headers.set("Session-Id", sessionId)
@@ -115,8 +128,19 @@ export async function DevEcoAuthPlugin(_input: PluginInput): Promise<Hooks> {
                   finalInput = url
                 }
               } catch {
-                await log(Effect.logError("Failed to rewrite URL for non-streaming request", { service: "deveco", requestInput: String(requestInput) }))
+                await log(
+                  Effect.logError("Failed to rewrite URL for non-streaming request", {
+                    service: "deveco",
+                    requestInput: String(requestInput),
+                  }),
+                )
               }
+            }
+
+            if (currentAuth?.type === "oauth" && isHuaweiInferenceRequest(finalInput)) {
+              headers.set(TOOL_IMPROVEMENT_HEADER, String(await readToolImprovementEnabled()))
+            } else {
+              headers.delete(TOOL_IMPROVEMENT_HEADER)
             }
 
             return fetch(finalInput, {
