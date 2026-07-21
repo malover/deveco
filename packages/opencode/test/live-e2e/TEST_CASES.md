@@ -2,38 +2,49 @@
 
 This document is the case map for live end-to-end tests. These tests may use the real local Huawei DevEco login and call the real LLM provider.
 
-| ID                           | Name                         | Category | Priority | Requirements                                 | Code                                       |
-| ---------------------------- | ---------------------------- | -------- | -------- | -------------------------------------------- | ------------------------------------------ |
-| `LLM_BASIC_TEXT`             | 真实登录态下普通消息返回文本 | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/llm-basic-text.case.ts`             |
-| `PLAN_MODE_ENTER`            | 切换到plan模式               | `slash`  | `P0`     | `huawei-auth`, `real-llm`                    | `cases/plan-mode-enter.case.ts`            |
-| `PROJECT_CREATE_DEFAULT_API` | 参数完整，无自定义apiLevel   | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/project-create-default-api.case.ts` |
-| `START_APP_DEPLOY`           | start_app推包启动            | `cli`    | `P0`     | `huawei-auth`, `deveco-provider`, `deveco-home` | `cases/start-app-deploy.case.ts` |
-| `HDC_LOG_LIST_DEVICES`       | hdc_log设备列表              | `cli`    | `P1`     | `huawei-auth`, `deveco-provider`, `deveco-home` | `cases/hdc-log-list-devices.case.ts` |
-| `COMMAND_EXECUTION`          | 指令执行                     | `llm`    | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/command-execution.case.ts` |
-| `CONFIG_THIRD_PARTY_MODELS`  | 在deveco.jsonc中配置三方模型 | `cli`    | `P1`     | `huawei-auth`                                | `cases/config-third-party-models.case.ts`  |
-| `CONFIG_THIRD_PARTY_MODEL_REQUEST` | 全局配置三方模型并发起请求 | `llm` | `P1` | `real-llm` | `cases/config-third-party-model-request.case.ts` |
-| `GLOBAL_CUSTOM_SKILL`        | 添加本地全局自定义 skill     | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/global-custom-skill.case.ts`        |
-| `PROJECT_CUSTOM_SKILL`       | 创建项目级 skill             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/project-custom-skill.case.ts`       |
-| `CONFIG_LOCAL_MCP`           | 配置本地 MCP                 | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/config-local-mcp.case.ts`           |
-| `CONFIG_REMOTE_MCP`          | 配置远端 MCP                 | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/config-remote-mcp.case.ts`          |
-| `SKILL_ERROR_INVALID_IMPORT` | 无效引用修复 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-error-invalid-import.case.ts` |
-| `SKILL_ERROR_TYPE_MISMATCH` | 类型错误修复 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-error-type-mismatch.case.ts` |
-| `SKILL_ERROR_SYNTAX_BRACKET` | 语法错误修复 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-error-syntax-bracket.case.ts` |
-| `SKILL_ERROR_DISABLE_CHECK` | 关闭ArkTS类型检查 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-error-check-disable.case.ts` |
-| `SKILL_GRAMMAR_DIFF_QUERY` | 差异点查询 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-grammar-diff-query.case.ts` |
-| `SKILL_GRAMMAR_CLASS_DEF` | 正确语法查询 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-grammar-class-def.case.ts` |
-| `SKILL_GRAMMAR_TS_TO_ARKTS` | 错误代码修复 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-grammar-ts-to-arkts.case.ts` |
-| `SKILL_ARKUI_BASIC_COMPONENT` | 基础组件使用 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-arkui-basic-component.case.ts` |
-| `SKILL_ARKUI_COMPLEX_LAYOUT` | 复杂布局实现 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-arkui-complex-layout.case.ts` |
-| `SKILL_DEVECO_CREATE_HELLO_WORLD` | 0-1构建项目 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-deveco-create-hello-world.case.ts` |
-| `SKILL_DEVECO_API17_FALLBACK` | SDK选择推荐 | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/skill-deveco-api17-fallback.case.ts` |
-| `INCREMENTAL_DEV_BUILD_PROJECT` | 增量开发触发build_project | `skill` | `P1` | `huawei-auth`, `real-llm`, `deveco-provider`, `deveco-home` | `cases/incremental-dev-build-project.case.ts` |
-| `ARKTS_CHECK_ETS` | 指定ets文件进行语法检查check_ets_files | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/arkts-check-ets.case.ts` |
-| `SWITCH_CWD_BUILD` | 指定目录不存在项目代码构建switch_cwd | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/switch-cwd-build.case.ts` |
-| `SWITCH_CWD_PROJECT_BUILD` | 支持指定目录项目代码构建switch_cwd | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/switch-cwd-project-build.case.ts` |
-| `BUILD_PROJECT` | 支持鸿蒙项目代码构建build project | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/build-project.case.ts` |
-| `BUILD_FAILURE_CHECK` | 编译构建结果检查 | `cli` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/build-failure-check.case.ts` |
-| `PLAN_TO_BUILD` | 制定需求计划后跳转到build模式构建 | `slash` | `P0` | `huawei-auth`, `real-llm`, `deveco-provider` | `cases/plan-to-build.case.ts` |
+| ID                                 | Name                                   | Category | Priority | Requirements                                                | Code                                             |
+| ---------------------------------- | -------------------------------------- | -------- | -------- | ----------------------------------------------------------- | ------------------------------------------------ |
+| `LLM_BASIC_TEXT`                   | 真实登录态下普通消息返回文本           | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/llm-basic-text.case.ts`                   |
+| `PLAN_MODE_ENTER`                  | 切换到plan模式                         | `slash`  | `P0`     | `huawei-auth`, `real-llm`                                   | `cases/plan-mode-enter.case.ts`                  |
+| `PROJECT_CREATE_DEFAULT_API`       | 参数完整，无自定义apiLevel             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/project-create-default-api.case.ts`       |
+| `START_APP_DEPLOY`                 | start_app推包启动                      | `cli`    | `P0`     | `huawei-auth`, `deveco-provider`, `deveco-home`             | `cases/start-app-deploy.case.ts`                 |
+| `HDC_LOG_LIST_DEVICES`             | hdc_log设备列表                        | `cli`    | `P1`     | `huawei-auth`, `deveco-provider`, `deveco-home`             | `cases/hdc-log-list-devices.case.ts`             |
+| `COMMAND_EXECUTION`                | 指令执行                               | `llm`    | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/command-execution.case.ts`                |
+| `CONFIG_THIRD_PARTY_MODELS`        | 在deveco.jsonc中配置三方模型           | `cli`    | `P1`     | `huawei-auth`                                               | `cases/config-third-party-models.case.ts`        |
+| `CONFIG_THIRD_PARTY_MODEL_REQUEST` | 全局配置三方模型并发起请求             | `llm`    | `P1`     | `real-llm`                                                  | `cases/config-third-party-model-request.case.ts` |
+| `GLOBAL_CUSTOM_SKILL`              | 添加本地全局自定义 skill               | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/global-custom-skill.case.ts`              |
+| `PROJECT_CUSTOM_SKILL`             | 创建项目级 skill                       | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/project-custom-skill.case.ts`             |
+| `CONFIG_LOCAL_MCP`                 | 配置本地 MCP                           | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/config-local-mcp.case.ts`                 |
+| `CONFIG_REMOTE_MCP`                | 配置远端 MCP                           | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/config-remote-mcp.case.ts`                |
+| `MCP_LIST_SERVERS`                 | 列出 MCP 服务器                        | `cli`    | `P1`     | 无                                                          | `cases/mcp-list-servers.case.ts`                 |
+| `SKILL_ERROR_INVALID_IMPORT`       | 无效引用修复                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-error-invalid-import.case.ts`       |
+| `SKILL_ERROR_TYPE_MISMATCH`        | 类型错误修复                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-error-type-mismatch.case.ts`        |
+| `SKILL_ERROR_SYNTAX_BRACKET`       | 语法错误修复                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-error-syntax-bracket.case.ts`       |
+| `SKILL_ERROR_DISABLE_CHECK`        | 关闭ArkTS类型检查                      | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-error-check-disable.case.ts`        |
+| `SKILL_GRAMMAR_DIFF_QUERY`         | 差异点查询                             | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-grammar-diff-query.case.ts`         |
+| `SKILL_GRAMMAR_CLASS_DEF`          | 正确语法查询                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-grammar-class-def.case.ts`          |
+| `SKILL_GRAMMAR_TS_TO_ARKTS`        | 错误代码修复                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-grammar-ts-to-arkts.case.ts`        |
+| `SKILL_ARKUI_BASIC_COMPONENT`      | 基础组件使用                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-basic-component.case.ts`      |
+| `SKILL_ARKUI_COMPLEX_LAYOUT`       | 复杂布局实现                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-complex-layout.case.ts`       |
+| `SKILL_DEVECO_CREATE_HELLO_WORLD`  | 0-1构建项目                            | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-deveco-create-hello-world.case.ts`  |
+| `SKILL_DEVECO_API17_FALLBACK`      | SDK选择推荐                            | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-deveco-api17-fallback.case.ts`      |
+| `INCREMENTAL_DEV_BUILD_PROJECT`    | 增量开发触发build_project              | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`, `deveco-home` | `cases/incremental-dev-build-project.case.ts`    |
+| `ARKTS_CHECK_ETS`                  | 指定ets文件进行语法检查check_ets_files | `cli`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/arkts-check-ets.case.ts`                  |
+| `SWITCH_CWD_BUILD`                 | 指定目录不存在项目代码构建switch_cwd   | `cli`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/switch-cwd-build.case.ts`                 |
+| `SWITCH_CWD_PROJECT_BUILD`         | 支持指定目录项目代码构建switch_cwd     | `cli`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/switch-cwd-project-build.case.ts`         |
+| `BUILD_PROJECT`                    | 支持鸿蒙项目代码构建build project      | `cli`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/build-project.case.ts`                    |
+| `BUILD_FAILURE_CHECK`              | 编译构建结果检查                       | `cli`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/build-failure-check.case.ts`              |
+| `PLAN_TO_BUILD`                    | 制定需求计划后跳转到build模式构建      | `slash`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/plan-to-build.case.ts`                    |
+| `BUILD_MODE_BUILTIN_TOOLS`         | build模式内置工具列表                  | `cli`    | `P1`     | `huawei-auth`, `deveco-provider`, `deveco-home`             | `cases/build-mode-builtin-tools.case.ts`         |
+| `PLAN_MODE_BUILTIN_TOOLS`          | plan模式内置工具列表                   | `cli`    | `P1`     | `huawei-auth`, `deveco-provider`, `deveco-home`             | `cases/plan-mode-builtin-tools.case.ts`          |
+| `UPGRADE_COMMAND`                  | upgrade命令验证                        | `cli`    | `P1`     | 无                                                          | `cases/upgrade-command.case.ts`                  |
+| `AUTH_LIST_PROVIDERS`              | 列出已认证的AI服务供应商               | `cli`    | `P1`     | `huawei-auth`                                               | `cases/auth-list-providers.case.ts`              |
+| `MODELS_LIST`                      | 列出可用模型                           | `cli`    | `P1`     | `huawei-auth`                                               | `cases/models-list.case.ts`                      |
+| `AGENT_LIST`                       | 列出所有agent                          | `cli`    | `P1`     | —                                                           | `cases/agent-list.case.ts`                       |
+| `AGENT_CREATE`                     | 创建 agent 配置                        | `llm`    | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/agent-create.case.ts`                     |
+| `SESSION_LIST`                     | 列出所有会话                           | `cli`    | `P1`     | —                                                           | `cases/session-list.case.ts`                     |
+| `ACP_STARTUP`                      | ACP 服务启动与握手                     | `cli`    | `P0`     | 无                                                          | `cases/acp-startup.case.ts`                      |
+| `DEVECO_TUI_START`                 | TUI 启动命令可用                       | `cli`    | `P1`     | 无                                                          | `cases/deveco-tui-start.case.ts`                 |
 
 ## LLM_BASIC_TEXT
 
@@ -765,3 +776,249 @@ Expected result:
 Cleanup:
 
 临时工作目录在执行结束后删除。真实 auth/config 只读不清理。
+
+## BUILD_MODE_BUILTIN_TOOLS
+
+Purpose:
+
+验证 `deveco debug agent build` 不带 `--tool` 参数时返回的工具列表包含所有预期的内置工具且处于启用状态。
+
+Steps:
+
+1. 发现本机 DevEco Studio 安装路径。
+2. 使用真实用户环境和 buildEnv 构建环境变量。
+3. 执行 `deveco debug agent build`（不带 `--tool` 参数）。
+4. 解析输出的 JSON 结果。
+5. 验证 tools 字段包含所有预期工具且值均为 true（启用）：build_project, start_app, hdc_log, switch_cwd, arkts_knowledge_search, plan_enter。
+
+Expected result:
+
+1. 命令退出码为 0。
+2. 输出为合法 JSON，包含 tools 字段。
+3. tools 中包含 build_project, start_app, hdc_log, switch_cwd, arkts_knowledge_search, plan_enter 且值均为 true。
+
+Cleanup:
+
+用例不创建临时工程；真实 DevEco 安装、auth/config 只读不清理。
+
+## PLAN_MODE_BUILTIN_TOOLS
+
+Purpose:
+
+验证 `deveco debug agent plan` 不带 `--tool` 参数时返回的工具列表中 `plan_write` 和 `plan_exit` 存在且处于启用状态（值为 `true`）。
+
+Steps:
+
+1. 发现本机 DevEco Studio 安装路径。
+2. 使用真实用户环境和 buildEnv 构建环境变量。
+3. 执行 `deveco debug agent plan`（不带 `--tool` 参数）。
+4. 解析输出的 JSON 结果。
+5. 验证 tools 字段包含 plan_write 和 plan_exit，且值均为 true（启用）。
+
+Expected result:
+
+1. 命令退出码为 0。
+2. 输出为合法 JSON，包含 tools 字段。
+3. tools 中 plan_write 和 plan_exit 存在且值为 true。
+
+Cleanup:
+
+用例不创建临时工程；真实 DevEco 安装、auth/config 只读不清理。
+
+## UPGRADE_COMMAND
+
+Purpose:
+
+验证 `deveco upgrade` 命令已正确注册，帮助信息包含版本参数和方法选项，且指定当前版本时能正确跳过升级。
+
+Steps:
+
+1. 执行 `deveco upgrade --help` 验证命令已注册。
+2. 解析帮助输出，验证包含 `target` 位置参数和 `--method` 选项。
+3. 执行 `deveco upgrade local` 验证当前版本跳过逻辑。
+4. 验证输出包含 'already installed' 提示信息。
+
+Expected result:
+
+1. `deveco upgrade --help` 退出码为 0。
+2. 帮助输出包含 `upgrade [target]` 命令格式。
+3. 帮助输出包含 `--method` 选项说明。
+4. `deveco upgrade local` 退出码为 0。
+5. 输出包含 'already installed' 或 'skipped' 提示。
+
+Cleanup:
+
+用例不创建临时工程；不修改任何用户配置或安装状态。
+
+## MCP_LIST_SERVERS
+
+Purpose:
+
+验证 `deveco mcp list` 可列出隔离临时配置中的本地 MCP 服务器及其连接状态。
+
+Steps:
+
+1. 在隔离的临时配置中预置本地 MCP `live-e2e-list-mcp`。
+2. 命令行执行 `deveco mcp list`。
+3. 验证命令成功，并且输出包含该 MCP 服务器及 `connected` 状态。
+
+Expected result:
+
+1. `deveco mcp list` 退出码为 0。
+2. 输出包含 `live-e2e-list-mcp connected`。
+
+Cleanup:
+
+执行结束后删除临时 home 和 MCP 配置；不读取或修改真实用户配置。
+
+## AUTH_LIST_PROVIDERS
+
+Purpose:
+
+验证 `deveco auth list` 可列出已认证的 AI 服务供应商，输出包含 `deveco`（显示名可为 DevEco Code）和 oauth 凭证信息。
+
+Steps:
+
+1. 执行 `deveco auth list`。
+2. 验证命令退出码为 0。
+3. 验证输出包含 Credentials 标题。
+4. 验证输出包含 `deveco`（或 DevEco Code）和 oauth 凭证类型。
+5. 验证输出包含凭证数量统计。
+
+Expected result:
+
+1. `deveco auth list` 退出码为 0。
+2. 输出包含 Credentials 标题。
+3. 输出包含 `deveco`（或 DevEco Code）和 oauth。
+4. 输出包含凭证数量统计（如 `1 credentials` 或 `N credentials`）。
+
+Cleanup:
+
+用例不创建任何临时文件或工程；真实 auth/config 只读不清理。
+
+## SESSION_LIST
+
+Purpose:
+
+验证 `deveco session list` 可正常执行。空列表时退出码为 0 且无输出；有会话时输出包含 Session ID、Title 和 Updated 表头。
+
+Steps:
+
+1. 执行 `deveco session list --max-count 5`。
+2. 验证命令退出码为 0。
+3. 若输出非空，验证包含表头行（含 Session ID、Title、Updated）。
+
+Expected result:
+
+1. `deveco session list` 退出码为 0。
+2. 空列表时无输出（合法）；有会话时输出包含表头和至少一个会话条目。
+
+Cleanup:
+
+用例不创建任何临时文件或工程；真实 auth/config 只读不清理。
+
+## AGENT_LIST
+
+Purpose:
+
+验证 `deveco agent list` 可列出所有可用的 agent，输出包含 agent 名称和模式（mode）信息。
+
+Steps:
+
+1. 执行 `deveco agent list`。
+2. 验证命令退出码为 0。
+3. 验证输出包含至少一个 agent 条目（`name (mode)` 格式）。
+
+Expected result:
+
+1. `deveco agent list` 退出码为 0。
+2. 输出包含至少一个 agent 的名称和模式信息。
+
+Cleanup:
+
+用例不创建任何临时文件或工程；真实 auth/config 只读不清理。
+
+## AGENT_CREATE
+
+Purpose:
+
+验证 `deveco agent create` 可调用真实模型生成并写入 agent 配置文件。
+
+Steps:
+
+1. 创建隔离临时工作目录。
+2. 使用完整非交互参数执行 `deveco agent create`。
+3. 检查临时 `.deveco/agents` 目录中的生成文件。
+
+Expected result:
+
+1. `deveco agent create` 退出码为 0。
+2. 临时目录中恰好生成一个 agent Markdown 文件，包含 `mode: subagent` 和非空 prompt。
+
+Cleanup:
+
+执行结束后删除临时工作目录；真实 auth/config 仅用于模型请求，不修改也不清理。
+
+## ACP_STARTUP
+
+Purpose:
+
+验证 `deveco acp` 能在隔离环境中启动，并通过 JSON-RPC `initialize` 完成 ACP 握手。
+
+Steps:
+
+1. 创建隔离的临时工作目录和空配置环境。
+2. 执行 `deveco acp --cwd <tmp> --hostname 127.0.0.1 --port 0`，通过 stdin 发送 `initialize` 请求。
+3. 解析 stdout 中的 JSON-RPC 响应，并验证 ACP 元数据。
+
+Expected result:
+
+1. `deveco acp` 退出码为 0。
+2. 响应 ID 与请求一致，且 `protocolVersion` 为 1。
+3. 响应包含 `agentCapabilities` 和名称为 `DevEco Code` 的 `agentInfo`。
+
+Cleanup:
+
+执行结束后删除临时工作目录；不读取或修改真实 auth、config、token 或会话数据。
+
+## DEVECO_TUI_START
+
+Purpose:
+
+验证默认 TUI 启动命令已注册，并公开项目、会话和提示参数。
+
+Steps:
+
+1. 执行 `deveco --help`。
+2. 验证帮助将默认命令描述为启动 DevEco TUI。
+3. 验证帮助列出 `--prompt` 和 `--session` 参数。
+
+Expected result:
+
+1. `deveco --help` 退出码为 0。
+2. 输出包含 `start deveco tui`、`--prompt` 和 `--session`。
+
+Cleanup:
+
+用例不启动交互式 TUI，不创建或修改用户配置、会话或终端状态。
+
+## MODELS_LIST
+
+Purpose:
+
+验证 `deveco models` 可列出当前可用的所有模型，输出包含 provider/model 格式的模型列表。
+
+Steps:
+
+1. 执行 `deveco models`。
+2. 验证命令退出码为 0。
+3. 验证输出包含至少一个 provider/model 格式的模型条目。
+
+Expected result:
+
+1. `deveco models` 退出码为 0。
+2. 输出包含至少一个 provider/model 格式的模型条目。
+
+Cleanup:
+
+用例不创建任何临时文件或工程；真实 auth/config 只读不清理。

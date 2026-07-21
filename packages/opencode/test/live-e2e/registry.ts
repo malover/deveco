@@ -18,6 +18,7 @@ import globalCustomSkill from "./cases/global-custom-skill.case"
 import projectCustomSkill from "./cases/project-custom-skill.case"
 import configLocalMcp from "./cases/config-local-mcp.case"
 import configRemoteMcp from "./cases/config-remote-mcp.case"
+import mcpListServers from "./cases/mcp-list-servers.case"
 import startAppDeploy from "./cases/start-app-deploy.case"
 import hdcLogListDevices from "./cases/hdc-log-list-devices.case"
 import incrementalDevBuildProject from "./cases/incremental-dev-build-project.case"
@@ -28,6 +29,16 @@ import switchCwdProjectBuild from "./cases/switch-cwd-project-build.case"
 import buildProject from "./cases/build-project.case"
 import buildFailureCheck from "./cases/build-failure-check.case"
 import planToBuild from "./cases/plan-to-build.case"
+import buildModeBuiltinTools from "./cases/build-mode-builtin-tools.case"
+import planModeBuiltinTools from "./cases/plan-mode-builtin-tools.case"
+import upgradeCommand from "./cases/upgrade-command.case"
+import authListProviders from "./cases/auth-list-providers.case"
+import modelsList from "./cases/models-list.case"
+import agentList from "./cases/agent-list.case"
+import agentCreate from "./cases/agent-create.case"
+import sessionList from "./cases/session-list.case"
+import acpStartup from "./cases/acp-startup.case"
+import devecoTuiStart from "./cases/deveco-tui-start.case"
 import type { LiveTestCase } from "./types"
 
 export const cases: LiveTestCase[] = [
@@ -51,6 +62,7 @@ export const cases: LiveTestCase[] = [
   projectCustomSkill,
   configLocalMcp,
   configRemoteMcp,
+  mcpListServers,
   startAppDeploy,
   hdcLogListDevices,
   incrementalDevBuildProject,
@@ -61,6 +73,16 @@ export const cases: LiveTestCase[] = [
   buildProject,
   buildFailureCheck,
   planToBuild,
+  buildModeBuiltinTools,
+  planModeBuiltinTools,
+  upgradeCommand,
+  authListProviders,
+  modelsList,
+  agentList,
+  agentCreate,
+  sessionList,
+  acpStartup,
+  devecoTuiStart,
 ]
 
 export function getCaseByID(id: string) {

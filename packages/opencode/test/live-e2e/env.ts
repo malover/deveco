@@ -47,13 +47,24 @@ export async function runDeveco(
   const start = Date.now()
   const entry = options.entry ?? cliEntry
   const env = options.env ?? realUserEnv()
-  const proc = Bun.spawn(["bun", "run", "--conditions=browser", entry, ...args], {
-    cwd: options.cwd ?? opencodeRoot,
-    env,
-    stdin: options.stdin ? "pipe" : "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
-  })
+  const proc = Bun.spawn(
+    [
+      process.execPath,
+      "run",
+      "--preload",
+      path.join(opencodeRoot, "node_modules", "@opentui", "solid", "scripts", "preload.ts"),
+      "--conditions=browser",
+      entry,
+      ...args,
+    ],
+    {
+      cwd: options.cwd ?? opencodeRoot,
+      env,
+      stdin: options.stdin ? "pipe" : "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  )
 
   const stdin = proc.stdin
   if (options.stdin && stdin) {
