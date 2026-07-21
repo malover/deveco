@@ -62,6 +62,12 @@ export type DevEcoPrivacyDialog = () => JSX.Element
 export type DevEcoCollectDialog = (props: { triggerType?: string }) => JSX.Element
 
 /**
+ * Detect and consume crash info (if any). Returns truthy if a crash was
+ * detected, undefined otherwise. Called once by the TUI after UI is loaded.
+ */
+export type DevEcoConsumeCrashInfo = () => boolean
+
+/**
  * DevEco extensions. Registered once at startup. Members may be absent when
  * the host runs without DevEco features (generic upstream mode).
  */
@@ -72,6 +78,7 @@ export type DevEcoExtensions = {
   pluralize?: DevEcoPluralize
   privacyDialog?: DevEcoPrivacyDialog
   collectDialog?: DevEcoCollectDialog
+  consumeCrashInfo?: DevEcoConsumeCrashInfo
 }
 
 let registered: DevEcoExtensions = {}
@@ -89,20 +96,4 @@ export function getDevEcoExtensions(): DevEcoExtensions {
 /** Reset registrations (used by tests). */
 export function resetDevEcoExtensions(): void {
   registered = {}
-}
-
-// --- Crash dialog pending flag ---
-
-let pendingCrashTriggerType: string | null = null
-
-/** Set pending crash dialog with trigger type (called before TUI render when crash is detected). */
-export function setPendingCrashDialog(triggerType: string): void {
-  pendingCrashTriggerType = triggerType
-}
-
-/** Consume pending crash dialog. Returns trigger type if a crash was detected, null otherwise. */
-export function consumePendingCrashDialog(): string | null {
-  const v = pendingCrashTriggerType
-  pendingCrashTriggerType = null
-  return v
 }

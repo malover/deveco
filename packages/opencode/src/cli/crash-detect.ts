@@ -3,9 +3,10 @@ import path from "path"
 import { Global } from "@opencode-ai/core/global"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
 
+const RUNNING_PREFIX = ".running-"
 const logDir = Global.Path.log
-const ownFlagFile = path.join(logDir, `.running-${process.pid}`)
 const kvPath = path.join(Global.Path.state, "kv.json")
+const ownFlagFile = path.join(logDir, `${RUNNING_PREFIX}${process.pid}`);
 
 interface FlagContent {
   pid: number
@@ -13,7 +14,6 @@ interface FlagContent {
   version: string
 }
 
-let crashedFlag: FlagContent | undefined
 let crashedFlagFiles: string[] = []
 
 /** Check if a process with the given PID is still alive (cross-platform). */
@@ -32,7 +32,7 @@ function scanRunningFiles(): string[] {
     if (!fs.existsSync(logDir)) return []
     return fs
       .readdirSync(logDir)
-      .filter((f) => f.startsWith(".running-"))
+      .filter((f) => f.startsWith(RUNNING_PREFIX))
       .map((f) => path.join(logDir, f))
   } catch {
     return []
@@ -52,42 +52,35 @@ function isCrashUploadEnabled(): boolean {
   }
 }
 
-/** Scan .running-* file for dead PID and collect crashed flags. */
-function detectCrashedFlag(file: string): void {
-  try {
-    const flag = JSON.parse(fs.readFileSync(file, 'utf-8')) as FlagContent;
-    if (isProcessAlive(flag.pid)) {
-      return;
+/** Detect crashed flags by scanning .running-* files for dead PIDs. Returns truthy if a crash was found. */
+export function detectCrashedFlag(): boolean {
+  if (!isCrashUploadEnabled()) {
+    return false;
+  }
+
+  for (const file of scanRunningFiles()) {
+    if (file === ownFlagFile) {
+      continue;
     }
-    if (!crashedFlag) {
-      crashedFlag = flag;
+    const pid = Number(path.basename(file).substring(RUNNING_PREFIX.length))
+    if (!Number.isFinite(pid) || !isProcessAlive(pid)) {
+      crashedFlagFiles.push(file);
     }
-    crashedFlagFiles.push(file);
-  } catch {}
+  }
+  return crashedFlagFiles.length > 0;
 }
 
 /**
- * Called at startup. Scans all .running-* files for dead PIDs (crash detection),
- * then writes own .running-{pid} file.
- *
- * If a crash is detected (a .running-* file with a dead PID), the info is stored
- * for the TUI to consume via consumeCrashInfo() and show the collect dialog.
+ * Called at startup. Writes own .running-{pid} flag file.
+ * Crash detection is deferred to consumeCrashInfo() to avoid timing issues
+ * with async operations in the startup middleware.
  */
 export async function checkOnStartup(): Promise<void> {
   if (!isCrashUploadEnabled()) {
     return;
   }
-  for (const file of scanRunningFiles()) {
-    detectCrashedFlag(file);
-  }
   writeFlag();
-}
 
-/** Consume crash info (if any). Returns undefined after first call. */
-export function consumeCrashInfo(): FlagContent | undefined {
-  const info = crashedFlag
-  crashedFlag = undefined
-  return info
 }
 
 /** Delete all crashed flag files (except own) — called after successful upload. */

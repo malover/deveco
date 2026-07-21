@@ -15,6 +15,7 @@ import { openComplainPage } from "./complain"
 import { Auth } from "@/auth"
 import { LOCAL_CREDENTIALS_CORRUPTED_MESSAGE } from "@/auth/messages"
 import { Effect } from "effect"
+import { detectCrashedFlag } from "@/cli/crash-detect"
 
 async function readLocalAuthError(): Promise<string | undefined> {
   try {
@@ -50,5 +51,6 @@ export function registerDevEcoTuiExtensions(): void {
     pluralize,
     privacyDialog: DialogPrivacy,
     collectDialog: DialogCollect,
+    consumeCrashInfo: detectCrashedFlag,
   })
 }

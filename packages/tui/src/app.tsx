@@ -79,8 +79,7 @@ import {
   useBindings,
   useOpencodeKeymap,
 } from "./keymap"
-import { getDevEcoExtensions, consumePendingCrashDialog } from "./deveco-extensions"
-import path from "path"
+import { getDevEcoExtensions } from "./deveco-extensions"
 
 import type { EventSource } from "./context/sdk"
 import { DialogVariant } from "./component/dialog-variant"
@@ -504,12 +503,11 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   let crashDialogShown = false
   createEffect(() => {
     if (crashDialogShown || sync.status !== "complete") return
-    const triggerType = consumePendingCrashDialog()
-    if (!triggerType) return
+    if (getDevEcoExtensions().consumeCrashInfo?.() === false) return
     crashDialogShown = true
     const CollectDialog = getDevEcoExtensions().collectDialog
     if (CollectDialog) {
-      dialog.replace(() => <CollectDialog triggerType={triggerType} />)
+      dialog.replace(() => <CollectDialog triggerType='00002' />)
     }
   })
 

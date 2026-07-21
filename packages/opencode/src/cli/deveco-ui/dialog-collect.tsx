@@ -20,6 +20,7 @@ interface LogFile {
 type Field =
   | { type: "group"; group: string; label: string }
   | { type: "file"; index: number }
+  | { type: "privacy" }
   | { type: "agree" }
   | { type: "upload" }
 
@@ -68,6 +69,7 @@ export function DialogCollect(props: { triggerType?: string }) {
         fileIdx++
       }
     }
+    result.push({ type: "privacy" })
     result.push({ type: "agree" })
     result.push({ type: "upload" })
     return result
@@ -156,6 +158,8 @@ export function DialogCollect(props: { triggerType?: string }) {
             toggleGroup(field.group)
           } else if (field.type === "file") {
             setChecked(field.index, !checked[field.index])
+          } else if (field.type === "privacy") {
+            open(AGREEMENT_DEFAULTS.privacy_url).catch(() => {})
           } else if (field.type === "agree") {
             setAgree(!agree())
           }
@@ -226,7 +230,7 @@ export function DialogCollect(props: { triggerType?: string }) {
           verticalScrollbarOptions={{ visible: true }}
           horizontalScrollbarOptions={{ visible: false }}
         >
-          <For each={fields().filter((f) => f.type !== "agree" && f.type !== "upload")}>
+          <For each={fields().filter((f) => f.type !== "agree" && f.type !== "upload" && f.type !== "privacy")}>
             {(field, fi) => {
               const allFields = fields()
               const realIdx = allFields.indexOf(field)
@@ -241,7 +245,7 @@ export function DialogCollect(props: { triggerType?: string }) {
                     onMouseUp={() => setActive(realIdx)}
                   >
                     <text fg={active() === realIdx ? theme.primary : theme.textMuted}>
-                      {groupChecked()[field.group] === true ? "[x]" : "[ ]"}
+                      {groupChecked()[field.group] === true ? "[✓]" : "[ ]"}
                     </text>
                     <text fg={active() === realIdx ? theme.primary : theme.textMuted} attributes={TextAttributes.BOLD}>
                       {field.label}
@@ -261,7 +265,7 @@ export function DialogCollect(props: { triggerType?: string }) {
                   onMouseUp={() => setActive(realIdx)}
                 >
                   <text fg={active() === realIdx ? theme.primary : theme.textMuted}>
-                    {checked[field.index] === true ? "[x]" : "[ ]"}
+                    {checked[field.index] === true ? "[✓]" : "[ ]"}
                   </text>
                   <text fg={active() === realIdx ? theme.primary : theme.text}>{file.label}</text>
                 </box>
@@ -272,18 +276,25 @@ export function DialogCollect(props: { triggerType?: string }) {
       </Show>
 
       <box flexDirection="column" gap={1}>
-        <box flexDirection="row" gap={2}>
-          <text fg={theme.textMuted}>Privacy Policy:</text>
-          <text
-            fg={theme.primary}
-            onMouseUp={() => open(AGREEMENT_DEFAULTS.privacy_url).catch(() => {})}
-          >
-            Open
-          </text>
-        </box>
-
         <For each={fields()}>
           {(field, fi) => {
+            if (field.type === "privacy") {
+              return (
+                <box
+                  flexDirection="row"
+                  gap={2}
+                  paddingLeft={1}
+                  backgroundColor={active() === fi() ? theme.backgroundElement : undefined}
+                  onMouseUp={() => {
+                    setActive(fi())
+                    open(AGREEMENT_DEFAULTS.privacy_url).catch(() => {})
+                  }}
+                >
+                  <text fg={active() === fi() ? theme.primary : theme.textMuted}>Privacy Policy:</text>
+                  <text fg={active() === fi() ? theme.primary : theme.primary}>Open</text>
+                </box>
+              )
+            }
             if (field.type !== "agree") return null
             return (
               <box
@@ -291,10 +302,13 @@ export function DialogCollect(props: { triggerType?: string }) {
                 gap={2}
                 paddingLeft={1}
                 backgroundColor={active() === fi() ? theme.backgroundElement : undefined}
-                onMouseUp={() => setActive(fi())}
+                onMouseUp={() => {
+                  setActive(fi())
+                  setAgree(!agree())
+                }}
               >
                 <text fg={active() === fi() ? theme.primary : theme.textMuted}>
-                  {agree() ? "[x]" : "[ ]"}
+                  {agree() ? "[✓]" : "[ ]"}
                 </text>
                 <text fg={active() === fi() ? theme.primary : theme.text}>
                   I have read and agree to the privacy policy
@@ -319,7 +333,10 @@ export function DialogCollect(props: { triggerType?: string }) {
                 gap={2}
                 paddingLeft={1}
                 backgroundColor={active() === fi() ? theme.backgroundElement : undefined}
-                onMouseUp={() => setActive(fi())}
+                onMouseUp={() => {
+                  setActive(fi())
+                  void doUpload()
+                }}
               >
                 <text fg={agree() ? theme.primary : theme.textMuted}>
                   {agree() ? "> Upload <" : "  Upload  "}
