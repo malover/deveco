@@ -62,7 +62,7 @@ export function detectCrashedFlag(): boolean {
     if (file === ownFlagFile) {
       continue;
     }
-    const pid = Number(path.basename(file).substring(RUNNING_PREFIX.length))
+    const pid = Number(path.basename(file).substring(RUNNING_PREFIX.length));
     if (!Number.isFinite(pid) || !isProcessAlive(pid)) {
       crashedFlagFiles.push(file);
     }
