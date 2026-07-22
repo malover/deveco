@@ -6,6 +6,7 @@ import { Global } from "@opencode-ai/core/global"
 import { GlobalBus } from "@/bus/global"
 import { Effect } from "effect"
 import { TOOL_IMPROVEMENT_HEADER, readToolImprovementEnabled } from "@/cli/deveco-privacy-settings"
+import HuaweiEndpoints from "../../../huawei-endpoints.json"
 
 async function log(effect: Effect.Effect<void>) {
   const { AppRuntime } = await import("@/effect/app-runtime")
@@ -21,7 +22,7 @@ export { TOOL_IMPROVEMENT_HEADER }
 export function isHuaweiInferenceRequest(input: RequestInfo | URL) {
   const url = input instanceof URL ? input : new URL(typeof input === "string" ? input : input.url)
   return (
-    url.origin === "https://cn.devecostudio.huawei.com" &&
+    url.origin === HuaweiEndpoints.devecoStudio &&
     url.pathname.startsWith("/sse/codeGenie/maas/v2/") &&
     url.pathname.endsWith("/chat/completions")
   )

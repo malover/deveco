@@ -81,8 +81,10 @@ export interface DevEcoSession {
 
 export const ACCESS_TOKEN_EXPIRES_MS = 30 * 60 * 1000 // 30 minutes
 
+import HuaweiEndpoints from "../../../huawei-endpoints.json"
+
 export const DEFAULT_CONFIG: LoginConfig = {
-  baseUrl: "https://cn.devecostudio.huawei.com",
+  baseUrl: HuaweiEndpoints.devecoStudio,
   authUrl: "console/DevEcoIDE/apply",
   tempTokenCheckUrl: "authrouter/auth/api/temptoken/check",
   jwtTokenCheckUrl: "authrouter/auth/api/jwToken/check",

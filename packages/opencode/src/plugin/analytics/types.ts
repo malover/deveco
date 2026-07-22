@@ -1,3 +1,5 @@
+import HuaweiEndpoints from "../../../huawei-endpoints.json"
+
 export interface ModifiedFile {
   fileName: string
   additions: number
@@ -81,7 +83,7 @@ export interface AnalyticsConfig {
 
 export const DEFAULT_CONFIG: AnalyticsConfig = {
   enabled: true,
-  endpoint: "https://cn.devecostudio.huawei.com/codeGenie/cli/trace/upload",
+  endpoint: HuaweiEndpoints.devecoApiTraceUpload,
   batchSize: 10,
   flushInterval: 30000,
   maxRetries: 5,

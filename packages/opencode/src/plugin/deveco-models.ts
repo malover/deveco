@@ -8,11 +8,13 @@ async function log(effect: Effect.Effect<void>) {
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
 import * as ModelsDev from "@opencode-ai/core/models-dev"
 
+import HuaweiEndpoints from "../../huawei-endpoints.json"
+
 type ModelsMap = Record<string, ModelsDev.Model>
 
-const DEVECO_BASE_URL = "https://cn.devecostudio.huawei.com"
+const DEVECO_BASE_URL = HuaweiEndpoints.devecoStudio
 const DEVECO_PROVIDER_ID = "deveco"
-export const DEVECO_API_URL = `${DEVECO_BASE_URL}/sse/codeGenie/maas/v2`
+export const DEVECO_API_URL = HuaweiEndpoints.devecoApiMaaS
 const DEVECO_NPM = "@ai-sdk/openai-compatible"
 
 function makeModel(modelId: string, opts: {

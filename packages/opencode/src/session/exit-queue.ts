@@ -3,6 +3,7 @@ import { Global } from "@opencode-ai/core/global"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { LocalCrypto } from "@/security/local-crypto"
 import { sessionChatIdMap } from "@/plugin/deveco"
+import HuaweiEndpoints from "../../huawei-endpoints.json"
 import fs from "fs"
 import path from "path"
 
@@ -38,7 +39,7 @@ export const layer = Layer.effect(
       modelId: string,
     ) {
       const chatId = sessionChatIdMap.get(sessionID)
-      const url = `https://cn.devecostudio.huawei.com/sse/codeGenie/exitSessionQueue?modelId=${encodeURIComponent(modelId)}`
+      const url = `${HuaweiEndpoints.devecoApiExitQueue}?modelId=${encodeURIComponent(modelId)}`
 
       const accessToken = loadAccessTokenFromDisk()
 

@@ -1,3 +1,5 @@
+import HuaweiEndpoints from "../../huawei-endpoints.json"
+
 /**
  * Built-in defaults for DevEco Code agreement/legal configuration.
  * These values are used when no `agreement` section is present in the project config.
@@ -5,13 +7,11 @@
  */
 export const AGREEMENT_DEFAULTS = {
   /** TMS agreement service API base URL. */
-  tms_url: "https://terms-drcn.platform.dbankcloud.cn/agreementservice/user",
+  tms_url: HuaweiEndpoints.tmsAgreementService,
   /** DevEco Code AI privacy statement URL. */
-  privacy_url:
-    "https://legal.cloud.huawei.com/terms/scope/huawei/deveco-code/privacy-statement.htm?code=CN&language=zh-CN&branchid=0&contenttag=default",
+  privacy_url: HuaweiEndpoints.legalPrivacy,
   /** DevEco Code AI user agreement URL. */
-  terms_url:
-    "https://legal.cloud.huawei.com/terms/scope/huawei/deveco-code/terms.htm?code=CN&language=zh-CN&branchid=0&contenttag=default",
+  terms_url: HuaweiEndpoints.legalTerms,
   /** Privacy agreement ID for TMS query. */
   privacy_id: "20000222",
   /** Terms of use agreement ID for TMS query. */

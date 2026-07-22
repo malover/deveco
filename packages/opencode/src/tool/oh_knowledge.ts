@@ -1,8 +1,9 @@
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { Auth } from "@/auth"
+import HuaweiEndpoints from "../../huawei-endpoints.json"
 
-const BASE_URL = "https://cn.devecostudio.huawei.com/codeGenie/bigSearch"
+const BASE_URL = HuaweiEndpoints.devecoApiBigSearch
 const MAX_RESULT_LENGTH = 5 * 1024
 export const KNOWLEDGE_TOOL_ID = "arkts_knowledge_search"
 

@@ -1,0 +1,12 @@
+{
+  "devecoStudio": "https://cn.devecostudio.huawei.com",
+  "devecoApiMaaS": "https://cn.devecostudio.huawei.com/sse/codeGenie/maas/v2",
+  "devecoApiBigSearch": "https://cn.devecostudio.huawei.com/codeGenie/bigSearch",
+  "devecoApiTraceUpload": "https://cn.devecostudio.huawei.com/codeGenie/cli/trace/upload",
+  "devecoApiExitQueue": "https://cn.devecostudio.huawei.com/sse/codeGenie/exitSessionQueue",
+  "huaweiRealnameAuth": "https://developer.huawei.com/consumer/cn/personalcenter/myInfo/personalInfo",
+  "legalPrivacy": "https://legal.cloud.huawei.com/terms/scope/huawei/deveco-code/privacy-statement.htm?code=CN&language=zh-CN&branchid=0&contenttag=default",
+  "legalTerms": "https://legal.cloud.huawei.com/terms/scope/huawei/deveco-code/terms.htm?code=CN&language=zh-CN&branchid=0&contenttag=default",
+  "tmsAgreementService": "https://terms-drcn.platform.dbankcloud.cn/agreementservice/user",
+  "complainPage": "https://css-complain-drcn.platform.dbankcloud.cn/?next=1&theme=light&lang=zh-cn"
+}

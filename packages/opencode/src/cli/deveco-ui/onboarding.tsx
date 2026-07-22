@@ -22,6 +22,7 @@ async function log(effect: Effect.Effect<void>) {
 import { agreementService, AgreementStatus } from '@/cli/deveco-agreement';
 import type { AgreementCheckResult } from '@/cli/deveco-agreement';
 import { resolveDevEcoHome, saveDevEcoHome, findDevEcoHomes, hasConfiguredDevEcoHome } from '@/tool/lib/env';
+import HuaweiEndpoints from '../../../huawei-endpoints.json';
 import { BANNER_HOME_CONTENT_INSET, HOME_CONTENT_MAX_WIDTH, homeContentPadX } from '@opencode-ai/tui/component/banner';
 
 declare const DEVECO_SKIP_AGREEMENT: boolean | undefined
@@ -746,7 +747,7 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
         if (realnameIndex() === 0) {
           // "Authenticate" — open real-name authentication page in browser
           // and return to entry page where user can sign in or exit
-          open('https://developer.huawei.com/consumer/cn/personalcenter/myInfo/personalInfo').catch(() => {});
+          open(HuaweiEndpoints.huaweiRealnameAuth).catch(() => {});
           setStep('entry');
         } else {
           void exit();
@@ -1254,7 +1255,7 @@ if (st === 'entry') {
             Please complete real-name authentication on HUAWEI official website to continue:
           </text>
           <Link
-            href='https://developer.huawei.com/consumer/cn/personalcenter/myInfo/personalInfo'
+            href={HuaweiEndpoints.huaweiRealnameAuth}
             fg={theme.primary}
           >
             Complete Real-name Authentication

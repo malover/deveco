@@ -4,8 +4,9 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { devecoAuth } from "@/plugin/deveco"
 import { getOrCreateDeviceId } from "@/plugin/analytics/storage"
+import HuaweiEndpoints from "../../../huawei-endpoints.json"
 
-const TARGET_URL = "https://css-complain-drcn.platform.dbankcloud.cn/?next=1&theme=light&lang=zh-cn"
+const TARGET_URL = HuaweiEndpoints.complainPage
 const PROFILE_DIR = join(tmpdir(), "deveco-complain-chrome-profile")
 
 type OpenComplainResult = { ok: true } | { ok: false; message: string }
