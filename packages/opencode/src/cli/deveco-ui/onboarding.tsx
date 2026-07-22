@@ -1141,6 +1141,11 @@ if (st === 'entry') {
             <text fg={theme.textMuted} selectable={false} marginTop={1}>
               Use Enter to Select, Up/Down to navigate
             </text>
+            <Show when={authMessage() !== null}>
+              <text fg={theme.error} selectable={false}>
+                {authMessage()}
+              </text>
+            </Show>
         </OnboardingContent>
       </Show>
       <Show when={step() === 'auth'}>
