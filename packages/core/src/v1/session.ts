@@ -206,6 +206,17 @@ export const CompactionPart = Schema.Struct({
 }).annotate({ identifier: "CompactionPart" })
 export type CompactionPart = Types.DeepMutable<Schema.Schema.Type<typeof CompactionPart>>
 
+// Transcript marker for entering, inspecting, and explicitly leaving sticky
+// debug mode. Only a "cleared" marker represents leaving the mode.
+export const DebugStatePart = Schema.Struct({
+  ...partBase,
+  type: Schema.Literal("debug-state"),
+  state: Schema.Literals(["set", "cleared", "status", "none"]),
+  condition: Schema.String,
+  command: Schema.optional(Schema.String),
+}).annotate({ identifier: "DebugStatePart" })
+export type DebugStatePart = Types.DeepMutable<Schema.Schema.Type<typeof DebugStatePart>>
+
 export const SubtaskPart = Schema.Struct({
   ...partBase,
   type: Schema.Literal("subtask"),
@@ -380,6 +391,7 @@ export const Part = Schema.Union([
   AgentPart,
   RetryPart,
   CompactionPart,
+  DebugStatePart,
 ]).annotate({ discriminator: "type", identifier: "Part" })
 export type Part =
   | TextPart
@@ -394,6 +406,7 @@ export type Part =
   | AgentPart
   | RetryPart
   | CompactionPart
+  | DebugStatePart
 
 const AssistantErrorSchema = Schema.Union([
   AuthError.EffectSchema,

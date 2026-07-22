@@ -75,6 +75,7 @@ export function createFetch(override?: FetchHandler) {
       return json({ location: { directory, project: { id: "proj_test", directory } }, data: [] })
     if (url.pathname === "/provider") return json({ all: [], default: {}, connected: [] })
     if (url.pathname === "/session") return json([])
+    if (/^\/session\/[^/]+\/debug-state$/.test(url.pathname)) return json({ active: false })
     if (url.pathname === "/vcs") return json({ branch: "main" })
     throw new Error(`unexpected request: ${url.pathname}`)
   }) as typeof globalThis.fetch

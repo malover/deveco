@@ -16,8 +16,8 @@ import path from "path"
 import { fileURLToPath, pathToFileURL } from "url"
 import { NamedError } from "@opencode-ai/core/util/error"
 import { Agent as AgentSvc } from "../../src/agent/agent"
-import { BackgroundJob } from "@/background/job"
 import { Auth } from "@/auth"
+import { BackgroundJob } from "@/background/job"
 import { Command } from "../../src/command"
 import { Config } from "@/config/config"
 import { LSP } from "@/lsp/lsp"
@@ -47,6 +47,7 @@ import { SessionRunState } from "../../src/session/run-state"
 import { MessageID, PartID, SessionID } from "../../src/session/schema"
 import { SessionStatus } from "../../src/session/status"
 import { Storage } from "@/storage/storage"
+import { SessionAgentMode } from "../../src/session/agent-mode/routing"
 import { SessionV2 } from "@opencode-ai/core/session"
 import { SessionExecution } from "@opencode-ai/core/session/execution"
 import { Skill } from "../../src/skill"
@@ -251,6 +252,7 @@ const instruction = Instruction.layer.pipe(
 const systemPrompt = SystemPrompt.layer.pipe(Layer.provide(skill), Layer.provide(LocationServiceMap.layer))
 
 const status = SessionStatus.layer.pipe(Layer.provideMerge(EventV2Bridge.defaultLayer))
+const agentMode = SessionAgentMode.defaultLayer
 const run = SessionRunState.layer.pipe(Layer.provide(status))
 const infra = Layer.mergeAll(NodeFileSystem.layer, CrossSpawnSpawner.defaultLayer)
 const session = Session.defaultLayer
@@ -290,6 +292,7 @@ function makePrompt(input?: { processor?: "blocking" }) {
     status,
     Database.defaultLayer,
     EventV2Bridge.defaultLayer,
+    Global.defaultLayer,
   ).pipe(Layer.provideMerge(infra))
   const question = Question.layer.pipe(Layer.provideMerge(deps))
   const todo = Todo.layer.pipe(Layer.provideMerge(deps))
@@ -302,6 +305,7 @@ function makePrompt(input?: { processor?: "blocking" }) {
     Layer.provide(ripgrep),
     Layer.provide(Format.defaultLayer),
     Layer.provide(runtime),
+    Layer.provideMerge(agentMode),
     Layer.provideMerge(todo),
     Layer.provideMerge(question),
     Layer.provideMerge(deps),
@@ -326,6 +330,7 @@ function makePrompt(input?: { processor?: "blocking" }) {
     Layer.provide(sessionRevert),
     Layer.provide(Image.defaultLayer),
     Layer.provide(summary),
+    Layer.provideMerge(agentMode),
     Layer.provideMerge(run),
     Layer.provideMerge(compact),
     Layer.provideMerge(proc),

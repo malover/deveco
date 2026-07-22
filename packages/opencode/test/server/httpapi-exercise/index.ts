@@ -98,9 +98,7 @@ const scenarios: Scenario[] = [
         Effect.gen(function* () {
           object(body)
           check(body.username === "httpapi-global", "global config update should return patched config")
-          const text = yield* Effect.promise(() =>
-            Bun.file(path.join(exerciseConfigDirectory, "deveco.jsonc")).text(),
-          )
+          const text = yield* Effect.promise(() => Bun.file(path.join(exerciseConfigDirectory, "deveco.jsonc")).text())
           check(text.includes('"username": "httpapi-global"'), "global config update should write isolated config file")
         }),
       "status",
@@ -1073,6 +1071,17 @@ const scenarios: Scenario[] = [
       headers: ctx.headers(),
     }))
     .status(404),
+  http.protected
+    .get("/session/{sessionID}/debug-state", "session.debug_state")
+    .seeded((ctx) => ctx.session({ title: "Debug state session" }))
+    .at((ctx) => ({
+      path: route("/session/{sessionID}/debug-state", { sessionID: ctx.state.id }),
+      headers: ctx.headers(),
+    }))
+    .json(200, (body) => {
+      object(body)
+      check(body.active === false, "new session should not have active debug mode")
+    }),
   http.protected
     .patch("/session/{sessionID}", "session.update")
     .mutating()

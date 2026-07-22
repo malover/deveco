@@ -36,6 +36,7 @@ import type {
   TextPart,
   ReasoningPart,
   SessionStatus,
+  DebugStatePart,
 } from "@opencode-ai/sdk/v2"
 import { useLocal } from "../../context/local"
 import { Locale } from "../../util/locale"
@@ -1295,6 +1296,26 @@ export function Session() {
               </scrollbox>
               <SlowResponseTip sessionID={route.sessionID} />
               <box flexShrink={0}>
+                {(() => {
+                  const debugStateActive = createMemo(() => sync.data.debug_state[route.sessionID]?.state === "set")
+                  return (
+                    <Show when={debugStateActive()}>
+                      <box
+                        flexDirection="row"
+                        justifyContent="flex-end"
+                        paddingRight={2}
+                        paddingTop={1}
+                        paddingBottom={1}
+                        flexShrink={0}
+                      >
+                        <text>
+                          <span style={{ fg: theme.accent, bold: true }}>Debug</span>
+                          <span style={{ fg: theme.textMuted }}> {t("debug_state.exit_hint")}</span>
+                        </text>
+                      </box>
+                    </Show>
+                  )
+                })()}
                 <Show when={permissions().length > 0}>
                   <PermissionPrompt
                     request={permissions()[0]}
@@ -1404,6 +1425,7 @@ function UserMessage(props: {
   const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
 
   const compaction = createMemo(() => props.parts.find((x) => x.type === "compaction"))
+  const debugState = createMemo(() => props.parts.find((x) => x.type === "debug-state"))
 
   return (
     <>
@@ -1478,7 +1500,63 @@ function UserMessage(props: {
           borderColor={theme.borderActive}
         />
       </Show>
+      <Show when={debugState()}>{(part) => <DebugStatePartView part={part()} index={props.index} />}</Show>
     </>
+  )
+}
+
+function DebugStatePartView(props: { part: DebugStatePart; index?: number; last?: boolean; message?: AssistantMessage }) {
+  const { theme } = useTheme()
+  const { t } = useI18n()
+
+  const headline = createMemo(() => {
+    switch (props.part.state) {
+      case "set":
+        return {
+          icon: "⌖",
+          fg: theme.accent,
+          text: props.part.condition
+            ? t("debug_state.set", { condition: props.part.condition })
+            : t("debug_state.set_empty"),
+        }
+      case "cleared":
+        return {
+          icon: "⌀",
+          fg: theme.textMuted,
+          text: props.part.condition
+            ? t("debug_state.cleared", { condition: props.part.condition })
+            : t("debug_state.cleared_empty"),
+        }
+      case "none":
+        return { icon: "⌀", fg: theme.textMuted, text: t("debug_state.none") }
+      case "status":
+        return {
+          icon: "⌖",
+          fg: theme.accent,
+          text: props.part.condition
+            ? t("debug_state.status", { condition: props.part.condition })
+            : t("debug_state.status_empty"),
+        }
+    }
+    return { icon: "⌀", fg: theme.textMuted, text: t("debug_state.none") }
+  })
+
+  return (
+    <box
+      ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
+      paddingLeft={3}
+      marginTop={props.index === 0 ? 0 : 1}
+      flexDirection="column"
+      flexShrink={0}
+    >
+      <Show when={props.part.command}>
+        <text fg={theme.textMuted}>{props.part.command}</text>
+      </Show>
+      <text>
+        <span style={{ fg: headline().fg, bold: true }}>{headline().icon} </span>
+        <span style={{ fg: headline().fg }}>{headline().text}</span>
+      </text>
+    </box>
   )
 }
 
@@ -1490,6 +1568,10 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   const sync = useSync()
   const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
   const model = createMemo(() => Model.name(ctx.providers(), props.message.providerID, props.message.modelID))
+  const mode = createMemo(() => {
+    if (props.message.mode !== "debug") return props.message.mode
+    return sync.data.debug_state[props.message.sessionID]?.mode ?? props.message.mode
+  })
 
   const final = createMemo(() => {
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
@@ -1630,7 +1712,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
               >
                 ▣{" "}
               </span>{" "}
-              <span style={{ fg: theme.text }}>{Locale.titlecase(props.message.mode)}</span>
+              <span style={{ fg: theme.text }}>{Locale.titlecase(mode())}</span>
               <span style={{ fg: theme.textMuted }}> · {model()}</span>
               <Show when={duration()}>
                 <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
@@ -1655,6 +1737,7 @@ const PART_MAPPING = {
   text: TextPart,
   tool: ToolPart,
   reasoning: ReasoningPart,
+  "debug-state": DebugStatePartView,
 }
 
 const INLINE_TOOL_ICON_WIDTH = 2

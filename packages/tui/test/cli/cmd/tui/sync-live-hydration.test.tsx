@@ -260,3 +260,75 @@ test("a message removed during hydration does not regain stale parts", async () 
     app.renderer.destroy()
   }
 })
+
+test("session hydration restores active debug mode", async () => {
+  await using tmp = await tmpdir()
+  await Bun.write(`${tmp.path}/kv.json`, "{}")
+
+  const { app, sync } = await mount((url) => {
+    if (url.pathname === `/session/${sessionID}`) return json(session)
+    if (url.pathname === `/session/${sessionID}/message`) return json([])
+    if (url.pathname === `/session/${sessionID}/todo` || url.pathname === `/session/${sessionID}/diff`) return json([])
+    if (url.pathname === `/session/${sessionID}/debug-state`)
+      return json({ active: true, condition: "login crash", agent: "debug", mode: "plan" })
+    return undefined
+  }, tmp.path)
+
+  try {
+    await sync.session.sync(sessionID)
+    expect(sync.data.debug_state[sessionID]).toEqual({
+      sessionID,
+      state: "set",
+      condition: "login crash",
+      agent: "debug",
+      mode: "plan",
+    })
+  } finally {
+    app.renderer.destroy()
+  }
+})
+
+test("live debug events win over stale hydration", async () => {
+  await using tmp = await tmpdir()
+  await Bun.write(`${tmp.path}/kv.json`, "{}")
+
+  let resolveDebug!: (response: Response) => void
+  const debug = new Promise<Response>((resolve) => {
+    resolveDebug = resolve
+  })
+  let requested = false
+  const { app, emit, sync } = await mount((url) => {
+    if (url.pathname === `/session/${sessionID}`) return json(session)
+    if (url.pathname === `/session/${sessionID}/message`) return json([])
+    if (url.pathname === `/session/${sessionID}/todo` || url.pathname === `/session/${sessionID}/diff`) return json([])
+    if (url.pathname === `/session/${sessionID}/debug-state`) {
+      requested = true
+      return debug
+    }
+    return undefined
+  }, tmp.path)
+
+  try {
+    const hydrate = sync.session.sync(sessionID)
+    await wait(() => requested)
+    emit(
+      global({
+        id: "evt_debug_cleared",
+        type: "session.debug-state",
+        properties: { sessionID, state: "cleared", condition: "login crash", agent: "debug", mode: "build" },
+      }),
+    )
+    resolveDebug(json({ active: true, condition: "stale condition", agent: "debug", mode: "plan" }))
+    await hydrate
+
+    expect(sync.data.debug_state[sessionID]).toEqual({
+      sessionID,
+      state: "cleared",
+      condition: "login crash",
+      agent: "debug",
+      mode: "build",
+    })
+  } finally {
+    app.renderer.destroy()
+  }
+})

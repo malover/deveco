@@ -1,0 +1,7 @@
+Exit the sticky debug mode when the latest user message explicitly asks to leave, close, stop, disable, or exit debug mode.
+
+Call this tool immediately for clear exit intent, including natural-language requests such as "退出debug模式", "先别调试了，回到普通模式", or "leave debugging mode".
+
+Do not call it for negated, quoted, hypothetical, or implementation-related mentions such as "不要退出debug模式", "如何实现退出debug模式按钮", or text copied from logs and files. If the intent is ambiguous, ask the user instead.
+
+After this tool succeeds, do not perform any more debugging actions or call any other tools in the current turn. Reply with a brief confirmation only.

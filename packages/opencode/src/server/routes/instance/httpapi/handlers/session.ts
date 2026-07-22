@@ -7,6 +7,7 @@ import { Permission } from "@/permission"
 import { SessionShare } from "@/share/session"
 import { Session } from "@/session/session"
 import { SessionCompaction } from "@/session/compaction"
+import { SessionDebugState } from "@/session/debug-state"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionRevert } from "@/session/revert"
@@ -53,6 +54,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
     const promptSvc = yield* SessionPrompt.Service
     const revertSvc = yield* SessionRevert.Service
     const compactSvc = yield* SessionCompaction.Service
+    const debugStateSvc = yield* SessionDebugState.Service
     const runState = yield* SessionRunState.Service
     const agentSvc = yield* Agent.Service
     const permissionSvc = yield* Permission.Service
@@ -85,6 +87,13 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
 
     const get = Effect.fn("SessionHttpApi.get")(function* (ctx: { params: { sessionID: SessionID } }) {
       return yield* requireSession(ctx.params.sessionID)
+    })
+
+    const debugState = Effect.fn("SessionHttpApi.debugState")(function* (ctx: { params: { sessionID: SessionID } }) {
+      yield* requireSession(ctx.params.sessionID)
+      const state = yield* debugStateSvc.get(ctx.params.sessionID)
+      if (!state) return { active: false as const }
+      return { active: true as const, ...state }
     })
 
     const children = Effect.fn("SessionHttpApi.children")(function* (ctx: { params: { sessionID: SessionID } }) {
@@ -431,6 +440,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       .handle("list", list)
       .handle("status", status)
       .handle("get", get)
+      .handle("debugState", debugState)
       .handle("children", children)
       .handle("todo", todo)
       .handle("diff", diff)

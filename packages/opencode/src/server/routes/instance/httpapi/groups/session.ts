@@ -8,6 +8,7 @@ import { SessionPrompt } from "@/session/prompt"
 import { SessionRevert } from "@/session/revert"
 import { SessionStatus } from "@/session/status"
 import { SessionSummary } from "@/session/summary"
+import { SessionDebugState } from "@/session/debug-state"
 import { Todo } from "@/session/todo"
 import { MessageID, PartID, SessionID } from "@/session/schema"
 import { Snapshot } from "@/snapshot"
@@ -46,6 +47,10 @@ export const MessagesQuery = Schema.Struct({
   before: Schema.optional(Schema.String),
 })
 export const StatusMap = Schema.Record(Schema.String, SessionStatus.Info)
+export const DebugStateResponse = Schema.Union([
+  Schema.Struct({ active: Schema.Literal(true), ...SessionDebugState.Info.fields }),
+  Schema.Struct({ active: Schema.Literal(false) }),
+])
 export const UpdatePayload = Schema.Struct({
   title: Schema.optional(Schema.String),
   metadata: Schema.optional(Session.Metadata),
@@ -85,6 +90,7 @@ export const SessionPaths = {
   list: root,
   status: `${root}/status`,
   get: `${root}/:sessionID`,
+  debugState: `${root}/:sessionID/debug-state`,
   children: `${root}/:sessionID/children`,
   todo: `${root}/:sessionID/todo`,
   diff: `${root}/:sessionID/diff`,
@@ -146,6 +152,18 @@ export const SessionApi = HttpApi.make("session")
             identifier: "session.get",
             summary: "Get session",
             description: "Retrieve detailed information about a specific OpenCode session.",
+          }),
+        ),
+        HttpApiEndpoint.get("debugState", SessionPaths.debugState, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: described(DebugStateResponse, "Get session debug state"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.debug_state",
+            summary: "Get session debug state",
+            description: "Retrieve the active debug mode state for a session.",
           }),
         ),
         HttpApiEndpoint.get("children", SessionPaths.children, {

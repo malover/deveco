@@ -729,5 +729,15 @@
     "runtime_load_failed": "插件已安装，但运行时加载失败。请查看控制台/日志，重启 TUI 后重试。",
     "loaded_in_session": "已在当前会话中加载 {{mod}}。",
     "update_failed": "更新插件 {{id}} 失败"
+  },
+  "debug_state": {
+    "set": "调试模式已启用：{{condition}}",
+    "set_empty": "调试模式已启用",
+    "cleared": "调试模式已清除：{{condition}}",
+    "cleared_empty": "调试模式已清除",
+    "none": "当前未启用调试模式",
+    "status": "调试模式已启用：{{condition}}",
+    "status_empty": "调试模式已启用",
+    "exit_hint": "输入“/debug clear”或“退出debug模式”退出"
   }
 }

@@ -77,12 +77,14 @@ export const layer = Layer.effect(
       const bridge = yield* EffectBridge.make()
       const commands: Record<string, Info> = {}
 
+      // Sticky mode command: runs the debug agent in the main session until
+      // the user explicitly leaves with /debug clear.
       commands[Default.DEBUG] = {
         name: Default.DEBUG,
-        description: "debug ArkTS issues with runtime evidence",
+        description: "debug ArkTS issues with runtime evidence [clear|status]",
         source: "command",
         agent: "debug",
-        subtask: true,
+        subtask: false,
         template: PROMPT_DEBUG,
         hints: hints(PROMPT_DEBUG),
       }

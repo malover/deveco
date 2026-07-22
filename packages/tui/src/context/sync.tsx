@@ -19,6 +19,7 @@ import type {
   VcsInfo,
   SnapshotFileDiff,
   ConsoleState,
+  EventSessionDebugState,
 } from "@opencode-ai/sdk/v2"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useProject } from "./project"
@@ -87,6 +88,9 @@ export const {
       session_diff: {
         [sessionID: string]: SnapshotFileDiff[]
       }
+      debug_state: {
+        [sessionID: string]: EventSessionDebugState["properties"]
+      }
       todo: {
         [sessionID: string]: Todo[]
       }
@@ -127,6 +131,7 @@ export const {
       session: [],
       session_status: {},
       session_diff: {},
+      debug_state: {},
       todo: {},
       message: {},
       part: {},
@@ -143,7 +148,7 @@ export const {
 
     const fullSyncedSessions = new Set<string>()
     const syncingSessions = new Map<string, Promise<void>>()
-    const hydratingSessions = new Map<string, { messages: Set<string>; parts: Set<string> }>()
+    const hydratingSessions = new Map<string, { messages: Set<string>; parts: Set<string>; debugState: boolean }>()
     const touchMessage = (sessionID: string, messageID: string) => {
       hydratingSessions.get(sessionID)?.messages.add(messageID)
     }
@@ -300,6 +305,13 @@ export const {
 
         case "session.status": {
           setStore("session_status", event.properties.sessionID, event.properties.status)
+          break
+        }
+
+        case "session.debug-state": {
+          const tracker = hydratingSessions.get(event.properties.sessionID)
+          if (tracker) tracker.debugState = true
+          setStore("debug_state", event.properties.sessionID, event.properties)
           break
         }
 
@@ -595,14 +607,15 @@ export const {
           if (fullSyncedSessions.has(sessionID)) return
           const syncing = syncingSessions.get(sessionID)
           if (syncing) return syncing
-          const tracker = { messages: new Set<string>(), parts: new Set<string>() }
+          const tracker = { messages: new Set<string>(), parts: new Set<string>(), debugState: false }
           hydratingSessions.set(sessionID, tracker)
           const task = (async () => {
-            const [session, messages, todo, diff] = await Promise.all([
+            const [session, messages, todo, diff, debugState] = await Promise.all([
               sdk.client.session.get({ sessionID }, { throwOnError: true }),
               sdk.client.session.messages({ sessionID, limit: 100 }),
               sdk.client.session.todo({ sessionID }),
               sdk.client.session.diff({ sessionID }),
+              sdk.client.session.debugState({ sessionID }),
             ])
             setStore(
               produce((draft) => {
@@ -654,6 +667,16 @@ export const {
                 for (const message of removed) delete draft.part[message.id]
                 draft.message[sessionID] = visible
                 draft.session_diff[sessionID] = diff.data ?? []
+                if (!tracker.debugState && debugState.data?.active) {
+                  draft.debug_state[sessionID] = {
+                    sessionID,
+                    state: "set",
+                    condition: debugState.data.condition,
+                    agent: debugState.data.agent,
+                    mode: debugState.data.mode,
+                  }
+                }
+                if (!tracker.debugState && !debugState.data?.active) delete draft.debug_state[sessionID]
               }),
             )
             fullSyncedSessions.add(sessionID)

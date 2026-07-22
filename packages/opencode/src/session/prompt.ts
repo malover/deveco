@@ -59,6 +59,7 @@ import { eq } from "drizzle-orm"
 import { SessionTable } from "@opencode-ai/core/session/sql"
 import { SessionReminders } from "./reminders"
 import { SessionTools } from "./tools"
+import { SessionAgentMode } from "./agent-mode/routing"
 import { LLMEvent } from "@opencode-ai/llm"
 
 // @ts-ignore
@@ -123,6 +124,7 @@ export const layer = Layer.effect(
     const llm = yield* LLM.Service
     const events = yield* EventV2Bridge.Service
     const flags = yield* RuntimeFlags.Service
+    const agentMode = yield* SessionAgentMode.Service
     const database = yield* Database.Service
     const { db } = database
     const ops = Effect.fn("SessionPrompt.ops")(function* () {
@@ -1107,8 +1109,8 @@ export const layer = Layer.effect(
       return { info, parts }
     }, Effect.scoped)
 
-    const prompt: (input: PromptInput) => Effect.Effect<SessionV1.WithParts, Image.Error> = Effect.fn(
-      "SessionPrompt.prompt",
+    const promptImpl: (input: PromptInput) => Effect.Effect<SessionV1.WithParts, Image.Error> = Effect.fn(
+      "SessionPrompt.promptImpl",
     )(function* (input: PromptInput) {
       const session = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
       yield* revert.cleanup(session)
@@ -1128,11 +1130,29 @@ export const layer = Layer.effect(
       return yield* loop({ sessionID: input.sessionID })
     })
 
+    const prompt: (input: PromptInput) => Effect.Effect<SessionV1.WithParts, Image.Error> = Effect.fn(
+      "SessionPrompt.prompt",
+    )(function* (input: PromptInput) {
+      const routed = yield* agentMode.routePrompt(input)
+      if (routed.type === "semantic-exit") {
+        yield* cancel(input.sessionID)
+        const message = yield* promptImpl({ ...routed.input, agent: routed.info.mode, noReply: true })
+        const part = yield* agentMode.appendSemanticExitMarker({
+          sessionID: input.sessionID,
+          messageID: message.info.id,
+          info: routed.info,
+        })
+        return { info: message.info, parts: [...message.parts, part] }
+      }
+      return yield* promptImpl(routed.input)
+    })
+
     const lastAssistant = Effect.fnUntraced(function* (sessionID: SessionID) {
       const match = yield* sessions.findMessage(sessionID, (m) => m.info.role !== "user").pipe(Effect.orDie)
       if (Option.isSome(match)) return match.value
       const msgs = yield* sessions.messages({ sessionID, limit: 1 }).pipe(Effect.orDie)
-      if (msgs.length > 0) return msgs[0]
+      const last = msgs[0]
+      if (last) return last
       throw new Error("Impossible")
     })
 
@@ -1245,7 +1265,7 @@ export const layer = Layer.effect(
             id: MessageID.ascending(),
             parentID: lastUser.id,
             role: "assistant",
-            mode: agent.name,
+            mode: yield* agentMode.resolveAssistantDisplayMode(sessionID, agent.name),
             agent: agent.name,
             variant: lastUser.model.variant,
             path: { cwd: ctx.directory, root: ctx.worktree },
@@ -1418,7 +1438,13 @@ export const layer = Layer.effect(
         yield* events.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
         throw error
       }
-      const agentName = cmd.agent ?? input.agent
+
+      const isDebugCommand = input.command === Command.Default.DEBUG && cmd.subtask !== true
+      const debug = isDebugCommand ? yield* agentMode.handleDebugCommand(input) : undefined
+      if (debug?.type === "echo") return debug.result
+
+      const requestedAgent = (yield* agentMode.resolveCommandAgent(input)) ?? input.agent
+      const agentName = cmd.agent ?? requestedAgent
 
       const raw = input.arguments.match(argsRegex) ?? []
       const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
@@ -1501,7 +1527,7 @@ export const layer = Layer.effect(
           ]
         : [...uniqueTemplateParts, ...(input.parts ?? [])]
 
-      const userAgent = isSubtask ? (input.agent ?? (yield* agents.defaultInfo()).name) : agent.name
+      const userAgent = isSubtask ? (requestedAgent ?? (yield* agents.defaultInfo()).name) : agent.name
       const userModel = isSubtask
         ? input.model
           ? Provider.parseModel(input.model)
@@ -1514,13 +1540,32 @@ export const layer = Layer.effect(
         { parts },
       )
 
-      const result = yield* prompt({
-        sessionID: input.sessionID,
-        messageID: input.messageID,
-        model: userModel,
-        agent: userAgent,
-        parts,
-        variant: input.variant,
+      const result = yield* Effect.gen(function* () {
+        if (!isDebugCommand)
+          return yield* promptImpl({
+            sessionID: input.sessionID,
+            messageID: input.messageID,
+            model: userModel,
+            agent: userAgent,
+            parts,
+            variant: input.variant,
+          })
+        const condition = debug?.type === "enter" ? debug.condition : input.arguments.trim()
+        const message = yield* promptImpl({
+          sessionID: input.sessionID,
+          messageID: input.messageID,
+          model: userModel,
+          agent: userAgent,
+          noReply: true,
+          parts: parts.map((part) => (part.type === "text" ? { ...part, synthetic: true } : part)),
+          variant: input.variant,
+        })
+        yield* agentMode.finalizeDebugEnter({
+          sessionID: input.sessionID,
+          messageID: message.info.id,
+          condition,
+        })
+        return yield* loop({ sessionID: input.sessionID })
       })
       yield* events.publish(Command.Event.Executed, {
         name: input.command,
@@ -1545,7 +1590,7 @@ export const layer = Layer.effect(
 export const defaultLayer = Layer.suspend(() =>
   layer.pipe(
     Layer.provide(SessionRunState.defaultLayer),
-    Layer.provide(SessionStatus.defaultLayer),
+    Layer.provide(Layer.mergeAll(SessionStatus.defaultLayer, SessionAgentMode.defaultLayer)),
     Layer.provide(SessionCompaction.defaultLayer),
     Layer.provide(SessionProcessor.defaultLayer),
     Layer.provide(Command.defaultLayer),
@@ -1682,6 +1727,7 @@ const quoteTrimRegex = /^["']|["']$/g
 
 export const node = LayerNode.make(layer, [
   SessionStatus.node,
+  SessionAgentMode.node,
   Session.node,
   Agent.node,
   Provider.node,

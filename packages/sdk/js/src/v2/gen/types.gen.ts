@@ -87,6 +87,7 @@ export type Event =
   | EventQuestionReplied
   | EventQuestionRejected
   | EventSessionCompacted
+  | EventSessionDebugState
   | EventVcsBranchUpdated
   | EventWorkspaceReady
   | EventWorkspaceFailed
@@ -644,6 +645,16 @@ export type CompactionPart = {
   tail_start_id?: string
 }
 
+export type DebugStatePart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "debug-state"
+  state: "set" | "cleared" | "status" | "none"
+  condition: string
+  command?: string
+}
+
 export type Part =
   | TextPart
   | SubtaskPart
@@ -657,6 +668,7 @@ export type Part =
   | AgentPart
   | RetryPart
   | CompactionPart
+  | DebugStatePart
 
 export type Prompt = {
   text: string
@@ -1624,6 +1636,17 @@ export type GlobalEvent = {
       }
     | {
         id: string
+        type: "session.debug-state"
+        properties: {
+          sessionID: string
+          state: "set" | "cleared"
+          condition: string
+          agent: string
+          mode?: string
+        }
+      }
+    | {
+        id: string
         type: "vcs.branch.updated"
         properties: {
           branch?: string
@@ -1715,6 +1738,7 @@ export type GlobalEvent = {
     | SyncEventSessionNextRetried
     | SyncEventSessionNextCompactionStarted
     | SyncEventSessionNextCompactionEnded
+    | SyncEventSessionDebugState
 }
 
 /**
@@ -3662,6 +3686,24 @@ export type SyncEventSessionNextCompactionEnded = {
   }
 }
 
+export type SyncEventSessionDebugState = {
+  type: "sync"
+  id: string
+  syncEvent: {
+    type: "session.debug-state.1"
+    id: string
+    seq: number
+    aggregateID: string
+    data: {
+      sessionID: string
+      state: "set" | "cleared"
+      condition: string
+      agent: string
+      mode?: string
+    }
+  }
+}
+
 export type ConfigV2ReferenceGit = {
   repository: string
   branch?: string
@@ -5186,6 +5228,18 @@ export type EventSessionCompacted = {
   type: "session.compacted"
   properties: {
     sessionID: string
+  }
+}
+
+export type EventSessionDebugState = {
+  id: string
+  type: "session.debug-state"
+  properties: {
+    sessionID: string
+    state: "set" | "cleared"
+    condition: string
+    agent: string
+    mode?: string
   }
 }
 
@@ -7833,6 +7887,49 @@ export type SessionUpdateResponses = {
 }
 
 export type SessionUpdateResponse = SessionUpdateResponses[keyof SessionUpdateResponses]
+
+export type SessionDebugStateData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/debug-state"
+}
+
+export type SessionDebugStateErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionDebugStateError = SessionDebugStateErrors[keyof SessionDebugStateErrors]
+
+export type SessionDebugStateResponses = {
+  /**
+   * Get session debug state
+   */
+  200:
+    | {
+        active: true
+        condition: string
+        agent: string
+        mode: string
+      }
+    | {
+        active: false
+      }
+}
+
+export type SessionDebugStateResponse = SessionDebugStateResponses[keyof SessionDebugStateResponses]
 
 export type SessionChildrenData = {
   body?: never

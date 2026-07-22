@@ -58,6 +58,8 @@ import { BackgroundJob } from "@/background/job"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
+import { DebugExitTool } from "./debug-exit"
+import { SessionDebugState } from "@/session/debug-state"
 
 export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }) {
   return providerID === ProviderV2.ID.opencode || flags.exa || flags.parallel
@@ -118,6 +120,7 @@ export const layer = Layer.effect(
     const switchcwd = yield* SwitchCwdTool
     const ohknowledge = yield* OhKnowledgeTool
     const arktscheck = yield* ArktsCheckTool
+    const debugexit = yield* DebugExitTool
     const auth = yield* Auth.Service
     const agent = yield* Agent.Service
 
@@ -237,6 +240,7 @@ export const layer = Layer.effect(
           switchcwd: Tool.init(switchcwd),
           ohknowledge: Tool.init(ohknowledge),
           arktscheck: Tool.init(arktscheck),
+          debugexit: Tool.init(debugexit),
         })
 
         return {
@@ -263,6 +267,7 @@ export const layer = Layer.effect(
             tool.hdclog,
             tool.switchcwd,
             tool.arktscheck,
+            tool.debugexit,
             ...(ohknowledgeEnabled ? [tool.ohknowledge] : []),
           ],
           task: tool.task,
@@ -297,6 +302,8 @@ export const layer = Layer.effect(
 
     const tools: Interface["tools"] = Effect.fn("ToolRegistry.tools")(function* (input) {
       const filtered = (yield* all()).filter((tool) => {
+        if (tool.id === DebugExitTool.id) return input.agent.name === "debug"
+
         if (tool.id === WebSearchTool.id) {
           return webSearchEnabled(input.providerID, { exa: flags.enableExa, parallel: flags.enableParallel })
         }
@@ -356,6 +363,7 @@ export const defaultLayer = Layer.suspend(() =>
       Layer.provide(Skill.defaultLayer),
       Layer.provide(Agent.defaultLayer),
       Layer.provide(Session.defaultLayer),
+      Layer.provide(SessionDebugState.defaultLayer),
       Layer.provide(BackgroundJob.defaultLayer),
       Layer.provide(Provider.defaultLayer),
       Layer.provide(LSP.defaultLayer),
@@ -464,6 +472,7 @@ export const node = LayerNode.make(layer.pipe(Layer.provide(Ripgrep.defaultLayer
   Agent.node,
   Skill.node,
   Session.node,
+  SessionDebugState.node,
   BackgroundJob.node,
   Provider.node,
   LSP.node,
