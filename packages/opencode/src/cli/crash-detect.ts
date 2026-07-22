@@ -1,11 +1,11 @@
-import fs from "fs"
-import path from "path"
-import { Global } from "@opencode-ai/core/global"
-import { InstallationVersion } from "@opencode-ai/core/installation/version"
+import fs from 'fs';
+import path from 'path';
+import { Global } from '@opencode-ai/core/global';
+import { InstallationVersion } from '@opencode-ai/core/installation/version';
 
-const RUNNING_PREFIX = ".running-"
-const logDir = Global.Path.log
-const kvPath = path.join(Global.Path.state, "kv.json")
+const RUNNING_PREFIX = '.running-';
+const logDir = Global.Path.log;
+const kvPath = path.join(Global.Path.state, 'kv.json');
 const ownFlagFile = path.join(logDir, `${RUNNING_PREFIX}${process.pid}`);
 
 interface FlagContent {
@@ -14,28 +14,30 @@ interface FlagContent {
   version: string
 }
 
-let crashedFlagFiles: string[] = []
+let crashedFlagFiles: string[] = [];
 
 /** Check if a process with the given PID is still alive (cross-platform). */
 function isProcessAlive(pid: number): boolean {
   try {
-    process.kill(pid, 0)
-    return true
+    process.kill(pid, 0);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
 /** Scan all .running-* files in the log directory. */
 function scanRunningFiles(): string[] {
   try {
-    if (!fs.existsSync(logDir)) return []
+    if (!fs.existsSync(logDir)) {
+      return [];
+    }
     return fs
       .readdirSync(logDir)
       .filter((f) => f.startsWith(RUNNING_PREFIX))
-      .map((f) => path.join(logDir, f))
+      .map((f) => path.join(logDir, f));
   } catch {
-    return []
+    return [];
   }
 }
 
@@ -102,8 +104,8 @@ function writeFlag(): void {
       pid: process.pid,
       startTime: new Date().toISOString(),
       version: InstallationVersion,
-    }
-    fs.writeFileSync(ownFlagFile, JSON.stringify(flag, null, 2))
+    };
+    fs.writeFileSync(ownFlagFile, JSON.stringify(flag, null, 2));
   } catch {}
 }
 
@@ -114,6 +116,6 @@ function writeFlag(): void {
  */
 export function cleanupOnExit(): void {
   try {
-    fs.rmSync(ownFlagFile, { force: true })
+    fs.rmSync(ownFlagFile, { force: true });
   } catch {}
 }
