@@ -9,6 +9,7 @@ import { ExitProvider, useExit } from "./context/exit"
 import { EpilogueProvider } from "./context/epilogue"
 import * as Selection from "./util/selection"
 import { createCliRenderer, MouseButton, type CliRenderer } from "@opentui/core"
+import "./util/fix-mouse-events"
 import { RouteProvider, useRoute } from "./context/route"
 import {
   Switch,
