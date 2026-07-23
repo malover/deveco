@@ -5,6 +5,7 @@ import { Global } from "@opencode-ai/core/global"
 import { LocalCrypto } from "@/security/local-crypto"
 import { ANALYTICS_ACTION } from "@/plugin/analytics/types"
 import type { AiSessionEvent } from "@/plugin/analytics/types"
+import type { TuiUsageDailyEvent } from "@/plugin/analytics/types"
 import {
   ANALYTICS_SCHEMA_VERSION,
   enqueuePendingEvent,
@@ -40,6 +41,18 @@ function event(): AiSessionEvent {
     toolExecutions: [],
     totalElapsed: 10,
     firstResultElapsed: 5,
+  }
+}
+
+function usageEvent(isStartup: boolean): TuiUsageDailyEvent {
+  return {
+    sourceType: "DevEco-Code-Cli",
+    sourceVersion: "1.2.3",
+    os_arch: "arm64",
+    os_name: process.platform,
+    os_version: "os-version",
+    statDate: "2026-07-22",
+    isStartup,
   }
 }
 
@@ -79,6 +92,53 @@ test("each queued ai_session receives a distinct local uid", async () => {
   expect("uid" in (pending[0]?.event ?? {})).toBe(false)
   expect(pending[0]?.event.sourceVersion).toBe("1.2.3")
   expect("osArch" in (pending[0]?.event ?? {})).toBe(false)
+})
+
+test("usage startup records remain independent and non-startup activity is retained", async () => {
+  await using tmp = await tmpdir()
+  Global.Path.data = tmp.path
+
+  await enqueuePendingEvent({ action: ANALYTICS_ACTION.TUI_USAGE, event: usageEvent(true) })
+  await enqueuePendingEvent({ action: ANALYTICS_ACTION.TUI_USAGE, event: usageEvent(true) })
+  await enqueuePendingEvent({ action: ANALYTICS_ACTION.TUI_USAGE, event: usageEvent(false) })
+
+  const pending = await getPendingEvents()
+  expect(pending).toHaveLength(3)
+  expect(pending.map((item) => (item.action === ANALYTICS_ACTION.TUI_USAGE ? item.event.isStartup : null))).toEqual([
+    true,
+    true,
+    false,
+  ])
+  expect(new Set(pending.map((item) => item.uid)).size).toBe(3)
+})
+
+test("current-schema queue rejects the old usage userid and count fields", async () => {
+  await using tmp = await tmpdir()
+  Global.Path.data = tmp.path
+  const file = path.join(tmp.path, "analytics", "analytics.json")
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  const encrypted = LocalCrypto.encryptForLocalStorage(
+    JSON.stringify({
+      schemaVersion: ANALYTICS_SCHEMA_VERSION,
+      pendingEvents: [
+        {
+          action: ANALYTICS_ACTION.TUI_USAGE,
+          event: {
+            ...usageEvent(true),
+            userid: "a".repeat(64),
+            tuiSessionCount: 1,
+          },
+          uid: "uid-1",
+          queueId: "queue-1",
+          sealed: false,
+        },
+      ],
+      lastFlush: 1,
+    }),
+  )
+  await fs.writeFile(file, JSON.stringify(encrypted))
+
+  expect((await loadStorage()).pendingEvents).toEqual([])
 })
 
 test("current-schema queue rejects ai_session details with forbidden fields", async () => {

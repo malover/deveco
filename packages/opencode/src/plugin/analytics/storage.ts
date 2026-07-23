@@ -10,13 +10,14 @@ import type {
   AnalyticsQueueSubmission,
   AnalyticsTransportFields,
   QueuedAnalyticsSubmission,
+  TuiUsageDailyEvent,
   ToolExecution,
   ToolSummary,
 } from "./types"
 
 const ANALYTICS_FILE = "analytics.json"
 const DEVICE_ID_FILE = "device-id.json"
-export const ANALYTICS_SCHEMA_VERSION = 11
+export const ANALYTICS_SCHEMA_VERSION = 13
 export const ANALYTICS_MAX_PENDING_EVENTS = 1000
 
 export interface AnalyticsStorage {
@@ -146,16 +147,34 @@ function isAnalyticsTransportFields(value: unknown): value is AnalyticsTransport
   return isRecord(value) && typeof value.uid === "string"
 }
 
-function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent {
+function isTuiUsageDailyEvent(value: unknown): value is TuiUsageDailyEvent {
   return (
     isRecord(value) &&
-    hasExactKeys(value, ["action", "event", "uid", "queueId", "sealed"]) &&
-    value.action === ANALYTICS_ACTION.AI_SESSION &&
-    isAiSessionEvent(value.event) &&
-    isAnalyticsTransportFields(value) &&
-    typeof value.queueId === "string" &&
-    typeof value.sealed === "boolean"
+    hasExactKeys(value, ["sourceType", "sourceVersion", "os_arch", "os_name", "os_version", "statDate", "isStartup"]) &&
+    value.sourceType === "DevEco-Code-Cli" &&
+    typeof value.sourceVersion === "string" &&
+    typeof value.os_arch === "string" &&
+    typeof value.os_name === "string" &&
+    typeof value.os_version === "string" &&
+    typeof value.statDate === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value.statDate) &&
+    typeof value.isStartup === "boolean"
   )
+}
+
+function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["action", "event", "uid", "queueId", "sealed"]) ||
+    !isAnalyticsTransportFields(value) ||
+    typeof value.queueId !== "string" ||
+    typeof value.sealed !== "boolean"
+  )
+    return false
+
+  if (value.action === ANALYTICS_ACTION.AI_SESSION) return isAiSessionEvent(value.event)
+  if (value.action === ANALYTICS_ACTION.TUI_USAGE) return isTuiUsageDailyEvent(value.event)
+  return false
 }
 
 function createPendingEvent(submission: AnalyticsQueueSubmission): PendingAnalyticsEvent {

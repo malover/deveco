@@ -148,6 +148,7 @@ export type TuiInput = {
   fetch?: typeof fetch
   headers?: RequestInit["headers"]
   events?: EventSource
+  onActivity?: (timestamp: number) => void
   pluginHost: TuiPluginHost
 }
 
@@ -315,6 +316,7 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
                                                                 <BtwProvider>
                                                                   <App
                                                                     onSnapshot={input.onSnapshot}
+                                                                    onActivity={input.onActivity}
                                                                     pluginHost={input.pluginHost}
                                                                   />
                                                                 </BtwProvider>
@@ -360,7 +362,11 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
   })
 })
 
-function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPluginHost }) {
+function App(props: {
+  onSnapshot?: () => Promise<string[]>
+  onActivity?: (timestamp: number) => void
+  pluginHost: TuiPluginHost
+}) {
   const startup = useTuiStartup()
   const tuiConfig = useTuiConfig()
   const route = useRoute()
@@ -383,6 +389,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   const pluginRuntime = usePluginRuntime()
   const attention = createTuiAttention({ renderer, config: tuiConfig, kv })
   const clipboard = useClipboard()
+  const reportActivity = () => props.onActivity?.(Date.now())
 
   const api = createTuiApi(
     createTuiApiAdapters({
@@ -427,8 +434,14 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
     },
     { priority: 1 },
   )
+  const offActivityKeys = keymap.intercept("key", reportActivity)
+  const offActivityPaste = keymap.intercept("raw", ({ sequence }) => {
+    if (sequence.startsWith("\u001b[200~")) reportActivity()
+  })
   onCleanup(() => {
     offSelectionKeys()
+    offActivityKeys()
+    offActivityPaste()
     attention.dispose()
   })
 
@@ -1208,6 +1221,9 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       height={dimensions().height}
       flexDirection="column"
       backgroundColor={theme.background}
+      onMouse={(evt) => {
+        if (evt.type === "down" || evt.type === "drag" || evt.type === "scroll") reportActivity()
+      }}
       onMouseDown={(evt) => {
         if (evt.button === MouseButton.LEFT && doubleClickDetector.isDoubleClick(evt.x, evt.y)) {
           if (selectWordAt(renderer, evt.target, evt.x, evt.y)) {

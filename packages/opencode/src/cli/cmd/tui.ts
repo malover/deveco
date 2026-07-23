@@ -20,6 +20,7 @@ import {
 import { validateSession } from "../tui/validate-session"
 import { loadSavedDevEcoHome } from "@/tool/lib/env"
 import { win32InstallCtrlCGuard } from "@opencode-ai/tui/terminal-win32"
+import { TuiUsageTracker } from "../tui/usage-tracker"
 
 declare global {
   const DEVECO_WORKER_PATH: string
@@ -152,6 +153,7 @@ export const TuiThreadCommand = cmd({
 
       const worker = new Worker(file, { env })
       const client = Rpc.client<typeof rpc>(worker)
+      const usageTracker = new TuiUsageTracker(async (usage) => await client.call("recordTuiUsage", usage))
       const reload = () => {
         client.call("reload", undefined).catch(() => {})
       }
@@ -215,8 +217,8 @@ export const TuiThreadCommand = cmd({
         // rendering. This is the only site that bridges deveco → TUI, which keeps
         // TUI free of `deveco` imports (breaks the workspace cycle).
         const { registerDevEcoTuiExtensions } = await import("@/cli/deveco-ui/register")
-        registerDevEcoTuiExtensions()
-
+        registerDevEcoTuiExtensions({ onReady: () => void usageTracker.recordStartup() })
+        void usageTracker.recordStartup()
         await Effect.runPromise(
           run({
             url: transport.url,
@@ -230,6 +232,7 @@ export const TuiThreadCommand = cmd({
             directory: cwd,
             fetch: transport.fetch,
             events: transport.events,
+            onActivity: (timestamp) => void usageTracker.recordActivity(timestamp),
             args: {
               continue: args.continue,
               sessionID: args.session,

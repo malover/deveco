@@ -44,7 +44,7 @@ import type { SyncObject } from "@opencode-ai/tui/deveco-extensions"
 import { agreementService, AgreementStatus } from "@/cli/deveco-agreement"
 import { devecoAuth, hasDevecoOAuthEntry, ensureValidToken, loadIsRealNameFromDisk } from "@/plugin/deveco"
 import { hasConfiguredDevEcoHome } from "@/tool/lib/env"
-import type { AgreementConfig } from "@/cli/deveco-legal"
+import { getPrivacyAcceptedKey, type AgreementConfig } from "@/cli/deveco-legal"
 import { DevEcoOnboarding } from "./onboarding"
 
 declare const DEVECO_SKIP_AGREEMENT: boolean | undefined
@@ -65,7 +65,7 @@ const placeholder = {
   shell: ["ls -la", "git status", "pwd"],
 }
 
-export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number }) {
+export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number; onReady?: () => void }) {
   const sync = props.sync
   const kv = useKV()
   const { theme } = useTheme()
@@ -181,6 +181,7 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
     const checkResult = await agreementService.checkAllAgreements(accessToken, userId, kv)
 
     if (checkResult.canEnter) {
+      kv.set(getPrivacyAcceptedKey(userId), true)
       authCheckCached = true
       cachedAuthCanEnter = true
       cachedDevecoReady = sync.status === "complete"
@@ -230,6 +231,13 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
     if (sync.status === "complete" && authCanEnter()) {
       setDevecoReady(true)
     }
+  })
+
+  let readyNotified = false
+  createEffect(() => {
+    if (devecoReady() !== true || readyNotified) return
+    readyNotified = true
+    props.onReady?.()
   })
 
   const mcpError = createMemo(() => {

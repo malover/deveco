@@ -10,6 +10,8 @@ import { Heap } from "@/cli/heap"
 import { AppRuntime } from "@/effect/app-runtime"
 import { Effect } from "effect"
 import { disposeAllInstancesAndEmitGlobalDisposed } from "@/server/global-lifecycle"
+import { globalTuiUsageCollector, type TuiUsageInput } from "@/plugin/analytics/tui-collector"
+import { globalUploader } from "@/plugin/analytics/uploader"
 
 Heap.start()
 
@@ -31,6 +33,14 @@ GlobalBus.on("event", (event) => {
 })
 
 let server: Awaited<ReturnType<typeof Server.listen>> | undefined
+let analyticsReady: Promise<void> | undefined
+
+function ensureAnalyticsReady(): Promise<void> {
+  if (!analyticsReady) {
+    analyticsReady = globalUploader.restorePending().then(() => globalUploader.startPeriodicFlush())
+  }
+  return analyticsReady
+}
 
 export const rpc = {
   async fetch(input: { url: string; method: string; headers: Record<string, string>; body?: string }) {
@@ -74,7 +84,12 @@ export const rpc = {
       }),
     )
   },
+  async recordTuiUsage(input: TuiUsageInput) {
+    await ensureAnalyticsReady()
+    return globalTuiUsageCollector.recordUsage(input)
+  },
   async shutdown() {
+    if (analyticsReady) await globalUploader.shutdown()
     await InstanceRuntime.disposeAllInstances()
     if (server) await server.stop(true)
     process.off("unhandledRejection", onUnhandledRejection)

@@ -43,9 +43,9 @@ function pluralize(count: number, singular: string, plural: string): string {
   return template.replace("{}", String(count))
 }
 
-export function registerDevEcoTuiExtensions(): void {
+export function registerDevEcoTuiExtensions(options: { onReady?: () => void } = {}): void {
   registerDevEcoExtensions({
-    homeBody: DevEcoHomeBody,
+    homeBody: (props) => DevEcoHomeBody({ ...props, onReady: options.onReady }),
     readLocalAuthError,
     openComplainPage,
     pluralize,

@@ -26,6 +26,11 @@ export interface AnalyticsEnvironmentFields {
   os_version: string
 }
 
+export interface TuiUsageDailyEvent extends AnalyticsEnvironmentFields {
+  statDate: string
+  isStartup: boolean
+}
+
 export interface AiSessionEvent extends AnalyticsEnvironmentFields {
   providerId: string
   modelId: string
@@ -45,14 +50,20 @@ export interface AiSessionEvent extends AnalyticsEnvironmentFields {
 
 export const ANALYTICS_ACTION = {
   AI_SESSION: "DevEcoCodeSession",
+  TUI_USAGE: "DevEcoCodeUsage",
 } as const
 
 export type AnalyticsAction = (typeof ANALYTICS_ACTION)[keyof typeof ANALYTICS_ACTION]
 
-export type AnalyticsSubmission = {
-  action: typeof ANALYTICS_ACTION.AI_SESSION
-  event: AiSessionEvent
-}
+export type AnalyticsSubmission =
+  | {
+      action: typeof ANALYTICS_ACTION.AI_SESSION
+      event: AiSessionEvent
+    }
+  | {
+      action: typeof ANALYTICS_ACTION.TUI_USAGE
+      event: TuiUsageDailyEvent
+    }
 
 export interface AnalyticsTransportFields {
   uid: string

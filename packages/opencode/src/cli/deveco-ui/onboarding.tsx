@@ -382,6 +382,7 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
 
     if (checkResult.overallStatus === AgreementStatus.COMPLIANT) {
       // Agreements compliant → complete onboarding, enter conversation page
+      kv.set(getPrivacyAcceptedKey(userId), true)
       setCheckingStatus(false)
       props.onComplete()
       return
