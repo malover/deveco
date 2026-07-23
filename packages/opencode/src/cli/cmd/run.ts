@@ -27,6 +27,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { InstanceRef } from "@/effect/instance-ref"
 import { FormatError, FormatUnknownError } from "../error"
 import { INTERACTIVE_INPUT_ERROR, resolveInteractiveStdin } from "./run/runtime.stdin"
+import { trustPrompt } from "@/cli/trust"
 
 const runtimeTask = import("./run/runtime")
 type ModelInput = Parameters<OpencodeClient["session"]["prompt"]>[0]["model"]
@@ -320,6 +321,16 @@ export const RunCommand = effectCmd({
           process.exit(1)
         }
       })()
+
+      // Show workspace trust prompt for interactive mode only.
+      // Non-interactive mode has no user to confirm trust with.
+      if (args.interactive && directory) {
+        if (!(await trustPrompt(directory))) {
+          // User declined trust — exit normally (no error code); this is a
+          // user-initiated choice, not a failure.
+          return
+        }
+      }
       const attachHeaders = args.attach
         ? ServerAuth.headers({ password: args.password, username: args.username })
         : undefined

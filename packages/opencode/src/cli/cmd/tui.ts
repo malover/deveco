@@ -18,7 +18,8 @@ import {
   sanitizedProcessEnv,
 } from "@opencode-ai/core/util/opencode-process"
 import { validateSession } from "../tui/validate-session"
-import { loadSavedDevEcoHome } from "@/tool/lib/env"
+import { findDevEcoHomes, isDevEcoHome, loadSavedDevEcoHome, resolveDevEcoHome, saveDevEcoHome } from "@/tool/lib/env"
+import { trustPrompt } from "@/cli/trust"
 import { win32InstallCtrlCGuard } from "@opencode-ai/tui/terminal-win32"
 import { TuiUsageTracker } from "../tui/usage-tracker"
 
@@ -126,6 +127,16 @@ export const TuiThreadCommand = cmd({
   handler: async (args) => {
     await ensureDevEcoHomeForTuiStartup()
 
+    // Show workspace trust prompt before booting the TUI.
+    const next = resolveThreadDirectory(args.project)
+    if (!(await trustPrompt(next))) {
+      // User declined trust — exit normally (no error code); this is a
+      // user-initiated choice, not a failure.
+      return
+    }
+
+    // Keep ENABLE_PROCESSED_INPUT cleared even if other code flips it.
+    // (Important when running under `bun run` wrappers on Windows.)
     const unguard = win32InstallCtrlCGuard()
     try {
       const { TuiConfig } = await import("@/config/tui")
@@ -137,7 +148,7 @@ export const TuiThreadCommand = cmd({
 
       // Resolve relative --project paths from PWD, then use the real cwd after
       // chdir so the thread and worker share the same directory key.
-      const next = resolveThreadDirectory(args.project)
+      // (next already resolved above for the trust prompt)
       const file = await target()
       try {
         process.chdir(next)
