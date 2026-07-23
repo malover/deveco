@@ -116,9 +116,10 @@ If the user's request includes app behavior, UI, pages, or business requirements
 
 Before implementing the feature:
 
-- Read `entry/src/main/resources/base/profile/main_pages.json` to identify the launch page list.
-- Read the launch page file, usually `entry/src/main/ets/pages/Index.ets` and `entry/src/main/ets/entryability/EntryAbility.ets`.
-- Modify the actual launch page or its navigation path so the requested feature is reachable from the first screen.
+1. Read `AGENT.md` in the project root — it lists exactly which files to read and which to skip.
+2. Follow AGENT.md's guidance to read only the necessary files (typically `main_pages.json`, `Index.ets`, `EntryAbility.ets`).
+3. Do NOT glob/search the project tree blindly — AGENT.md already identifies what you need.
+4. Modify the actual launch page or its navigation path so the requested feature is reachable from the first screen.
 
 > **CRITICAL: `EntryAbility.ets` and `main_pages.json` must stay in sync.**
 >
