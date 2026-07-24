@@ -1,5 +1,5 @@
 import i18next from "i18next"
-import { createContext, useContext, createSignal, onMount, Show } from "solid-js"
+import { createContext, useContext, createSignal, onMount } from "solid-js"
 import en from "./en.json" with { type: "json" }
 import zh from "./zh.json" with { type: "json" }
 import { useKV } from "../context/kv"
@@ -35,11 +35,9 @@ export function I18nProvider(props: { children: any }) {
   }) as typeof i18next.t
 
   return (
-    <Show when={ready()}>
-      <I18nContext.Provider value={{ t, lng }}>
-        {props.children}
-      </I18nContext.Provider>
-    </Show>
+    <I18nContext.Provider value={{ t, lng }}>
+      {props.children}
+    </I18nContext.Provider>
   )
 }
 

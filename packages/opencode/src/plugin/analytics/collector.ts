@@ -24,7 +24,9 @@ interface SessionCollectorDependencies {
 async function readAnalyticsEnabled(): Promise<boolean> {
   const file = path.join(Global.Path.state, "kv.json")
   try {
-    const kv = await Flock.withLock(`tui-kv:${file}`, () => Filesystem.readJson<Record<string, unknown>>(file))
+    // Use a dedicated lock key to avoid contention with the TUI KVProvider
+    // which uses `tui-kv:` as its lock prefix.
+    const kv = await Flock.withLock(`analytics-kv:${file}`, () => Filesystem.readJson<Record<string, unknown>>(file))
     return typeof kv.analytics_enabled === "boolean" ? kv.analytics_enabled : true
   } catch {
     return true

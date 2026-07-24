@@ -75,11 +75,11 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
     await uploader.restorePending()
     uploader.startPeriodicFlush()
 
-    const shutdownHandler = async () => {
-      await uploader.shutdown()
-    }
-    dependencies.registerSignalHandler("SIGINT", shutdownHandler)
-    dependencies.registerSignalHandler("SIGTERM", shutdownHandler)
+    // Use the worker's shutdown RPC for cleanup instead of SIGINT/SIGTERM
+    // handlers. Signal handlers delay process exit and can leave Flock locks
+    // in a stale state, causing long startup delays after rapid Ctrl+C cycles.
+    // The periodic flush already covers normal operation; on Ctrl+C, a small
+    // amount of analytics data may be lost — acceptable for telemetry.
 
     const hooks: Hooks = {
       event: async ({ event }) => {
