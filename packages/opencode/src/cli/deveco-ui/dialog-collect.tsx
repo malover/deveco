@@ -370,7 +370,7 @@ export function DialogCollect(props: { triggerType?: string }) {
       </Show>
 
       <text fg={theme.textMuted} paddingBottom={1}>
-        {'space: toggle  |  up/down: navigate  |  return: upload  |  esc: cancel'}
+        {'space: toggle  |  up/down: navigate  |  enter: upload  |  esc: cancel'}
       </text>
     </box>
   );

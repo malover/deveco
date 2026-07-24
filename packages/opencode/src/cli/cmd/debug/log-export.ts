@@ -231,19 +231,19 @@ async function uploadLogTracePoint(
     const version = getVersion();
     const environment = createEnvironmentFields(version);
     const tracePoint = {
-      file_id: fileId,
+      fileId: fileId,
       uid,
       timestamp: Date.now(),
-      source_type: 'DevEco-Code',
-      source_version: version,
-      os_name: environment.os_name,
-      os_version: environment.os_version,
-      trace_sid: runID,
-      event_type: triggerType,
-      is_success: isSuccess,
+      sourceType: 'DevEco-Code-Cli',
+      sourceVersion: version,
+      osName: environment.os_name,
+      osVersion: environment.os_version,
+      traceSid: runID,
+      eventType: triggerType,
+      isSuccess: isSuccess,
     };
     const payload = {
-      action: 'DevEco-Code',
+      action: 'DevEco-Code-Log-Upload',
       countryCode: 'CN',
       detail: JSON.stringify(tracePoint),
       osArch: environment.os_arch,
@@ -263,9 +263,9 @@ async function uploadLogTracePoint(
     );
 
     if (resp.ok) {
-      logInfo('log trace point uploaded successfully', { triggerType, isSuccess });
+      logInfo('log trace point uploaded successfully', { tracePoint });
     } else {
-      logWarn('log trace point upload failed', { status: resp.status, triggerType });
+      logWarn('log trace point upload failed', { status: resp.status, tracePoint });
     }
   } catch (e) {
     logWarn('failed to upload log trace point', { error: String(e) });
