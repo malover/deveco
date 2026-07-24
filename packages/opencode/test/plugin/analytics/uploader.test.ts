@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test"
-import { toHuaweiTracePayload } from "@/plugin/analytics/uploader"
+import { expect, mock, test } from "bun:test"
+import { resolveAnalyticsAuth, toHuaweiTracePayload } from "@/plugin/analytics/uploader"
 import { ANALYTICS_ACTION } from "@/plugin/analytics/types"
 import type { QueuedAnalyticsSubmission } from "@/plugin/analytics/types"
 
@@ -58,4 +58,106 @@ test("usage records use the fixed DevEcoCodeUsage action", () => {
   expect(JSON.parse(payload.detail)).not.toHaveProperty("userid")
   expect(JSON.parse(payload.detail)).not.toHaveProperty("tuiSessionCount")
   expect(Object.keys(payload).sort()).toEqual(["action", "detail", "timestamp"])
+})
+
+test("code attribution sends exactly the project id and four final line totals", () => {
+  const queued: QueuedAnalyticsSubmission = {
+    action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION,
+    uid: "record-uid",
+    event: {
+      projectId: "550e8400-e29b-41d4-a716-446655440000",
+      aiGeneratedLines: 3,
+      humanGeneratedLines: 2,
+      unknownGeneratedLines: 1,
+      totalGeneratedLines: 6,
+    },
+  }
+
+  const payload = toHuaweiTracePayload(queued, 123)
+  expect(payload.action).toBe("DevEcoCodeAttribution")
+  expect(JSON.parse(payload.detail)).toEqual(queued.event)
+  expect(Object.keys(JSON.parse(payload.detail)).sort()).toEqual([
+    "aiGeneratedLines",
+    "humanGeneratedLines",
+    "projectId",
+    "totalGeneratedLines",
+    "unknownGeneratedLines",
+  ])
+  expect(Object.keys(payload).sort()).toEqual(["action", "detail", "timestamp"])
+})
+
+test("expired access token refreshes through JWT without a stored refresh field", async () => {
+  const refreshToken = mock(async () => ({
+    accessToken: "new-access",
+    refreshToken: "new-refresh",
+    isRealName: true,
+  }))
+  const saved: Array<Record<string, unknown>> = []
+  const diagnostics: string[] = []
+
+  const token = await resolveAnalyticsAuth({
+    authInfo: { type: "oauth", access: "expired-access", expires: 100 },
+    now: 101,
+    refreshToken,
+    saveAuth: async (_provider, info) => void saved.push(info),
+    diagnostic: async (message) => void diagnostics.push(message),
+  })
+
+  expect(token).toBe("new-access")
+  expect(refreshToken).toHaveBeenCalledTimes(1)
+  expect(saved[0]).toMatchObject({
+    type: "oauth",
+    access: "new-access",
+    refresh: "new-refresh",
+    isRealName: true,
+  })
+  expect(diagnostics.join("\n")).not.toContain("expired-access")
+  expect(diagnostics.join("\n")).not.toContain("new-access")
+})
+
+test("valid access token skips JWT refresh", async () => {
+  const refreshToken = mock(async () => null)
+  const token = await resolveAnalyticsAuth({
+    authInfo: { type: "oauth", access: "current-access", expires: 102 },
+    now: 101,
+    refreshToken,
+    saveAuth: async () => undefined,
+    diagnostic: async () => undefined,
+  })
+
+  expect(token).toBe("current-access")
+  expect(refreshToken).toHaveBeenCalledTimes(0)
+})
+
+test("failed JWT refresh returns null without exposing credentials in diagnostics", async () => {
+  const diagnostics: string[] = []
+  const token = await resolveAnalyticsAuth({
+    authInfo: { type: "oauth", access: "private-expired-access", expires: 100 },
+    now: 101,
+    refreshToken: async () => null,
+    saveAuth: async () => undefined,
+    diagnostic: async (message) => void diagnostics.push(message),
+  })
+
+  expect(token).toBeNull()
+  expect(diagnostics.join("\n")).toContain("JWT refresh failed")
+  expect(diagnostics.join("\n")).not.toContain("private-expired-access")
+})
+
+test("diagnostic failures do not block JWT refresh", async () => {
+  const token = await resolveAnalyticsAuth({
+    authInfo: { type: "oauth", access: "expired-access", expires: 100 },
+    now: 101,
+    refreshToken: async () => ({
+      accessToken: "new-access",
+      refreshToken: "new-refresh",
+      isRealName: true,
+    }),
+    saveAuth: async () => undefined,
+    diagnostic: async () => {
+      throw new Error("diagnostic unavailable")
+    },
+  })
+
+  expect(token).toBe("new-access")
 })

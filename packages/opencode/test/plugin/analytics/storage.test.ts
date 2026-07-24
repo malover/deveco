@@ -4,7 +4,7 @@ import path from "path"
 import { Global } from "@opencode-ai/core/global"
 import { LocalCrypto } from "@/security/local-crypto"
 import { ANALYTICS_ACTION } from "@/plugin/analytics/types"
-import type { AiSessionEvent } from "@/plugin/analytics/types"
+import type { AiCodeAttributionEvent, AiSessionEvent } from "@/plugin/analytics/types"
 import type { TuiUsageDailyEvent } from "@/plugin/analytics/types"
 import {
   ANALYTICS_SCHEMA_VERSION,
@@ -56,6 +56,16 @@ function usageEvent(isStartup: boolean): TuiUsageDailyEvent {
   }
 }
 
+function attributionEvent(): AiCodeAttributionEvent {
+  return {
+    projectId: "550e8400-e29b-41d4-a716-446655440000",
+    aiGeneratedLines: 3,
+    humanGeneratedLines: 2,
+    unknownGeneratedLines: 1,
+    totalGeneratedLines: 6,
+  }
+}
+
 test("schema upgrades discard old pending events without migration", async () => {
   await using tmp = await tmpdir()
   Global.Path.data = tmp.path
@@ -90,7 +100,10 @@ test("each queued ai_session receives a distinct local uid", async () => {
   expect(pending).toHaveLength(2)
   expect(pending[0]?.uid).not.toBe(pending[1]?.uid)
   expect("uid" in (pending[0]?.event ?? {})).toBe(false)
-  expect(pending[0]?.event.sourceVersion).toBe("1.2.3")
+  expect(pending[0]?.action).toBe(ANALYTICS_ACTION.AI_SESSION)
+  if (pending[0]?.action === ANALYTICS_ACTION.AI_SESSION) {
+    expect(pending[0].event.sourceVersion).toBe("1.2.3")
+  }
   expect("osArch" in (pending[0]?.event ?? {})).toBe(false)
 })
 
@@ -154,6 +167,56 @@ test("current-schema queue rejects ai_session details with forbidden fields", as
         {
           action: ANALYTICS_ACTION.AI_SESSION,
           event: invalidEvent,
+          uid: "uid-1",
+          queueId: "queue-1",
+          sealed: false,
+        },
+      ],
+      lastFlush: 1,
+    }),
+  )
+  await fs.writeFile(file, JSON.stringify(encrypted))
+
+  expect((await loadStorage()).pendingEvents).toEqual([])
+})
+
+test("ai code attribution queue accepts only the five-field aggregate", async () => {
+  await using tmp = await tmpdir()
+  Global.Path.data = tmp.path
+
+  await enqueuePendingEvent({
+    action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION,
+    event: attributionEvent(),
+  })
+
+  const pending = await getPendingEvents()
+  expect(pending).toHaveLength(1)
+  expect(pending[0]?.event).toEqual(attributionEvent())
+  expect(Object.keys(pending[0]?.event ?? {}).sort()).toEqual([
+    "aiGeneratedLines",
+    "humanGeneratedLines",
+    "projectId",
+    "totalGeneratedLines",
+    "unknownGeneratedLines",
+  ])
+})
+
+test("ai code attribution queue rejects invalid totals and extra local fields", async () => {
+  await using tmp = await tmpdir()
+  Global.Path.data = tmp.path
+  const file = path.join(tmp.path, "analytics", "analytics.json")
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  const encrypted = LocalCrypto.encryptForLocalStorage(
+    JSON.stringify({
+      schemaVersion: ANALYTICS_SCHEMA_VERSION,
+      pendingEvents: [
+        {
+          action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION,
+          event: {
+            ...attributionEvent(),
+            totalGeneratedLines: 7,
+            commitSha: "private",
+          },
           uid: "uid-1",
           queueId: "queue-1",
           sealed: false,

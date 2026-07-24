@@ -21,12 +21,28 @@ export interface UploadResult {
   error?: string
 }
 
-interface AuthInfo {
+export interface AuthInfo {
   type: string
   access?: string
   refresh?: string
   expires?: number
   key?: string
+}
+
+export interface ResolveAnalyticsAuthInput {
+  authInfo: AuthInfo | undefined
+  now: number
+  refreshToken(): Promise<{ accessToken: string; refreshToken: string; isRealName: boolean } | null>
+  saveAuth(providerID: string, info: Record<string, unknown>): Promise<void>
+  diagnostic(message: string): Promise<void>
+}
+
+async function safeDiagnostic(input: ResolveAnalyticsAuthInput, message: string): Promise<void> {
+  try {
+    await input.diagnostic(message)
+  } catch {
+    // Diagnostics must never affect authentication or uploads.
+  }
 }
 
 function readAuthFromDisk(providerID: string): AuthInfo | undefined {
@@ -39,6 +55,35 @@ function readAuthFromDisk(providerID: string): AuthInfo | undefined {
   } catch {
     return undefined
   }
+}
+
+export async function resolveAnalyticsAuth(input: ResolveAnalyticsAuthInput): Promise<string | null> {
+  const authInfo = input.authInfo
+  const authToken =
+    authInfo?.type === "oauth" ? authInfo.access || "" : authInfo?.type === "api" ? authInfo.key || "" : ""
+  const tokenExpires = authInfo?.type === "oauth" ? authInfo.expires || 0 : 0
+
+  if (!authToken) {
+    await safeDiagnostic(input, "Authentication unavailable: access token missing")
+    return null
+  }
+  if (!tokenExpires || input.now < tokenExpires) return authToken
+
+  await safeDiagnostic(input, "JWT refresh attempt")
+  const refreshed = await input.refreshToken()
+  if (!refreshed) {
+    await safeDiagnostic(input, "JWT refresh failed")
+    return null
+  }
+  await input.saveAuth("deveco", {
+    type: "oauth",
+    access: refreshed.accessToken,
+    refresh: refreshed.refreshToken,
+    expires: input.now + ACCESS_TOKEN_EXPIRES_MS,
+    isRealName: refreshed.isRealName,
+  })
+  await safeDiagnostic(input, "JWT refresh succeeded")
+  return refreshed.accessToken
 }
 
 export function toHuaweiTracePayload(
@@ -67,8 +112,8 @@ export class AnalyticsUploader {
     try {
       this.queueLength = (await getPendingEvents()).length
       if (this.queueLength) await this.writeLog(`Restored ${this.queueLength} pending events from disk`)
-    } catch (error) {
-      await this.writeLog(`Failed to restore pending events: ${error instanceof Error ? error.message : "unknown"}`)
+    } catch {
+      await this.writeLog("Failed to restore pending events")
     }
   }
 
@@ -85,8 +130,9 @@ export class AnalyticsUploader {
     if (!this.config.enabled) return false
     try {
       this.queueLength = await enqueuePendingEvent(submission)
-    } catch (error) {
-      await this.writeLog(`Failed to persist event: ${error instanceof Error ? error.message : "unknown"}`)
+      await this.writeLog(`Analytics event queued: action=${submission.action}, count=${this.queueLength}`)
+    } catch {
+      await this.writeLog("Failed to persist event")
       return false
     }
     if (this.queueLength >= this.config.batchSize) void this.flush()
@@ -94,33 +140,13 @@ export class AnalyticsUploader {
   }
 
   private async resolveAuth(): Promise<string | null> {
-    const authInfo = readAuthFromDisk("deveco")
-    let authToken = ""
-    let tokenExpires = 0
-    let refreshToken = ""
-
-    if (authInfo?.type === "oauth") {
-      authToken = authInfo.access || ""
-      tokenExpires = authInfo.expires || 0
-      refreshToken = authInfo.refresh || ""
-    } else if (authInfo?.type === "api") {
-      authToken = authInfo.key || ""
-    }
-
-    if (!authToken) return null
-    if (!tokenExpires || Date.now() < tokenExpires) return authToken
-    if (!refreshToken) return null
-
-    const refreshed = await devecoAuth.refreshToken()
-    if (!refreshed) return null
-    await saveAuthToDisk("deveco", {
-      type: "oauth",
-      access: refreshed.accessToken,
-      refresh: refreshed.refreshToken,
-      expires: Date.now() + ACCESS_TOKEN_EXPIRES_MS,
-      isRealName: refreshed.isRealName,
+    return resolveAnalyticsAuth({
+      authInfo: readAuthFromDisk("deveco"),
+      now: Date.now(),
+      refreshToken: () => devecoAuth.refreshToken(),
+      saveAuth: saveAuthToDisk,
+      diagnostic: (message) => this.writeLog(message),
     })
-    return refreshed.accessToken
   }
 
   private recordFailure(): void {
@@ -136,9 +162,13 @@ export class AnalyticsUploader {
       if (!this.queueLength) return { success: true }
 
       const authToken = await this.resolveAuth()
-      if (!authToken) return { success: false, error: "Authentication unavailable" }
+      if (!authToken) {
+        await this.writeLog("Authentication unavailable: queued events retained")
+        return { success: false, error: "Authentication unavailable" }
+      }
 
       const batch = await preparePendingBatch(this.config.batchSize)
+      await this.writeLog(`Uploading ${batch.length} event(s)`)
       const response = await fetch(this.config.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", authorization: authToken },
@@ -152,12 +182,12 @@ export class AnalyticsUploader {
 
       this.queueLength = await ackPendingEvents(batch)
       this.retryCount = 0
+      await this.writeLog(`Upload succeeded: HTTP ${response.status}, ${batch.length} event(s)`)
       return { success: true }
-    } catch (error) {
+    } catch {
       this.recordFailure()
-      const message = error instanceof Error ? error.message : "Upload failed"
-      await this.writeLog(message)
-      return { success: false, error: message }
+      await this.writeLog("Upload failed: unexpected error, events retained")
+      return { success: false, error: "Upload failed" }
     } finally {
       this.isUploading = false
     }

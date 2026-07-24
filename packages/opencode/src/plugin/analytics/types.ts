@@ -48,8 +48,17 @@ export interface AiSessionEvent extends AnalyticsEnvironmentFields {
   firstResultElapsed: number
 }
 
+export interface AiCodeAttributionEvent {
+  projectId: string
+  aiGeneratedLines: number
+  humanGeneratedLines: number
+  unknownGeneratedLines: number
+  totalGeneratedLines: number
+}
+
 export const ANALYTICS_ACTION = {
   AI_SESSION: "DevEcoCodeSession",
+  AI_CODE_ATTRIBUTION: "DevEcoCodeAttribution",
   TUI_USAGE: "DevEcoCodeUsage",
 } as const
 
@@ -63,6 +72,10 @@ export type AnalyticsSubmission =
   | {
       action: typeof ANALYTICS_ACTION.TUI_USAGE
       event: TuiUsageDailyEvent
+    }
+  | {
+      action: typeof ANALYTICS_ACTION.AI_CODE_ATTRIBUTION
+      event: AiCodeAttributionEvent
     }
 
 export interface AnalyticsTransportFields {

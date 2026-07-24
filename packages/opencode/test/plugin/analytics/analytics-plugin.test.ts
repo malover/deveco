@@ -1,8 +1,9 @@
 import { expect, mock, test } from "bun:test"
 import { createAnalyticsPlugin } from "@/plugin/analytics/analytics-plugin"
+import type { CodeAttributionTracker, CodeAttributionTrackerOptions } from "@/plugin/analytics/code-attribution"
 import type { SessionStart } from "@/plugin/analytics/collector"
 import { ANALYTICS_ACTION } from "@/plugin/analytics/types"
-import type { AiSessionEvent, AnalyticsSubmission } from "@/plugin/analytics/types"
+import type { AiCodeAttributionEvent, AiSessionEvent, AnalyticsSubmission } from "@/plugin/analytics/types"
 
 const builtEvent: AiSessionEvent = {
   sourceType: "DevEco-Code-Cli",
@@ -28,7 +29,9 @@ const builtEvent: AiSessionEvent = {
 
 function createHarness() {
   let loggedIn = true
+  let jwtExpired: boolean | null = false
   let shouldCollect = true
+  let diagnosticThrows = false
   let active = false
   const startSession = mock((_input: SessionStart) => {
     active = true
@@ -36,7 +39,20 @@ function createHarness() {
   const buildEvent = mock(async () => builtEvent)
   const upload = mock(async (_submission: AnalyticsSubmission) => true)
   const projectId = mock(async () => "550e8400-e29b-41d4-a716-446655440000")
-
+  const setAttributionEnabled = mock(async (_enabled: boolean) => undefined)
+  const beforeAiTool = mock(async () => undefined)
+  const afterAiTool = mock(async () => undefined)
+  const shutdownAttribution = mock(async () => undefined)
+  const diagnostics: string[] = []
+  const codeAttribution = mock(
+    async (_options: CodeAttributionTrackerOptions): Promise<CodeAttributionTracker> => ({
+      setEnabled: setAttributionEnabled,
+      beforeAiTool,
+      afterAiTool,
+      poll: async () => undefined,
+      shutdown: shutdownAttribution,
+    }),
+  )
   const plugin = createAnalyticsPlugin({
     collector: {
       init: async () => undefined,
@@ -62,9 +78,14 @@ function createHarness() {
       upload,
     },
     isLoggedIn: async () => loggedIn,
+    isJwtExpired: async () => jwtExpired,
+    diagnostic: async (message) => {
+      if (diagnosticThrows) throw new Error("diagnostic unavailable")
+      diagnostics.push(message)
+    },
     projectId,
+    codeAttribution,
     version: () => "1.2.3",
-    registerSignalHandler: () => undefined,
   })
 
   return {
@@ -73,9 +94,21 @@ function createHarness() {
     buildEvent,
     upload,
     projectId,
+    codeAttribution,
+    setAttributionEnabled,
+    beforeAiTool,
+    afterAiTool,
+    shutdownAttribution,
+    diagnostics,
     isActive: () => active,
     setLoggedIn: (value: boolean) => {
       loggedIn = value
+    },
+    setJwtExpired: (value: boolean | null) => {
+      jwtExpired = value
+    },
+    setDiagnosticThrows: (value: boolean) => {
+      diagnosticThrows = value
     },
     setShouldCollect: (value: boolean) => {
       shouldCollect = value
@@ -135,6 +168,33 @@ test("still requires Huawei login", async () => {
   expect(harness.startSession).toHaveBeenCalledTimes(0)
 })
 
+test("only an explicitly expired JWT disables attribution", async () => {
+  const validJwt = createHarness()
+  validJwt.setJwtExpired(false)
+  await validJwt.plugin({ directory: "/tmp/project" } as never)
+  expect(validJwt.setAttributionEnabled).toHaveBeenLastCalledWith(true)
+
+  const unknownExpiration = createHarness()
+  unknownExpiration.setJwtExpired(null)
+  await unknownExpiration.plugin({ directory: "/tmp/project" } as never)
+  expect(unknownExpiration.setAttributionEnabled).toHaveBeenLastCalledWith(true)
+
+  const expiredJwt = createHarness()
+  expiredJwt.setJwtExpired(true)
+  await expiredJwt.plugin({ directory: "/tmp/project" } as never)
+  expect(expiredJwt.setAttributionEnabled).toHaveBeenLastCalledWith(false)
+})
+
+test("diagnostic failures never block plugin initialization or AI tool hooks", async () => {
+  const harness = createHarness()
+  harness.setDiagnosticThrows(true)
+  const hooks = await harness.plugin({ directory: "/tmp/project" } as never)
+
+  await hooks["tool.execute.before"]!({ tool: "edit", sessionID: "session-1", callID: "edit-1" }, { args: {} })
+
+  expect(harness.beforeAiTool).toHaveBeenCalledTimes(1)
+})
+
 test("analytics disablement clears an active session without uploading", async () => {
   const harness = createHarness()
   const hooks = await startSession(harness, "openai")
@@ -165,4 +225,66 @@ test("logout before session idle clears active analytics without finalizing", as
   expect(harness.buildEvent).toHaveBeenCalledTimes(0)
   expect(harness.upload).toHaveBeenCalledTimes(0)
   expect(harness.isActive()).toBe(false)
+})
+
+test("initializes code attribution with the existing project id and minimal uploader event", async () => {
+  const harness = createHarness()
+  await harness.plugin({ directory: "/tmp/project" } as never)
+
+  expect(harness.codeAttribution).toHaveBeenCalledTimes(1)
+  const options = harness.codeAttribution.mock.calls[0]?.[0]
+  expect(options?.directory).toBe("/tmp/project")
+  expect(options?.projectId).toBe("550e8400-e29b-41d4-a716-446655440000")
+  expect(harness.setAttributionEnabled).toHaveBeenCalledWith(true)
+
+  const event: AiCodeAttributionEvent = {
+    projectId: "550e8400-e29b-41d4-a716-446655440000",
+    aiGeneratedLines: 1,
+    humanGeneratedLines: 2,
+    unknownGeneratedLines: 3,
+    totalGeneratedLines: 6,
+  }
+  await options?.submit(event)
+  expect(harness.upload).toHaveBeenCalledWith({
+    action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION,
+    event,
+  })
+  expect(harness.diagnostics).toContain("Attribution event queued: true")
+})
+
+test("brackets only mutating AI tools with attribution checkpoints", async () => {
+  const harness = createHarness()
+  const hooks = await harness.plugin({ directory: "/tmp/project" } as never)
+
+  await hooks["tool.execute.before"]!({ tool: "read", sessionID: "session-1", callID: "read-1" }, { args: {} })
+  await hooks["tool.execute.after"]!(
+    { tool: "read", sessionID: "session-1", callID: "read-1", args: {} },
+    { title: "", output: "", metadata: {} },
+  )
+  await hooks["tool.execute.before"]!({ tool: "edit", sessionID: "session-1", callID: "edit-1" }, { args: {} })
+  await hooks["tool.execute.after"]!(
+    { tool: "edit", sessionID: "session-1", callID: "edit-1", args: {} },
+    { title: "", output: "", metadata: {} },
+  )
+  await hooks["tool.execute.before"]!({ tool: "bash", sessionID: "session-1", callID: "bash-1" }, { args: {} })
+  await hooks["tool.execute.after"]!(
+    { tool: "bash", sessionID: "session-1", callID: "bash-1", args: {} },
+    { title: "", output: "", metadata: {} },
+  )
+
+  expect(harness.beforeAiTool).toHaveBeenCalledTimes(2)
+  expect(harness.afterAiTool).toHaveBeenCalledTimes(2)
+})
+
+test("disables attribution when analytics becomes ineligible and shuts down with the plugin", async () => {
+  const harness = createHarness()
+  const hooks = await harness.plugin({ directory: "/tmp/project" } as never)
+  harness.setShouldCollect(false)
+
+  await hooks["tool.execute.before"]!({ tool: "edit", sessionID: "session-1", callID: "edit-1" }, { args: {} })
+  expect(harness.setAttributionEnabled).toHaveBeenLastCalledWith(false)
+  expect(harness.beforeAiTool).toHaveBeenCalledTimes(0)
+
+  await hooks.dispose?.()
+  expect(harness.shutdownAttribution).toHaveBeenCalledTimes(1)
 })

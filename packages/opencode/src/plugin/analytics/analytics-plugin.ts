@@ -5,6 +5,8 @@ import { Global } from "@opencode-ai/core/global"
 import { devecoAuth } from "../deveco"
 import { globalCollector } from "./collector"
 import type { SessionStart } from "./collector"
+import { createCodeAttributionTracker } from "./code-attribution"
+import type { CodeAttributionTracker, CodeAttributionTrackerOptions } from "./code-attribution"
 import { getOrCreateProjectId } from "./project-id"
 import { globalUploader } from "./uploader"
 import { getVersion } from "./storage"
@@ -39,9 +41,11 @@ interface AnalyticsPluginDependencies {
   collector: AnalyticsCollectorDependency
   uploader: AnalyticsUploaderDependency
   isLoggedIn(): Promise<boolean>
+  isJwtExpired(): Promise<boolean | null>
+  diagnostic(message: string): void | Promise<void>
   projectId(directory: string): Promise<string>
+  codeAttribution(options: CodeAttributionTrackerOptions): Promise<CodeAttributionTracker>
   version(): string
-  registerSignalHandler(signal: NodeJS.Signals, handler: () => void): void
 }
 
 async function writeLog(message: string): Promise<void> {
@@ -59,18 +63,61 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
     const toolStartTimes = new Map<string, number>()
     const projectPath = directory || process.cwd()
     const projectId = await dependencies.projectId(projectPath)
+    const diagnostic = async (message: string) => {
+      try {
+        await dependencies.diagnostic(message)
+      } catch {
+        // Diagnostics must never affect the TUI or tool execution.
+      }
+    }
+    const attribution = await dependencies.codeAttribution({
+      directory: projectPath,
+      projectId,
+      diagnostic,
+      submit: async (event) => {
+        const accepted = await uploader.upload({ action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION, event })
+        await diagnostic(`Attribution event queued: ${accepted}`)
+        return accepted
+      },
+    })
+
+    const updateAttributionEligibility = async (eligible: boolean) => {
+      try {
+        await attribution.setEnabled(eligible)
+      } catch {
+        await diagnostic("Attribution tracker operation failed: eligibility")
+      }
+    }
+
+    const runAttribution = async (operationName: string, operation: () => Promise<void>) => {
+      try {
+        await operation()
+      } catch {
+        await diagnostic(`Attribution tracker operation failed: ${operationName}`)
+      }
+    }
+
+    const refreshIdentityEligibility = async () => {
+      const loggedIn = await dependencies.isLoggedIn()
+      const jwtExpired = loggedIn ? await dependencies.isJwtExpired() : null
+      const eligible = loggedIn && jwtExpired !== true
+      collector.setLoggedIn(eligible)
+      return eligible
+    }
 
     const ensureEligible = async () => {
-      const eligible = await collector.shouldCollect()
+      const eligibleIdentity = await refreshIdentityEligibility()
+      const eligible = eligibleIdentity && (await collector.shouldCollect())
       if (!eligible) collector.clear()
+      await updateAttributionEligibility(eligible)
       return eligible
     }
 
     await collector.init()
-    const isLoggedIn = await dependencies.isLoggedIn()
-    collector.setLoggedIn(isLoggedIn)
+    const isLoggedIn = await refreshIdentityEligibility()
+    await updateAttributionEligibility(isLoggedIn && (await collector.shouldCollect()))
 
-    await writeLog(`Plugin initialized, version: ${dependencies.version()}, logged in: ${isLoggedIn}`)
+    await diagnostic(`Plugin initialized, version: ${dependencies.version()}, logged in: ${isLoggedIn}`)
 
     await uploader.restorePending()
     uploader.startPeriodicFlush()
@@ -80,18 +127,19 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
     // in a stale state, causing long startup delays after rapid Ctrl+C cycles.
     // The periodic flush already covers normal operation; on Ctrl+C, a small
     // amount of analytics data may be lost — acceptable for telemetry.
+    let shutdown = false
+    const shutdownHandler = async () => {
+      if (shutdown) return
+      shutdown = true
+      await runAttribution("shutdown", () => attribution.shutdown())
+      await uploader.shutdown()
+    }
 
     const hooks: Hooks = {
       event: async ({ event }) => {
         const evt = event as unknown as Record<string, unknown>
         const eventType = evt.type as string
         const props = evt.properties as Record<string, unknown> | undefined
-
-        if (eventType === "session.idle") {
-          const loggedIn = await dependencies.isLoggedIn()
-          collector.setLoggedIn(loggedIn)
-          if (!loggedIn) return
-        }
 
         if (!(await ensureEligible())) return
 
@@ -117,9 +165,7 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
       },
 
       "chat.message": async (input, output) => {
-        const loggedIn = await dependencies.isLoggedIn()
-        collector.setLoggedIn(loggedIn)
-        if (!loggedIn || !(await ensureEligible())) return
+        if (!(await ensureEligible())) return
 
         const providerId = input.model?.providerID || "unknown"
         const modelId = input.model?.modelID || "unknown"
@@ -132,16 +178,22 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
           modelId,
           agentName,
         })
-        await writeLog(`Session started, provider: ${providerId}, model: ${modelId}, agent: ${agentName}`)
+        await diagnostic(`Session started, provider: ${providerId}, model: ${modelId}, agent: ${agentName}`)
       },
 
       "tool.execute.before": async (input) => {
         if (!(await ensureEligible())) return
         toolStartTimes.set(input.callID, Date.now())
+        if (["write", "edit", "multiedit", "apply_patch", "bash"].includes(input.tool)) {
+          await runAttribution("before-ai-tool", () => attribution.beforeAiTool())
+        }
       },
 
       "tool.execute.after": async (input, output) => {
         if (!(await ensureEligible())) return
+        if (["write", "edit", "multiedit", "apply_patch", "bash"].includes(input.tool)) {
+          await runAttribution("after-ai-tool", () => attribution.afterAiTool())
+        }
 
         const metadata = output.metadata as Record<string, unknown> | undefined
         const hasError = metadata?.error || output.output?.includes("Error") || output.output?.includes("Failed")
@@ -168,6 +220,8 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
         const deletions = typeof filediff.deletions === "number" ? filediff.deletions : 0
         if (typeof filePath === "string") collector.recordFileDiff(filePath, additions, deletions)
       },
+
+      dispose: shutdownHandler,
     }
 
     return hooks
@@ -178,9 +232,11 @@ const AnalyticsPlugin = createAnalyticsPlugin({
   collector: globalCollector,
   uploader: globalUploader,
   isLoggedIn: () => devecoAuth.isLoggedIn(),
+  isJwtExpired: () => devecoAuth.isJwtExpired(),
+  diagnostic: writeLog,
   projectId: getOrCreateProjectId,
+  codeAttribution: createCodeAttributionTracker,
   version: getVersion,
-  registerSignalHandler: (signal, handler) => process.on(signal, handler),
 })
 
 export default AnalyticsPlugin

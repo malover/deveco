@@ -6,6 +6,7 @@ import { Global } from "@opencode-ai/core/global"
 import { LocalCrypto } from "@/security/local-crypto"
 import { ANALYTICS_ACTION } from "./types"
 import type {
+  AiCodeAttributionEvent,
   AiSessionEvent,
   AnalyticsQueueSubmission,
   AnalyticsTransportFields,
@@ -17,7 +18,7 @@ import type {
 
 const ANALYTICS_FILE = "analytics.json"
 const DEVICE_ID_FILE = "device-id.json"
-export const ANALYTICS_SCHEMA_VERSION = 13
+export const ANALYTICS_SCHEMA_VERSION = 14
 export const ANALYTICS_MAX_PENDING_EVENTS = 1000
 
 export interface AnalyticsStorage {
@@ -162,6 +163,34 @@ function isTuiUsageDailyEvent(value: unknown): value is TuiUsageDailyEvent {
   )
 }
 
+function isLineCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+}
+
+function isAiCodeAttributionEvent(value: unknown): value is AiCodeAttributionEvent {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      "projectId",
+      "aiGeneratedLines",
+      "humanGeneratedLines",
+      "unknownGeneratedLines",
+      "totalGeneratedLines",
+    ]) ||
+    typeof value.projectId !== "string" ||
+    !isLineCount(value.aiGeneratedLines) ||
+    !isLineCount(value.humanGeneratedLines) ||
+    !isLineCount(value.unknownGeneratedLines) ||
+    !isLineCount(value.totalGeneratedLines)
+  )
+    return false
+
+  return (
+    value.totalGeneratedLines > 0 &&
+    value.totalGeneratedLines === value.aiGeneratedLines + value.humanGeneratedLines + value.unknownGeneratedLines
+  )
+}
+
 function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent {
   if (
     !isRecord(value) ||
@@ -173,6 +202,7 @@ function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent
     return false
 
   if (value.action === ANALYTICS_ACTION.AI_SESSION) return isAiSessionEvent(value.event)
+  if (value.action === ANALYTICS_ACTION.AI_CODE_ATTRIBUTION) return isAiCodeAttributionEvent(value.event)
   if (value.action === ANALYTICS_ACTION.TUI_USAGE) return isTuiUsageDailyEvent(value.event)
   return false
 }
