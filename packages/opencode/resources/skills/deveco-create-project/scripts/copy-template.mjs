@@ -118,19 +118,6 @@ function replaceInFile(filePath, pairs) {
   }
 }
 
-function appendGitignoreEntry(targetRoot, entry) {
-  const gitignorePath = path.join(targetRoot, '.gitignore');
-  let original = '';
-  if (fs.existsSync(gitignorePath)) {
-    original = fs.readFileSync(gitignorePath, 'utf-8');
-    if (original.split(/\r?\n/).includes(entry)) {
-      return;
-    }
-  }
-  const sep = original.length > 0 && !original.endsWith('\n') ? '\n' : '';
-  fs.writeFileSync(gitignorePath, original + sep + entry + '\n', 'utf-8');
-}
-
 function updateApiLevel(targetRoot, sdkVersion, modelVersion) {
   replaceInFile(path.join(targetRoot, 'build-profile.json5'), [
     ['6.0.2(22)', sdkVersion],
@@ -227,7 +214,6 @@ async function main() {
   const resolved = await resolve(args);
   const targetRoot = setupProject(args);
   applyReplacements(targetRoot, args, resolved);
-  appendGitignoreEntry(targetRoot, '/AGENT.md');
   verifyTemplate(targetRoot);
   outputResult(targetRoot, args, resolved);
 }
