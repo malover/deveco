@@ -12,10 +12,10 @@
 
 分支命名格式：`<type>/<short-description>`
 
-- **type**: `feat` | `fix` | `chore` | `docs` | `refactor` | `test`（与 Commit 类型一致）
-- **short-description**: 小写英文，短横线分隔，2-5 个词
+- **type**: `feat` | `fix` | `chore` | `docs` | `style` | `refactor` | `perf` | `test` | `build` | `ci` | `revert`（与 Commit 类型一致）
+- **short-description**: 小写英文，短横线分隔，2-5 个词，仅含 `[a-z0-9-]`
 
-示例：`feat/huawei-auth`、`fix/startup-crash`、`chore/upgrade-deps`
+示例：`feat/login-auth`、`fix/startup-crash`、`perf/bundle-size`、`ci/add-release-job`、`revert/auth-refactor`
 
 ## 日常开发
 
@@ -32,56 +32,75 @@
 
 遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
 
+**格式：** `<type>(<scope>)!?: <description>`
+
+- `<type>`：变更类型，见下表
+- `(<scope>)`：可选，影响范围
+- `!`：可选，表示 Breaking Change（不兼容变更）
+- `<description>`：标题描述，1-72 个字符
+
 | 类型 | 用途 |
 |------|------|
 | `feat` | 新功能 |
 | `fix` | Bug 修复 |
 | `docs` | 文档变更 |
-| `chore` | 构建、依赖、配置 |
+| `chore` | 杂项（不改变功能的零碎工作） |
+| `style` | 代码风格（格式、标点、不影响逻辑） |
 | `refactor` | 重构（不改变行为） |
+| `perf` | 性能优化 |
 | `test` | 测试相关 |
+| `build` | 构建系统、依赖管理 |
+| `ci` | CI/CD 配置 |
+| `revert` | 回滚提交 |
 
 标题示例：
 
 ```text
-feat(opencode): add dark mode
-fix(app): crash on startup
-fix: crash on startup
+feat(deveco): add dark mode
+fix(deveco)!: rename config schema field
+perf: optimize large file parsing
 ```
 
-正文示例（按修改点逐条列出）：
+正文示例（聚焦需求核心，编号列表，不罗列实现细节）：
 
 ```text
-feat(opencode): add user profile page
+feat(deveco): add user profile page
 
-1. add ProfileView component
-2. add /profile route
-3. integrate user info API
+1. support viewing personal profile with avatar and bio
+2. support editing nickname and bio
 
 Signed-off-by: YourName <your.email@example.com>
 ```
 
 提交内容规范：
 
-1. **标题**：`<type>(<scope>): <描述>`，scope 为 `packages/` 下的目录名（如 `opencode`、`app`、`desktop`），跨包变更省略 scope
-2. **正文**：按修改点逐条列出，每条一个独立的、可理解的变更单元
-3. **粒度**：每个 commit 聚焦一个逻辑变更，避免混合不相关的修改
-4. **语言**：中英文均可，保持同一 commit 内一致
+1. **标题**：`<type>[(<scope>)][!]: <描述>`
+   - `scope` 可选，通常为 `packages/` 下的目录名（如 `deveco`、`app`、`desktop`）；跨包变更可省略
+   - 避免出现 `opencode` 字样，包名为 opencode 时替换为 `deveco`
+   - `!` 可选，置于 `:` 前表示 Breaking Change
+   - `<描述>` 不超过 72 个字符
+2. **正文**：可选，编号列表，简洁扼要，重点描述需求/功能核心而非实现步骤
+3. **签名**：必须包含 `Signed-off-by: YourName <your.email@example.com>`，不添加 `Co-Authored-By`
+4. **粒度**：每个 commit 聚焦一个逻辑变更，避免混合不相关的修改
+5. **语言**：中英文均可，保持同一 commit 内一致
 
 ## PR 检查清单
 
 提交 PR 前确认以下事项：
 
 - [ ] 代码通过类型检查（根目录运行 `bun turbo typecheck`，或从包目录运行 `bun typecheck`）
-- [ ] 如有代码变更，读取 [FEATURES-INDEX.md](./specs/FEATURES-INDEX.md) 的"文档同步规则"段落并执行；纯文档变更跳过
 - [ ] Commit 符合 Conventional Commits 规范
 
 ## 代码拉取
 
+默认从上游主仓（`git@gitcode.com:openharmony-sig/deveco-code.git`）的 `develop` 分支拉取（rebase 方式）：
+
 ```bash
-git pull --rebase
-# 或设置默认
-git config pull.rebase true
+# 添加 upstream remote（首次）
+git remote add origin git@gitcode.com:openharmony-sig/deveco-code.git
+
+# 拉取
+git pull --rebase origin develop
 ```
 
 避免无意义的 merge commit。
