@@ -1,9 +1,7 @@
-<!--
-  Built-in skill. Name and description are registered in code at
-  packages/core/src/plugin/skill.ts
-  and CUSTOMIZE_DEVECO_SKILL_DESCRIPTION). The body below becomes the
-  skill's content.
--->
+---
+name: customize-deveco
+description: "Use ONLY when the user is editing or creating DevEco Code's own configuration: deveco.json, deveco.jsonc, files under .deveco/, or files under ~/.config/deveco/. Also use when creating or fixing DevEco Code agents, subagents, commands, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring DevEco Code itself."
+---
 
 # Customizing DevEco Code
 
@@ -47,6 +45,9 @@ already-loaded config until then.
 | Global commands               | `~/.config/deveco/command(s)/<name>.md`                                                                                 |
 | Project skills                | `.deveco/skill(s)/<name>/SKILL.md`                                                                                      |
 | Global skills                 | `~/.config/deveco/skill(s)/<name>/SKILL.md`                                                                             |
+| Project tools                 | `.deveco/tool/<name>.ts`                                                                                                |
+| Project plugins               | `.deveco/plugin(s)/*.{ts,js}` (auto-discovered)                                                                        |
+| Project themes                | `.deveco/themes/<name>.json`                                                                                            |
 | External skills (auto-loaded) | `~/.claude/skills/<name>/SKILL.md`, `~/.agents/skills/<name>/SKILL.md`                                                    |
 
 Configs from each scope are deep-merged. Project overrides global. Unknown
@@ -54,96 +55,109 @@ top-level keys in `deveco.json` are rejected with `ConfigInvalidError`.
 
 ## deveco.json
 
-Every field is optional.
+Every field is optional. Below is a real-world example from this codebase:
 
-```json
+```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
+
+  // Default agent when starting a session
+  "default_agent": "harmony-build",
+
+  // Custom agents (keyed by agent name)
+  "agent": {
+    "harmony-build": {
+      "description": "Primary HarmonyOS build and delivery agent",
+      "mode": "primary",
+      "color": "#4DA3FF"
+    },
+    "harmony-auto-debug": {
+      "description": "Runtime evidence debugging agent for HarmonyOS",
+      "mode": "primary",
+      "color": "#FF8A4D"
+    },
+    "harmonyos-expert": {
+      "description": "Read-only HarmonyOS documentation specialist",
+      "mode": "subagent",
+      "color": "#5AC88C"
+    }
+  },
+
+  // Additional instruction files loaded into system context
+  "instructions": [
+    "kb/arkts-guidelines.md",
+    "kb/harmony-api-cheatsheet.md"
+  ],
+
+  // Named references for @ autocomplete
+  "references": {
+    "effect": {
+      "repository": "github.com/Effect-TS/effect-smol",
+      "description": "Use for Effect v4 and effect-smol implementation details"
+    },
+    "deveco-local": {
+      "path": "~/.local/share/deveco",
+      "description": "Contains DevEco Code logs and data"
+    }
+  },
+
+  // MCP servers
+  "mcp": {
+    "deveco-mcp-server": {
+      "type": "local",
+      "command": ["deveco-mcp-server"]
+    }
+  },
+
+  // Permissions
+  "permission": {
+    "edit": {
+      "packages/deveco/migration/*": "deny"
+    }
+  },
+
+  // Enable/disable specific tools
+  "tools": {
+    "github-triage": false,
+    "github-pr-search": false
+  },
+
+  // Plugin specs (npm packages or file paths)
+  "plugin": ["../dist/index.js"],
+
+  // Provider and model overrides
+  "provider": {
+    "deveco": { "options": {} }
+  },
+  "model": "anthropic/claude-sonnet-4-6",
+  "small_model": "anthropic/claude-haiku-4-5",
+
+  // Other optional fields
   "username": "string",
-  "model": "provider/model-id",
-  "small_model": "provider/model-id",
-  "default_agent": "agent-name",
   "shell": "/bin/zsh",
   "logLevel": "DEBUG" | "INFO" | "WARN" | "ERROR",
   "share": "manual" | "auto" | "disabled",
   "autoupdate": true | false | "notify",
   "snapshot": true,
-  "instructions": ["AGENTS.md", "docs/style.md"],
+  "formatter": false,
+  "lsp": false,
 
   "skills": {
     "paths": [".deveco/skills", "/abs/path/to/skills"],
     "urls": ["https://example.com/.well-known/skills/"]
   },
 
-  "references": {
-    "docs": {
-      "path": "../docs",
-      "description": "Use for product behavior and documentation conventions"
-    },
-    "sdk": {
-      "repository": "owner/sdk",
-      "branch": "main",
-      "description": "Use for SDK implementation details",
-      "hidden": true
-    }
-  },
-
-  "agent": {
-    "my-agent": {
-      "model": "anthropic/claude-sonnet-4-6",
-      "mode": "subagent",
-      "description": "...",
-      "permission": { "edit": "deny" }
-    }
-  },
-
-  "command": {
-    "deploy": { "description": "...", "template": "..." }
-  },
-
-  "provider": {
-    "anthropic": { "options": { "apiKey": "..." } }
-  },
   "disabled_providers": ["openai"],
   "enabled_providers": ["anthropic"],
 
-  "mcp": {
-    "playwright": {
-      "type": "local",
-      "command": ["npx", "-y", "@playwright/mcp"],
-      "enabled": true,
-      "env": {}
-    },
-    "remote-thing": {
-      "type": "remote",
-      "url": "https://...",
-      "headers": { "Authorization": "Bearer ..." }
-    }
-  },
-
-  "plugin": [
-    "opencode-gemini-auth",
-    "opencode-foo@1.2.3",
-    "./local-plugin.ts",
-    ["opencode-bar", { "option": "value" }]
-  ],
-
-  "permission": {
-    "edit": "deny",
-    "bash": { "git *": "allow", "*": "ask" }
-  },
-
-  "formatter": false,
-  "lsp": false,
+  "tool_output": { "max_lines": 200, "max_bytes": 8192 },
+  "compaction": { "auto": true, "tail_turns": 15 },
 
   "experimental": {
     "primary_tools": ["edit"],
-    "mcp_timeout": 30000
-  },
-
-  "tool_output": { "max_lines": 200, "max_bytes": 8192 },
-
-  "compaction": { "auto": true, "tail_turns": 15 }
+    "mcp_timeout": 30000,
+    "batch_tool": true
+  }
 }
 ```
 
@@ -157,6 +171,7 @@ Shape notes worth being explicit about:
 - `plugin` is an array of strings or `[name, options]` tuples, not an object.
 - `mcp[name].command` is an array of strings, never a single string. `type` is required.
 - `permission` is either a string action or an object keyed by tool name.
+- `tools` is an object mapping tool names to booleans (converted to permissions internally).
 
 ## Skills
 
@@ -189,13 +204,32 @@ Register skills from non-default locations via `skills.paths` (scanned
 recursively for `**/SKILL.md`) and `skills.urls` (each URL serves a list of
 skills).
 
+### Real example: Effect skill
+
+```
+.deveco/skills/effect/SKILL.md
+```
+
+```markdown
+---
+name: effect
+description: Work with Effect v4 / effect-smol TypeScript code in this repo
+---
+
+# Effect Guidelines
+- Use Effect.gen for sequential workflows
+- Use Effect.fn for named, traceable functions
+- Use Schema.Class for validated data types
+...
+```
+
 ## References
 
 References make local directories and Git repositories outside the active
 project available as supporting context. Configure them under `references`,
 keyed by the alias used in `@` autocomplete:
 
-```json
+```jsonc
 {
   "references": {
     "docs": {
@@ -203,9 +237,8 @@ keyed by the alias used in `@` autocomplete:
       "description": "Use for product behavior and terminology"
     },
     "effect": {
-      "repository": "Effect-TS/effect",
-      "branch": "main",
-      "description": "Use for Effect implementation details"
+      "repository": "github.com/Effect-TS/effect-smol",
+      "description": "Use for Effect v4 and effect-smol implementation details"
     }
   }
 }
@@ -227,15 +260,18 @@ Two ways to define an agent. Use the file form for anything non-trivial.
 
 ### Inline (in `deveco.json`)
 
-```json
+```jsonc
 {
   "agent": {
-    "my-reviewer": {
-      "description": "Reviews PRs for style violations.",
+    "harmony-build": {
+      "description": "Primary HarmonyOS build and delivery agent",
+      "mode": "primary",
+      "color": "#4DA3FF"
+    },
+    "harmonyos-expert": {
+      "description": "Read-only HarmonyOS documentation specialist",
       "mode": "subagent",
-      "model": "anthropic/claude-sonnet-4-6",
-      "permission": { "edit": "deny", "bash": "ask" },
-      "prompt": "You are a strict PR reviewer..."
+      "color": "#5AC88C"
     }
   }
 }
@@ -244,20 +280,22 @@ Two ways to define an agent. Use the file form for anything non-trivial.
 ### File
 
 ```
-.deveco/agent/my-reviewer.md      OR     .deveco/agents/my-reviewer.md
+.deveco/agent/triage.md
 ```
 
 ```markdown
 ---
-description: Reviews PRs for style violations.
-mode: subagent
-model: anthropic/claude-sonnet-4-6
-permission:
-  edit: deny
-  bash: ask
+mode: primary
+hidden: true
+model: deveco/gpt-5.4-mini
+color: "#44BA81"
+tools:
+  "*": false
+  "github-triage": true
 ---
 
-You are a strict PR reviewer. Focus on...
+You are a GitHub issue triage specialist. Assign issues to the
+correct team based on the affected component...
 ```
 
 The file body becomes the agent's `prompt`. Do not also put `prompt:` in the
@@ -266,7 +304,7 @@ frontmatter.
 `mode` is one of `"primary"`, `"subagent"`, `"all"`.
 
 Allowed top-level frontmatter fields: `name, model, variant, description, mode,
-hidden, color, steps, options, permission, disable, temperature, top_p`. Any
+hidden, color, steps, options, permission, disable, temperature, top_p, tools`. Any
 unknown field is silently routed into `options`.
 
 To disable a built-in agent: `agent: { build: { disable: true } }`, or in a
@@ -276,9 +314,32 @@ file, `disable: true` in frontmatter.
 
 ### Built-in agents
 
-DevEco Code ships with `build`, `plan`, `general`, `explore`. Hidden internal agents:
-`compaction`, `title`, `summary`. To override a built-in's fields, define the
-same key in `agent: { <name>: { ... } }`.
+DevEco Code ships with 5 user-facing agents and 6 hidden internal agents. To override a built-in's fields, define the same key in `agent: { <name>: { ... } }`.
+
+| Agent ID             | Mode       | Hidden | Description                                                      |
+| -------------------- | ---------- | ------ | ---------------------------------------------------------------- |
+| `build`              | `primary`  | No     | Default agent. Executes tools based on configured permissions.   |
+| `goal`               | `primary`  | No     | Multi-turn goal-driven agent with verifiable termination.        |
+| `plan`               | `primary`  | No     | Plan mode. Disallows all edit tools.                             |
+| `general`            | `subagent` | No     | General-purpose research and parallel task execution.            |
+| `explore`            | `subagent` | No     | Fast read-only codebase search specialist.                       |
+| `debug`              | `primary`  | Yes    | Sticky ArkTS debugging mode triggered by `/debug`.               |
+| `spec-implementation`| `subagent` | Yes    | Execute implementation tasks from an approved spec.              |
+| `spec-verify`        | `subagent` | Yes    | Build, deploy, and UI-verify Harmony features against spec.      |
+| `compaction`         | `primary`  | Yes    | Context summarization assistant.                                 |
+| `title`              | `primary`  | Yes    | Thread title generator (≤50 chars).                              |
+| `summary`            | `primary`  | Yes    | PR-description-style conversation summarizer.                    |
+
+Key permission differences:
+
+- **`build`**: Full tool access. `question: allow`, `plan_enter: ask`, `verify_ui/save_ui_screenshot/get_ui_verification_log: ask`.
+- **`goal`**: `question/plan_enter/webfetch/websearch/todowrite/spec_write/task: allow`.
+- **`plan`**: `edit: deny *`, `bash: deny`, `plan_exit/plan_write: allow`. Only plan files under `.deveco/plans/` are editable.
+- **`general`**: Same as build but `todowrite: deny`.
+- **`explore`**: Read-only — `glob/grep/read/webfetch/websearch: allow`, all others denied.
+- **`debug`**: `question/todowrite/arkts_knowledge_search/check_ets_files/build_project/start_app/hdc_log/debug_exit: allow`.
+
+All agents share base permissions: `external_directory: ask *`, `read: allow *` (except `*.env*` which requires `ask`).
 
 ## Commands
 
@@ -305,17 +366,56 @@ model: anthropic/claude-sonnet-4-6
 - `$ARGUMENTS` is replaced with everything the user typed after the command; `$1`, `$2`, … pull individual positional arguments.
 - Optional: `description`, `agent`, `model`, `variant`, `subtask`.
 
+### Real examples from this codebase
+
+**`changelog.md`** — uses shell interpolation to generate changelogs:
+```markdown
+---
+model: deveco/gpt-5.4
+---
+
+Generate a changelog from the following raw output:
+
+!`bun script/raw-changelog.ts $ARGUMENTS`
+```
+
+**`commit.md`** — uses shell interpolation with git commands:
+```markdown
+---
+description: Generate a commit message for staged changes
+model: deveco/kimi-k2.5
+subtask: true
+---
+
+Generate a commit message for the following changes:
+
+!`git diff`
+!`git diff --cached`
+!`git status --short`
+```
+
+**`translate.md`** — uses file references and a specific model:
+```markdown
+---
+description: Translate git diff changes
+model: deveco/claude-opus-4-8
+---
+
+Translate the following diff using the glossary at
+@.deveco/glossary/$ARGUMENTS.md
+```
+
 ## Plugins
 
 `plugin:` is an array. Each entry is one of:
 
-```json
+```jsonc
 "plugin": [
-  "opencode-gemini-auth",            // npm spec, latest
-  "opencode-foo@1.2.3",              // npm spec, pinned
+  "deveco-gemini-auth",            // npm spec, latest
+  "deveco-foo@1.2.3",              // npm spec, pinned
   "./local-plugin.ts",               // file path, relative to the declaring config
   "file:///abs/path/plugin.js",      // file URL
-  ["opencode-bar", { "key": "val" }] // tuple form with options
+  ["deveco-bar", { "key": "val" }] // tuple form with options
 ]
 ```
 
@@ -328,7 +428,7 @@ function, not a plain object literal, and the function returns an object
 (return `{}` if there is nothing to register).
 
 ```ts
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin } from "@deveco-ai/plugin"
 
 export default (async ({ client, project, directory, $ }) => {
   return {
@@ -364,14 +464,18 @@ Special object-shaped (not callbacks): `tool: { my_tool: { ... } }`,
 `mcp:` is an object keyed by server name. Each server is discriminated by
 `type`:
 
-```json
+```jsonc
 {
   "mcp": {
+    "deveco-mcp-server": {
+      "type": "local",
+      "command": ["deveco-mcp-server"]
+    },
     "playwright": {
       "type": "local",
       "command": ["npx", "-y", "@playwright/mcp"],
       "enabled": true,
-      "env": { "BROWSER": "chromium" }
+      "environment": { "BROWSER": "chromium" }
     },
     "github": {
       "type": "remote",
@@ -384,16 +488,26 @@ Special object-shaped (not callbacks): `tool: { my_tool: { ... } }`,
 }
 ```
 
-`command` is an array of strings. `type` is required. Use `enabled: false` to
-disable a server inherited from a parent config. String values such as header
-tokens support `{env:VAR}` interpolation (and `{file:path}`); the shell-style
-`${VAR}` is not substituted.
+Local MCP fields: `type` (required, `"local"`), `command` (required, array of
+strings), `cwd`, `environment` (env vars), `enabled`, `timeout` (ms, default 5000).
+
+Remote MCP fields: `type` (required, `"remote"`), `url` (required), `headers`,
+`oauth` (`{ clientId, clientSecret, scope, callbackPort, redirectUri }`),
+`enabled`, `timeout`.
+
+Use `enabled: false` to disable a server inherited from a parent config. String
+values such as header tokens support `{env:VAR}` interpolation (and `{file:path}`);
+the shell-style `${VAR}` is not substituted.
 
 ## Permissions
 
-```json
+```jsonc
 "permission": {
-  "edit": "deny",
+  "edit": {
+    "packages/deveco/migration/*": "deny",
+    "*.env": "ask",
+    "*": "allow"
+  },
   "bash": { "git *": "allow", "rm *": "deny", "*": "ask" },
   "external_directory": { "~/secrets/**": "deny", "*": "allow" }
 }
@@ -411,9 +525,8 @@ everything" and is rarely what the user wants.
 
 Known permission keys: `read, edit, glob, grep, list, bash, task,
 external_directory, todowrite, question, webfetch, websearch, lsp, doom_loop,
-skill`. Some of these (`todowrite,
-question, webfetch, websearch, doom_loop`) only accept a flat
-action, not a per-pattern object.
+skill`. Some of these (`todowrite, question, webfetch, websearch, doom_loop`)
+only accept a flat action, not a per-pattern object.
 
 `external_directory` patterns are filesystem paths (use `~/`, absolute paths,
 or globs like `~/projects/**`).
@@ -421,20 +534,44 @@ or globs like `~/projects/**`).
 Per-agent `permission:` overrides top-level `permission:`. Plan Mode lives on
 the `plan` agent's permission ruleset (`edit: deny *`).
 
+## Tools
+
+Custom tools can be defined as TypeScript files in `.deveco/tool/`:
+
+```
+.deveco/tool/github-triage.ts
+```
+
+Tools can be enabled/disabled in `deveco.json`:
+
+```jsonc
+{
+  "tools": {
+    "github-triage": false,
+    "github-pr-search": false
+  }
+}
+```
+
+This is converted to permission rules internally. Setting a tool to `false`
+denies the corresponding permission.
+
 ## Escape hatches
 
 When a user's config is broken and DevEco Code won't start, these env vars help:
 
-- `OPENCODE_DISABLE_PROJECT_CONFIG=1`: skip the project's local `deveco.json`
+- `DEVECO_DISABLE_PROJECT_CONFIG=1`: skip the project's local `deveco.json`
   and start from globals only. Run from the project directory, DevEco Code loads,
   the user edits the broken file, then they restart without the flag.
-- `OPENCODE_CONFIG=/path/to/file.json`: load an additional explicit config.
+- `DEVECO_CONFIG=/path/to/file.json`: load an additional explicit config.
 - `DEVECO_CONFIG_CONTENT='{"$schema":"https://opencode.ai/config.json"}'`:
   inject inline JSON as a final local-scope merge.
-- `OPENCODE_DISABLE_DEFAULT_PLUGINS=1`: skip default plugins.
-- `OPENCODE_PURE=1`: skip external plugins entirely.
-- `OPENCODE_DISABLE_EXTERNAL_SKILLS=1`,
-  `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1`: skip the external skill scans under
+- `DEVECO_CONFIG=/path/to/file.json`: load a custom config file.
+- `DEVECO_CONFIG_DIR=/path/to/dir`: load configs from a custom directory.
+- `DEVECO_DISABLE_DEFAULT_PLUGINS=1`: skip default plugins.
+- `DEVECO_PURE=1`: skip external plugins entirely.
+- `DEVECO_DISABLE_EXTERNAL_SKILLS=1`,
+  `DEVECO_DISABLE_CLAUDE_CODE_SKILLS=1`: skip the external skill scans under
   `~/.claude/` and `~/.agents/`.
 
 ## When proposing edits
