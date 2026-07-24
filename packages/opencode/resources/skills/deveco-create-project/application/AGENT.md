@@ -1,6 +1,6 @@
-# HarmonyOS Application Template Guide
+# OpenHarmony Application Template Guide
 
-This is a HarmonyOS (stage-model) application template. **Only read the 3 files listed below** — do NOT glob, search, or read any other files unless you need to modify labels/icons.
+This is an OpenHarmony (stage-model) application template. **Only read the 3 files listed below** — do NOT glob, search, or read any other files unless you need to modify labels/icons.
 
 ## Must-read files (1 batch read)
 
