@@ -45,11 +45,9 @@ test("resolves host-neutral defaults", () => {
   const config = resolve({}, { terminalSuspend: true })
 
   expect(config.attention).toEqual({
-    enabled: false,
-    notifications: true,
+    enabled: true,
     sound: true,
     volume: 0.4,
-    sound_pack: "opencode.default",
     sounds: {},
   })
   expect(config.leader_timeout).toBe(LeaderTimeoutDefault)
@@ -65,10 +63,8 @@ test("resolves overrides without mutating input", () => {
     leader_timeout: 750,
     attention: {
       enabled: true,
-      notifications: false,
       sound: false,
       volume: 0.8,
-      sound_pack: "custom.pack",
       sounds: { question: "/sounds/question.wav" },
     },
     keybinds: { session_list: "ctrl+l" },

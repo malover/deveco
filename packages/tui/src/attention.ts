@@ -7,19 +7,12 @@ import type {
   TuiAttentionWhen,
   TuiKV,
   TuiAttentionSoundName,
-  TuiAttentionSoundPack,
-  TuiAttentionSoundPackInfo,
 } from "@opencode-ai/plugin/tui"
 import { AttentionSoundName, type TuiConfig } from "./config"
 import { Schema } from "effect"
 import stripAnsi from "strip-ansi"
 import * as TuiAudio from "./audio"
-import defaultSoundPath from "@opencode-ai/ui/audio/bip-bop-01.mp3" with { type: "file" }
-import questionSoundPath from "@opencode-ai/ui/audio/bip-bop-03.mp3" with { type: "file" }
-import permissionSoundPath from "@opencode-ai/ui/audio/staplebops-06.mp3" with { type: "file" }
-import errorSoundPath from "@opencode-ai/ui/audio/nope-03.mp3" with { type: "file" }
-import doneSoundPath from "@opencode-ai/ui/audio/bip-bop-01.mp3" with { type: "file" }
-import subagentDoneSoundPath from "@opencode-ai/ui/audio/yup-01.mp3" with { type: "file" }
+import { SOUND_CATALOG, DEFAULT_SOUND_IDS, findCatalogEntry } from "./sound-registry"
 
 type FocusState = "unknown" | "focused" | "blurred"
 
@@ -27,40 +20,23 @@ type AttentionRenderer = {
   readonly isDestroyed: boolean
   on(event: "focus" | "blur", listener: () => void): unknown
   off(event: "focus" | "blur", listener: () => void): unknown
-  triggerNotification(message: string, title?: string): boolean
-}
-
-type RegisteredSoundPack = TuiAttentionSoundPack & {
-  builtin: boolean
 }
 
 type TuiAttentionHost = TuiAttention & {
   dispose(): void
 }
 
-const DEFAULT_TITLE = "deveco"
-const DEFAULT_PACK_ID = "deveco.default"
-const KV_SOUND_PACK = "attention_sound_pack"
-const TITLE_LIMIT = 80
+const KV_SOUND_CUSTOM_PREFIX = "attention_sound_custom_"
 const MESSAGE_LIMIT = 240
-const BUILTIN_PACK: RegisteredSoundPack = {
-  id: DEFAULT_PACK_ID,
-  name: "DevEco Code Default",
-  builtin: true,
-  sounds: {
-    default: defaultSoundPath,
-    question: questionSoundPath,
-    permission: permissionSoundPath,
-    error: errorSoundPath,
-    done: doneSoundPath,
-    subagent_done: subagentDoneSoundPath,
-  },
+
+function defaultSoundPath(name: TuiAttentionSoundName) {
+  const id = DEFAULT_SOUND_IDS[name]
+  return id ? findCatalogEntry(id)?.path : undefined
 }
 
 function skipped(reason: TuiAttentionNotifySkipReason): TuiAttentionNotifyResult {
   return {
     ok: false,
-    notification: false,
     sound: false,
     skipped: reason,
   }
@@ -80,28 +56,18 @@ function clampVolume(volume: number) {
   return Math.min(1, Math.max(0, volume))
 }
 
-function soundVolume(input: TuiAttentionNotifyInput, config: Pick<TuiConfig.Resolved, "attention">) {
-  if (!config.attention.sound) return
+function soundVolume(
+  input: TuiAttentionNotifyInput,
+  config: Pick<TuiConfig.Resolved, "attention">,
+  kv?: TuiKV,
+) {
+  const soundEnabled = kv?.get<boolean>("attention_sound_enabled", config.attention.sound) ?? config.attention.sound
+  if (!soundEnabled) return
   if (input.sound === false) return
-  if (input.sound === undefined) return clampVolume(config.attention.volume)
-  if (input.sound === true) return clampVolume(config.attention.volume)
-  return clampVolume(input.sound.volume ?? config.attention.volume)
-}
-
-function normalizePack(pack: TuiAttentionSoundPack): RegisteredSoundPack | undefined {
-  const id = pack.id.trim()
-  if (!id) return
-  return {
-    id,
-    name: pack.name?.trim() || undefined,
-    builtin: false,
-    sounds: Object.fromEntries(
-      Object.entries(pack.sounds).filter(
-        (item): item is [TuiAttentionSoundName, string] =>
-          Schema.is(AttentionSoundName)(item[0]) && typeof item[1] === "string" && item[1].trim().length > 0,
-      ),
-    ),
-  }
+  const volume = kv?.get<number>("attention_volume", config.attention.volume) ?? config.attention.volume
+  if (input.sound === undefined) return clampVolume(volume)
+  if (input.sound === true) return clampVolume(volume)
+  return clampVolume(input.sound.volume ?? volume)
 }
 
 function focusSkip(when: TuiAttentionWhen, focus: FocusState) {
@@ -119,8 +85,6 @@ export function createTuiAttention(input: {
 }): TuiAttentionHost {
   let focus: FocusState = "unknown"
   let disposed = false
-  let activePackID: string | undefined
-  const packs = new Map<string, RegisteredSoundPack>([[BUILTIN_PACK.id, BUILTIN_PACK]])
   const audio = input.audio ?? TuiAudio
 
   const onFocus = () => {
@@ -133,17 +97,14 @@ export function createTuiAttention(input: {
   input.renderer.on("focus", onFocus)
   input.renderer.on("blur", onBlur)
 
-  function configuredPackID() {
-    const stored = input.kv?.get<string | undefined>(KV_SOUND_PACK, undefined)
-    return activePackID ?? stored ?? input.config.attention.sound_pack
-  }
-
-  function currentPack() {
-    return packs.get(configuredPackID()) ?? BUILTIN_PACK
+  function customSoundPath(name: TuiAttentionSoundName) {
+    const customId = input.kv?.get<string | undefined>(`${KV_SOUND_CUSTOM_PREFIX}${name}`, undefined)
+    if (!customId) return
+    return findCatalogEntry(customId)?.path
   }
 
   function soundCandidates(name: TuiAttentionSoundName) {
-    return [input.config.attention.sounds[name], currentPack().sounds[name], BUILTIN_PACK.sounds[name]].filter(
+    return [customSoundPath(name), input.config.attention.sounds[name], defaultSoundPath(name)].filter(
       (item, index, list): item is string => typeof item === "string" && list.indexOf(item) === index,
     )
   }
@@ -166,88 +127,68 @@ export function createTuiAttention(input: {
     }
   }
 
+  function resolvedVolume() {
+    return clampVolume(input.kv?.get<number>("attention_volume", input.config.attention.volume) ?? input.config.attention.volume)
+  }
+
   return {
     async notify(request) {
       try {
-        if (!input.config.attention.enabled) return skipped("attention_disabled")
+        const attentionEnabled = input.kv?.get<boolean>("attention_enabled", input.config.attention.enabled) ?? input.config.attention.enabled
+        if (!attentionEnabled) return skipped("attention_disabled")
         if (disposed || input.renderer.isDestroyed) return skipped("renderer_destroyed")
 
         const message = normalizeText(request.message, "", MESSAGE_LIMIT)
         if (!message) return skipped("empty_message")
 
-        const requestedNotification = typeof request.notification === "object" ? request.notification : undefined
-        const notificationSkip = focusSkip(requestedNotification?.when ?? "blurred", focus)
-        const notificationRequested = input.config.attention.notifications && request.notification !== false
-        const shouldNotify = notificationRequested && !notificationSkip
-        const notification = shouldNotify
-          ? (() => {
-              try {
-                return input.renderer.triggerNotification(
-                  message,
-                  normalizeText(request.title, DEFAULT_TITLE, TITLE_LIMIT),
-                )
-              } catch (error) {
-                console.debug("failed to trigger attention notification", { error })
-                return false
-              }
-            })()
-          : false
-        const volume = soundVolume(request, input.config)
+        const volume = soundVolume(request, input.config, input.kv)
         const requestedSound = typeof request.sound === "object" ? request.sound : undefined
         const soundSkip = volume === undefined ? undefined : focusSkip(requestedSound?.when ?? "always", focus)
         const soundName =
           requestedSound?.name && Schema.is(AttentionSoundName)(requestedSound.name) ? requestedSound.name : "default"
         const sound = volume === undefined || soundSkip ? false : await playSound(soundName, volume)
 
-        if (!notification && !sound) {
-          if (notificationRequested && notificationSkip) return skipped(notificationSkip)
+        if (!sound) {
           if (soundSkip) return skipped(soundSkip)
         }
 
         return {
-          ok: notification || sound,
-          notification,
+          ok: sound,
           sound,
         }
       } catch (error) {
         console.debug("failed to handle attention notification", { error })
         return {
           ok: false,
-          notification: false,
           sound: false,
         }
       }
     },
     soundboard: {
-      registerPack(pack) {
-        const next = normalizePack(pack)
-        if (!next) return () => {}
-        packs.set(next.id, next)
-        let disposed = false
-        return () => {
-          if (disposed) return
-          disposed = true
-          if (packs.get(next.id) === next) packs.delete(next.id)
+      available() {
+        return SOUND_CATALOG
+      },
+      async preview(soundId: string) {
+        const entry = findCatalogEntry(soundId)
+        if (!entry) return false
+        const volume = resolvedVolume()
+        try {
+          const loaded = await audio.loadSoundFile(entry.path).catch(() => null)
+          if (loaded == null) return false
+          return audio.play(loaded, { volume }) != null
+        } catch {
+          return false
         }
       },
-      activate(id, options) {
-        const pack = packs.get(id)
-        if (!pack) return false
-        activePackID = pack.id
-        if (options?.persist) input.kv?.set(KV_SOUND_PACK, pack.id)
-        return true
+      getCustomSound(event: TuiAttentionSoundName) {
+        return input.kv?.get<string | undefined>(`${KV_SOUND_CUSTOM_PREFIX}${event}`, undefined)
       },
-      current() {
-        return currentPack().id
-      },
-      list(): TuiAttentionSoundPackInfo[] {
-        const current = currentPack().id
-        return Array.from(packs.values()).map((pack) => ({
-          id: pack.id,
-          name: pack.name,
-          active: pack.id === current,
-          builtin: pack.builtin,
-        }))
+      setCustomSound(event: TuiAttentionSoundName, soundId: string | undefined) {
+        if (soundId === undefined) {
+          input.kv?.set(`${KV_SOUND_CUSTOM_PREFIX}${event}`, "")
+        } else {
+          input.kv?.set(`${KV_SOUND_CUSTOM_PREFIX}${event}`, soundId)
+        }
       },
     },
     dispose() {

@@ -86,6 +86,7 @@ import type { EventSource } from "./context/sdk"
 import { DialogVariant } from "./component/dialog-variant"
 import { createTuiAttention } from "./attention"
 import * as TuiAudio from "./audio"
+import { DialogSoundSettings } from "./component/dialog-sound-settings"
 import { win32DisableProcessedInput, win32FlushInputBuffer } from "./terminal-win32"
 import { destroyRenderer } from "./util/renderer"
 import { cliErrorMessage, errorFormat } from "./util/error"
@@ -971,6 +972,14 @@ function App(props: {
           const current = kv.get("diff_wrap_mode", "word")
           kv.set("diff_wrap_mode", current === "word" ? "none" : "word")
           dialog.clear()
+        },
+      },
+      {
+        name: "sound.settings",
+        title: t("command.sound_settings"),
+        category: t("category.system"),
+        run: () => {
+          dialog.replace(() => <DialogSoundSettings soundboard={attention.soundboard} />)
         },
       },
       {

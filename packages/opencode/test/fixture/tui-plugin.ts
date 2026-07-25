@@ -192,13 +192,13 @@ export function createTuiPluginApi(opts: Opts = {}): HostPluginApi {
     },
     attention: {
       async notify(input) {
-        return opts.attention?.notify?.(input) ?? { ok: false, notification: false, sound: false }
+        return opts.attention?.notify?.(input) ?? { ok: false, sound: false }
       },
       soundboard: {
-        registerPack: (pack) => opts.attention?.soundboard?.registerPack?.(pack) ?? (() => {}),
-        activate: (id, options) => opts.attention?.soundboard?.activate?.(id, options) ?? false,
-        current: () => opts.attention?.soundboard?.current?.() ?? "opencode.default",
-        list: () => opts.attention?.soundboard?.list?.() ?? [],
+        available: () => opts.attention?.soundboard?.available?.() ?? [],
+        preview: (id) => opts.attention?.soundboard?.preview?.(id) ?? Promise.resolve(false),
+        getCustomSound: (event) => opts.attention?.soundboard?.getCustomSound?.(event),
+        setCustomSound: (event, soundId) => opts.attention?.soundboard?.setCustomSound?.(event, soundId),
       },
     },
     keys: {

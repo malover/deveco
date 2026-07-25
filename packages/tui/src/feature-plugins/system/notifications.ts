@@ -10,9 +10,9 @@ function notify(api: TuiPluginApi, sessionID: string | undefined, message: strin
   const session = sessionID ? api.state.session.get(sessionID) : undefined
   const isSubagent = session?.parentID !== undefined
   void api.attention.notify({
-    title: session?.title,
+
     message,
-    notification: isSubagent ? false : { when: "blurred" },
+
     sound: { name: sound, when: "always" },
   })
 }

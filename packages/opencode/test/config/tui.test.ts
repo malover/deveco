@@ -152,21 +152,17 @@ it.instance("resolves attention config defaults and overrides", () =>
       const test = yield* TestInstance
 
       expect((yield* getTuiConfig(test.directory)).attention).toEqual({
-        enabled: false,
-        notifications: true,
+        enabled: true,
         sound: true,
         volume: 0.4,
-        sound_pack: "opencode.default",
         sounds: {},
       })
 
       yield* fs.writeJson(path.join(test.directory, "tui.json"), {
         attention: {
           enabled: false,
-          notifications: false,
           sound: false,
           volume: 0.7,
-          sound_pack: "acme.soft",
           sounds: {
             default: path.join(test.directory, "default.mp3"),
             question: pathToFileURL(path.join(test.directory, "question.mp3")).href,
@@ -178,10 +174,8 @@ it.instance("resolves attention config defaults and overrides", () =>
 
       expect((yield* getTuiConfig(test.directory)).attention).toEqual({
         enabled: false,
-        notifications: false,
         sound: false,
         volume: 0.7,
-        sound_pack: "acme.soft",
         sounds: {
           default: path.join(test.directory, "default.mp3"),
           question: path.join(test.directory, "question.mp3"),

@@ -84,16 +84,12 @@ function permission(id: string, sessionID = "session"): PermissionRequest {
 }
 
 const questionNotification: TuiAttentionNotifyInput = {
-  title: "Demo session",
   message: "Question needs input",
-  notification: { when: "blurred" },
   sound: { name: "question", when: "always" },
 }
 
 const permissionNotification: TuiAttentionNotifyInput = {
-  title: "Demo session",
   message: "Permission needs input",
-  notification: { when: "blurred" },
   sound: { name: "permission", when: "always" },
 }
 
@@ -157,9 +153,7 @@ describe("internal notifications TUI plugin", () => {
 
     expect(harness.notifications).toEqual([
       {
-        title: "Demo session",
         message: "Session done",
-        notification: { when: "blurred" },
         sound: { name: "done", when: "always" },
       },
     ])
@@ -182,15 +176,11 @@ describe("internal notifications TUI plugin", () => {
 
     expect(harness.notifications).toEqual([
       {
-        title: "Subagent session",
         message: "Question needs input",
-        notification: false,
         sound: { name: "question", when: "always" },
       },
       {
-        title: "Subagent session",
         message: "Session done",
-        notification: false,
         sound: { name: "subagent_done", when: "always" },
       },
     ])
@@ -217,9 +207,7 @@ describe("internal notifications TUI plugin", () => {
 
     expect(harness.notifications).toEqual([
       {
-        title: "Demo session",
         message: "Session error",
-        notification: { when: "blurred" },
         sound: { name: "error", when: "always" },
       },
     ])
@@ -251,15 +239,11 @@ describe("internal notifications TUI plugin", () => {
 
     expect(harness.notifications).toEqual([
       {
-        title: "Abort session",
         message: "Session aborted",
-        notification: { when: "blurred" },
         sound: { name: "error", when: "always" },
       },
       {
-        title: "Timeout session",
         message: "Model stopped responding",
-        notification: { when: "blurred" },
         sound: { name: "error", when: "always" },
       },
     ])

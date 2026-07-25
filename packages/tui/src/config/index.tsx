@@ -40,12 +40,10 @@ export const AttentionSounds = Schema.Record(AttentionSoundName, Schema.optional
 export type AttentionSoundPaths = Schema.Schema.Type<typeof AttentionSounds>
 export const Attention = Schema.Struct({
   enabled: Schema.optional(Schema.Boolean),
-  notifications: Schema.optional(Schema.Boolean),
   sound: Schema.optional(Schema.Boolean),
   volume: Schema.optional(Schema.Number.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
-  sound_pack: Schema.optional(Schema.String),
   sounds: Schema.optional(AttentionSounds),
-}).annotate({ description: "Attention notification and sound settings" })
+}).annotate({ description: "Attention sound settings" })
 
 const PromptSize = Schema.Int.check(Schema.isGreaterThan(0))
 export const Prompt = Schema.Struct({
@@ -75,10 +73,8 @@ export type Info = Schema.Schema.Type<typeof Info>
 export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | "interrupt_timeout" | "mouse"> & {
   attention: {
     enabled: boolean
-    notifications: boolean
     sound: boolean
     volume: number
-    sound_pack: string
     sounds: AttentionSoundPaths
   }
   keybinds: TuiKeybind.BindingLookupView
@@ -107,11 +103,9 @@ export function resolve(input: Info, options: ResolveOptions): Resolved {
   return {
     ...input,
     attention: {
-      enabled: input.attention?.enabled ?? false,
-      notifications: input.attention?.notifications ?? true,
+      enabled: input.attention?.enabled ?? true,
       sound: input.attention?.sound ?? true,
       volume: input.attention?.volume ?? 0.4,
-      sound_pack: input.attention?.sound_pack ?? "opencode.default",
       sounds: input.attention?.sounds ?? {},
     },
     keybinds: createBindingLookup(TuiKeybind.toBindingConfig(TuiKeybind.parse(keybinds)), {

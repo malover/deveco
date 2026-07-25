@@ -16,7 +16,6 @@ import { fileURLToPath } from "url"
 import { TuiConfig } from "@/config/tui"
 import { errorData, errorMessage } from "@opencode-ai/tui/util/error"
 import { isRecord } from "@opencode-ai/tui/util/record"
-import { resolveHostAttentionSoundPaths } from "@/config/tui-host-attention"
 import {
   readPackageThemes,
   readPluginId,
@@ -168,22 +167,17 @@ function createScopedAttention(
       return attention.notify(input)
     },
     soundboard: {
-      registerPack(pack) {
-        return scope.track(
-          attention.soundboard.registerPack({
-            ...pack,
-            sounds: resolveHostAttentionSoundPaths(root, pack.sounds, { trim: true }),
-          }),
-        )
+      available() {
+        return attention.soundboard.available()
       },
-      activate(id, options) {
-        return attention.soundboard.activate(id, options)
+      preview(soundId) {
+        return attention.soundboard.preview(soundId)
       },
-      current() {
-        return attention.soundboard.current()
+      getCustomSound(event) {
+        return attention.soundboard.getCustomSound(event)
       },
-      list() {
-        return attention.soundboard.list()
+      setCustomSound(event, soundId) {
+        attention.soundboard.setCustomSound(event, soundId)
       },
     },
   }

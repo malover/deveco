@@ -245,40 +245,22 @@ export type TuiAttentionSound =
       when?: TuiAttentionWhen
     }
 
-export type TuiAttentionNotification =
-  | boolean
-  | {
-      when?: TuiAttentionWhen
-    }
-
-export type TuiAttentionSoundPack = {
+export type TuiAttentionSoundCatalogEntry = {
   id: string
-  name?: string
-  sounds: Partial<Record<TuiAttentionSoundName, string>>
-}
-
-export type TuiAttentionSoundPackInfo = {
-  id: string
-  name?: string
-  active: boolean
-  builtin: boolean
-}
-
-export type TuiAttentionSoundboardActivateOptions = {
-  persist?: boolean
+  name: string
+  category: string
+  path: string
 }
 
 export type TuiAttentionSoundboard = {
-  registerPack(pack: TuiAttentionSoundPack): () => void
-  activate(id: string, options?: TuiAttentionSoundboardActivateOptions): boolean
-  current(): string
-  list(): ReadonlyArray<TuiAttentionSoundPackInfo>
+  available(): ReadonlyArray<TuiAttentionSoundCatalogEntry>
+  preview(soundId: string): Promise<boolean>
+  getCustomSound(event: TuiAttentionSoundName): string | undefined
+  setCustomSound(event: TuiAttentionSoundName, soundId: string | undefined): void
 }
 
 export type TuiAttentionNotifyInput = {
-  title?: string
   message: string
-  notification?: TuiAttentionNotification
   sound?: TuiAttentionSound
 }
 
@@ -292,7 +274,6 @@ export type TuiAttentionNotifySkipReason =
 
 export type TuiAttentionNotifyResult = {
   ok: boolean
-  notification: boolean
   sound: boolean
   skipped?: TuiAttentionNotifySkipReason
 }
@@ -411,10 +392,8 @@ type TuiBindingLookupView = {
 
 type TuiAttentionConfigView = {
   enabled: boolean
-  notifications: boolean
   sound: boolean
   volume: number
-  sound_pack: string
   sounds: Partial<Record<TuiAttentionSoundName, string>>
 }
 
