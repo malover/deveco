@@ -3692,10 +3692,6 @@ export class Session2 extends HeyApiClient {
       directory?: string
       workspace?: string
       messageID?: string
-      btw?: {
-        question: string
-        answer: string
-      }
     },
     options?: Options<never, ThrowOnError>,
   ) {

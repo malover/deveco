@@ -26,7 +26,30 @@ export function BtwPanel(props: { width?: number } = {}) {
     return Boolean(record && !record.loading)
   })
   const currentAnswerText = createMemo(() => current()?.answer.trim() ?? "")
-  const currentErrorText = createMemo(() => current()?.error?.trim() ?? "")
+  const currentErrorText = createMemo(() => {
+    const error = current()?.error
+    if (!error) return ""
+    const message = error.message.trim()
+    if (message) return message
+    const provider = error.providerID ?? t("btw.provider_selected")
+    switch (error.code) {
+      case "auth":
+        return t("btw.error_auth", { provider })
+      case "quota":
+        return t("btw.error_quota", { provider })
+      case "rate_limit":
+        return t("btw.error_rate_limit", { provider })
+      case "model_not_found":
+        return t("btw.error_model_not_found")
+      case "context_overflow":
+        return t("btw.error_context_overflow")
+      case "provider":
+        return t("btw.error_provider", { provider })
+      case "unknown":
+        return t("btw.error_unknown")
+    }
+    return t("btw.error_unknown")
+  })
   const currentDisplayText = createMemo(() => currentErrorText() || currentAnswerText())
   const panelWidth = createMemo(() => Math.max(1, props.width ?? dimensions().width))
   const answerTextWidth = createMemo(() => Math.max(1, panelWidth() - 4 - (currentErrorText() ? 2 : 0)))
@@ -50,8 +73,9 @@ export function BtwPanel(props: { width?: number } = {}) {
     }
     const hints = records().length > 1 ? ["←/→ to switch"] : ["↑/↓ to scroll"]
     if (records().length > 1) hints.push("x to delete")
-    if (record.answer) hints.push(btw.state().copyNoticeID === record.id ? "copied to clipboard" : "c to copy")
-    if (record.answer || record.error) hints.push("f to fork")
+    if (record.answer && !record.error)
+      hints.push(btw.state().copyNoticeID === record.id ? "copied to clipboard" : "c to copy")
+    if (record.answer && !record.error) hints.push("f to fork")
     hints.push("Esc to close")
     return hints
   })
@@ -163,9 +187,7 @@ export function BtwPanel(props: { width?: number } = {}) {
                 const selected = () => index() === btw.state().index
                 return (
                   <box flexDirection="row" gap={1}>
-                    <text fg={selected() ? theme.accent : theme.textMuted}>
-                      {selected() ? "›" : " "}
-                    </text>
+                    <text fg={selected() ? theme.accent : theme.textMuted}>{selected() ? "›" : " "}</text>
                     <text
                       fg={selected() ? theme.text : theme.textMuted}
                       attributes={selected() ? TextAttributes.BOLD : undefined}
@@ -209,7 +231,7 @@ export function BtwPanel(props: { width?: number } = {}) {
                 when={hasAnswer()}
                 fallback={
                   <box flexDirection="row" alignItems="flex-start" height={answerContentHeight()}>
-                    <text fg={theme.textMuted}>▎  {t("btw.loading_inline")}</text>
+                    <text fg={theme.textMuted}>▎ {t("btw.loading_inline")}</text>
                   </box>
                 }
               >
@@ -224,9 +246,7 @@ export function BtwPanel(props: { width?: number } = {}) {
         </box>
 
         <box flexDirection="row" justifyContent="flex-start" gap={2}>
-          <For each={hintItems()}>
-            {(hint) => <text fg={theme.textMuted}>{hint}</text>}
-          </For>
+          <For each={hintItems()}>{(hint) => <text fg={theme.textMuted}>{hint}</text>}</For>
         </box>
       </box>
     </box>

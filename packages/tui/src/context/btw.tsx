@@ -1,12 +1,6 @@
-import {
-  batch,
-  createContext,
-  onCleanup,
-  useContext,
-  type Accessor,
-  type ParentComponent,
-} from "solid-js"
+import { batch, createContext, onCleanup, useContext, type Accessor, type ParentComponent } from "solid-js"
 import { createStore } from "solid-js/store"
+import type { EventBtwError } from "@opencode-ai/sdk/v2"
 import { useEvent } from "./event"
 import { useSDK } from "./sdk"
 import { useBindings } from "../keymap"
@@ -14,6 +8,7 @@ import { useClipboard } from "./clipboard"
 import { useToast } from "../ui/toast"
 import { useI18n } from "../i18n"
 import { useRoute } from "./route"
+import { errorMessage } from "../util/error"
 
 export type BtwRecord = {
   id: string
@@ -22,8 +17,10 @@ export type BtwRecord = {
   question: string
   answer: string
   loading: boolean
-  error: string | undefined
+  error: BtwError | undefined
 }
+
+export type BtwError = Omit<EventBtwError["properties"], "asideID">
 
 export type BtwState = {
   open: boolean
@@ -152,16 +149,24 @@ export const BtwProvider: ParentComponent = (props) => {
         if (result.error) {
           updateRecord(asideID, () => ({
             loading: false,
-            error: typeof result.error === "string" ? result.error : "request failed",
+            error: {
+              code: "unknown",
+              message: errorMessage(result.error),
+              providerID: input.model?.split("/")[0],
+            },
           }))
         }
       })
-      .catch((err: unknown) => {
+      .catch((error: unknown) => {
         if (controller.signal.aborted) return
         controllers.delete(asideID)
         updateRecord(asideID, () => ({
           loading: false,
-          error: err instanceof Error ? err.message : String(err),
+          error: {
+            code: "unknown",
+            message: errorMessage(error),
+            providerID: input.model?.split("/")[0],
+          },
         }))
       })
   }
@@ -189,7 +194,14 @@ export const BtwProvider: ParentComponent = (props) => {
         break
       case "btw.error":
         controllers.delete(asideID)
-        updateRecord(asideID, () => ({ loading: false, error: evt.properties.message }))
+        updateRecord(asideID, () => ({
+          loading: false,
+          error: {
+            code: evt.properties.code,
+            message: evt.properties.message,
+            providerID: evt.properties.providerID,
+          },
+        }))
         break
     }
   })
@@ -233,7 +245,8 @@ export const BtwProvider: ParentComponent = (props) => {
     const record = current()
     if (!record) return
     if (record.loading) return
-    const answer = record.answer || record.error || ""
+    if (record.error) return
+    const answer = record.answer
     if (!answer) return
     void sdk.client.session
       .fork({
@@ -279,6 +292,7 @@ export const BtwProvider: ParentComponent = (props) => {
   function copyCurrent() {
     if (current()?.loading) return
     const record = current()
+    if (record?.error) return
     const text = record?.answer
     if (!text) {
       toast.show({ message: t("btw.copy_empty"), variant: "info" })
@@ -311,9 +325,5 @@ export const BtwProvider: ParentComponent = (props) => {
     ],
   }))
 
-  return (
-    <BtwContext.Provider value={value}>
-      {props.children}
-    </BtwContext.Provider>
-  )
+  return <BtwContext.Provider value={value}>{props.children}</BtwContext.Provider>
 }

@@ -1476,7 +1476,9 @@ export type GlobalEvent = {
         type: "btw.error"
         properties: {
           asideID: string
+          code: "auth" | "quota" | "rate_limit" | "model_not_found" | "context_overflow" | "provider" | "unknown"
           message: string
+          providerID?: string
         }
       }
     | {
@@ -5113,7 +5115,9 @@ export type EventBtwError = {
   type: "btw.error"
   properties: {
     asideID: string
+    code: "auth" | "quota" | "rate_limit" | "model_not_found" | "context_overflow" | "provider" | "unknown"
     message: string
+    providerID?: string
   }
 }
 
@@ -8200,11 +8204,11 @@ export type SessionMessageResponse = SessionMessageResponses[keyof SessionMessag
 
 export type SessionForkData = {
   body?: {
+    messageID?: string
     btw?: {
       question: string
       answer: string
     }
-    messageID?: string
   }
   path: {
     sessionID: string

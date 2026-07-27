@@ -3,6 +3,16 @@ import { PositiveInt } from "@opencode-ai/core/schema"
 import { EventV2 } from "@opencode-ai/core/event"
 import { Effect, Schema } from "effect"
 
+export const BtwErrorCode = Schema.Literals([
+  "auth",
+  "quota",
+  "rate_limit",
+  "model_not_found",
+  "context_overflow",
+  "provider",
+  "unknown",
+])
+
 export const BtwEvent = {
   Start: EventV2.define({
     type: "btw.start",
@@ -29,7 +39,9 @@ export const BtwEvent = {
     type: "btw.error",
     schema: {
       asideID: Schema.String,
+      code: BtwErrorCode,
       message: Schema.String,
+      providerID: Schema.optional(Schema.String),
     },
   }),
 }

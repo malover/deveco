@@ -7,6 +7,8 @@ import { Provider } from "@/provider/provider"
 import { Agent } from "@/agent/agent"
 import { Config } from "@/config/config"
 import { SessionID, MessageID } from "@/session/schema"
+import { ModelV2 } from "@opencode-ai/core/model"
+import { ProviderV2 } from "@opencode-ai/core/provider"
 import { Cause, Context, Effect, Layer, Stream } from "effect"
 import BTW_SYSTEM_PROMPT from "./prompt/btw.txt"
 
@@ -24,6 +26,7 @@ export interface Interface {
 export class Service extends Context.Service<Service, Interface>()("@opencode/AsideService") {}
 
 const TOOL_RESULT_TRUNCATE_LENGTH = 8000
+const UNKNOWN_ERROR_MESSAGE = "BTW request failed"
 
 const live = Layer.effect(
   Service,
@@ -55,8 +58,8 @@ const live = Layer.effect(
 
       let model: Provider.Model
       if (input.model) {
-        const [providerID, modelID] = input.model.split("/")
-        model = yield* provider.getModel(providerID as any, modelID as any)
+        const parsed = ModelV2.parse(input.model)
+        model = yield* provider.getModel(parsed.providerID, parsed.modelID)
       } else if (agentInfo.model) {
         model = yield* provider.getModel(agentInfo.model.providerID, agentInfo.model.modelID)
       } else {
@@ -82,10 +85,7 @@ const live = Layer.effect(
         model,
         agent: agentInfo,
         system: [BTW_SYSTEM_PROMPT],
-        messages: [
-          ...modelMessages,
-          { role: "user" as const, content: text },
-        ],
+        messages: [...modelMessages, { role: "user" as const, content: text }],
         tools: {},
         toolChoice: "none",
       })
@@ -111,9 +111,12 @@ const live = Layer.effect(
           Effect.catchCause((cause) =>
             Effect.gen(function* () {
               yield* Effect.logError("AsideService error", { cause })
+              const providerID = input.model?.split("/")[0]
+              const error = toBtwError(Cause.squash(cause), providerID)
               yield* events.publish(BtwEvent.Error, {
                 asideID: input.asideID,
-                message: Cause.pretty(cause),
+                ...error,
+                providerID,
               })
             }),
           ),
@@ -121,6 +124,76 @@ const live = Layer.effect(
     })
   }),
 )
+
+export function toBtwError(error: unknown, providerID?: string) {
+  if (Provider.ModelNotFoundError.isInstance(error)) {
+    const hint = error.suggestions?.length ? ` Did you mean: ${error.suggestions.join(", ")}?` : ""
+    return {
+      code: "model_not_found" as const,
+      message: `Model not found: ${error.providerID}/${error.modelID}.${hint}`,
+    }
+  }
+
+  const normalized = MessageV2.fromError(error, {
+    providerID: ProviderV2.ID.make(providerID ?? "unknown"),
+  })
+  const normalizedMessage =
+    "message" in normalized.data && typeof normalized.data.message === "string"
+      ? normalized.data.message
+      : UNKNOWN_ERROR_MESSAGE
+  if (normalized.name === "ProviderAuthError") {
+    return {
+      code: "auth" as const,
+      message: normalizedMessage,
+    }
+  }
+  if (normalized.name === "ContextOverflowError") {
+    return {
+      code: "context_overflow" as const,
+      message: normalizedMessage,
+    }
+  }
+  if (normalized.name === "ModelServiceRateLimitError" || normalized.name === "QueueError") {
+    return {
+      code: "rate_limit" as const,
+      message: normalizedMessage,
+    }
+  }
+  if (normalized.name !== "APIError") {
+    return {
+      code: "unknown" as const,
+      message: normalizedMessage,
+    }
+  }
+
+  const message = normalizedMessage.toLowerCase()
+  if (
+    normalized.data.statusCode === 401 ||
+    normalized.data.statusCode === 403 ||
+    /invalid.*(?:api[- ]?key|token)|unauthori[sz]ed|forbidden|authentication|credential/.test(message)
+  ) {
+    return {
+      code: "auth" as const,
+      message: normalizedMessage,
+    }
+  }
+  if (/quota|billing|credit|insufficient[_ ]fund|usage[_ ]not[_ ]included/.test(message)) {
+    return {
+      code: "quota" as const,
+      message: normalizedMessage,
+    }
+  }
+  if (normalized.data.statusCode === 429 || /rate.?limit|too many requests|high demand|overload/.test(message)) {
+    return {
+      code: "rate_limit" as const,
+      message: normalizedMessage,
+    }
+  }
+  return {
+    code: "provider" as const,
+    message: normalizedMessage,
+  }
+}
 
 export const defaultLayer = live.pipe(
   Layer.provide(EventV2Bridge.defaultLayer),
