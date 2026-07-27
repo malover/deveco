@@ -21,8 +21,6 @@ import { SwitchCwdTool } from "./switch-cwd"
 import { OhKnowledgeTool } from "./oh_knowledge"
 import { ArktsCheckTool } from "./arkts_check"
 import { GetUiVerificationLogTool, SaveUiScreenshotTool, VerifyUiTool } from "./ui-verification/ui-verification-tool"
-import { BuildProjectTool } from "./build_project"
-import { StartAppTool } from "./start_app"
 import { Auth } from "@/auth"
 import * as Tool from "./tool"
 import { Config } from "@/config/config"
@@ -123,8 +121,6 @@ export const layer = Layer.effect(
     const switchcwd = yield* SwitchCwdTool
     const ohknowledge = yield* OhKnowledgeTool
     const arktscheck = yield* ArktsCheckTool
-    const buildproject = yield* BuildProjectTool
-    const startapp = yield* StartAppTool
     const debugexit = yield* DebugExitTool
     const verifyui = yield* VerifyUiTool
     const getuilog = yield* GetUiVerificationLogTool
@@ -248,8 +244,6 @@ export const layer = Layer.effect(
           switchcwd: Tool.init(switchcwd),
           ohknowledge: Tool.init(ohknowledge),
           arktscheck: Tool.init(arktscheck),
-          buildproject: Tool.init(buildproject),
-          startapp: Tool.init(startapp),
           verify_ui: Tool.init(verifyui),
           get_ui_verification_log: Tool.init(getuilog),
           save_ui_screenshot: Tool.init(saveuiscreenshot),
@@ -279,8 +273,6 @@ export const layer = Layer.effect(
             // HarmonyOS tools
             tool.hdclog,
             tool.switchcwd,
-            tool.buildproject,
-            tool.startapp,
             tool.arktscheck,
             tool.verify_ui,
             tool.get_ui_verification_log,

@@ -17,7 +17,6 @@ const generated = await import("./generate.ts")
 
 import { Script } from "@opencode-ai/script"
 import pkg from "../package.json"
-import { bundleDevecoCliVendor, DEVECO_CLI_VENDOR_DIRNAME, ensureDevecoCliCached } from "./vendor-deveco-cli.ts"
 
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
@@ -265,13 +264,6 @@ if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
   await $`bun install --os="*" --cpu="*" @ff-labs/fff-bun@${pkg.dependencies["@ff-labs/fff-bun"]}`
 }
-
-try {
-  await ensureDevecoCliCached({ packageDir: dir, cacheDir })
-} catch (e) {
-  console.error(`  ERROR: ${e instanceof Error ? e.message : e}`)
-  process.exit(1)
-}
 for (const item of targets) {
   const name = [
     pkg.name,
@@ -385,11 +377,6 @@ for (const item of targets) {
       }
       console.log(`  Bundled ripgrep for ${rgKey}`)
     }
-  }
-
-  {
-    const vendorDir = path.join(dir, "dist", name, "vendor", DEVECO_CLI_VENDOR_DIRNAME)
-    await bundleDevecoCliVendor({ packageDir: dir, cacheDir, vendorDir })
   }
 
   await $`rm -rf ./dist/${name}/bin/tui`

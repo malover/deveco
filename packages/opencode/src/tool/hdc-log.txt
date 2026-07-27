@@ -1,4 +1,4 @@
-Collect, clear, or list HarmonyOS device logs.
+Collect, clear, or list HarmonyOS device logs via hdc shell hilog.
 
 Use this tool for runtime evidence during debugging of HarmonyOS applications.
 

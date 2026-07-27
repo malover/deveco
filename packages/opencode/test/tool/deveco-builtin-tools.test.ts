@@ -15,7 +15,7 @@ import { TestConfig } from "../fixture/config"
 import { testEffect } from "../lib/effect"
 
 const HARMONY_NAPI_TOOL_NAMES = emulatorTools.map((tool) => tool.name)
-const DEVECO_REGISTRY_TOOL_NAMES = ["hdc_log", "switch_cwd", "build_project", "start_app"] as const
+const DEVECO_REGISTRY_TOOL_NAMES = ["hdc_log", "switch_cwd"] as const
 
 const configLayer = TestConfig.layer({
   directories: () => InstanceState.directory.pipe(Effect.map((dir) => [path.join(dir, ".deveco")])),

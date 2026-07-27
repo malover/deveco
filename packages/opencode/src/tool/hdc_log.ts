@@ -13,19 +13,18 @@
  * limitations under the License.
  */
 
-import path from "path"
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { findDevEcoHome, hdcPath } from "./lib/env"
-import { getSessionCwd } from "./lib/session-cwd"
-import { buildDevecoCliLogArgs, runBundledDevecoCli } from "./lib/deveco-cli"
 import DESCRIPTION from "./hdc-log.txt"
 
-function logLines(input: string) {
-  return input
+function pick(input: string, prefix: string, lines: number) {
+  const list = input
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean)
+  const filtered = prefix ? list.filter((item) => item.includes(prefix)) : list
+  return filtered.slice(Math.max(0, filtered.length - lines))
 }
 
 async function run(cmd: string[]) {
@@ -42,16 +41,6 @@ async function run(cmd: string[]) {
   return { stdout, stderr, exitCode }
 }
 
-function resolveProjectRoot(sessionID: string | undefined, fallback: string) {
-  const sessionDir = sessionID ? getSessionCwd(sessionID) : undefined
-  return path.resolve(sessionDir ?? fallback)
-}
-
-function formatOutput(stdout: string, stderr: string) {
-  if (stdout && stderr) return `${stdout}${stderr}`
-  return stdout || stderr
-}
-
 function target(device: string | undefined) {
   return device ? ["-t", device] : []
 }
@@ -65,7 +54,7 @@ const Parameters = Schema.Struct({
   action: Schema.Literals(["collect", "clear", "list_devices"])
     .annotate({ description: "Action to perform" }),
   device_id: Schema.optional(Schema.String)
-    .annotate({ description: "Optional device name or serial number" }),
+    .annotate({ description: "Optional hdc target id" }),
   log_prefix: Schema.String
     .pipe(Schema.optional, Schema.withDecodingDefault(Effect.succeed("[VCODER_DEBUG]")))
     .annotate({ description: "Log prefix to filter" }),
@@ -79,17 +68,28 @@ export const HdcLogTool = Tool.define("hdc_log", Effect.gen(function* () {
   return {
     description: DESCRIPTION,
     parameters: Parameters,
-    execute: (args: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context<HdcLogMetadata>) =>
+    execute: (args: Schema.Schema.Type<typeof Parameters>, _ctx: Tool.Context<HdcLogMetadata>) =>
       Effect.gen(function* () {
-        const cwd = resolveProjectRoot(ctx.sessionID, process.cwd())
+        const home = yield* Effect.tryPromise(() => findDevEcoHome())
+        if (!home) {
+          throw new Error("DevEco Studio path not found. Set DEVECO_HOME and retry.")
+        }
+        const hdc = hdcPath(home)
+        const hdcExists = yield* Effect.tryPromise(() => Bun.file(hdc).exists())
+        if (!hdcExists) {
+          throw new Error(`hdc not found: ${hdc}`)
+        }
 
         if (args.action === "list_devices") {
-          const out = yield* Effect.tryPromise(() => runBundledDevecoCli(["device", "list"], cwd))
+          const out = yield* Effect.tryPromise(() => run([hdc, "list", "targets"]))
           if (out.exitCode !== 0) {
-            throw new Error(`devecocli device list failed (code=${out.exitCode}): ${out.stderr || out.stdout}`)
+            throw new Error(`hdc list targets failed (code=${out.exitCode}): ${out.stderr || out.stdout}`)
           }
-          const output = formatOutput(out.stdout, out.stderr).trim()
-          if (!output) {
+          const devices = out.stdout
+            .split(/\r?\n/)
+            .map((item) => item.trim())
+            .filter((item) => item && !item.includes("[Empty]"))
+          if (!devices.length) {
             return {
               title: "No Devices",
               output: "No connected devices detected.",
@@ -97,22 +97,13 @@ export const HdcLogTool = Tool.define("hdc_log", Effect.gen(function* () {
             }
           }
           return {
-            title: "Device List",
-            output,
-            metadata: { deviceCount: undefined, lineCount: undefined } as HdcLogMetadata,
+            title: "Connected Devices",
+            output: ["Connected devices:", ...devices.map((item, i) => `${i + 1}. ${item}`)].join("\n"),
+            metadata: { deviceCount: devices.length, lineCount: undefined } as HdcLogMetadata,
           }
         }
 
         if (args.action === "clear") {
-          const home = yield* Effect.tryPromise(() => findDevEcoHome())
-          if (!home) {
-            throw new Error("DevEco Studio path not found. Set DEVECO_HOME and retry.")
-          }
-          const hdc = hdcPath(home)
-          const hdcExists = yield* Effect.tryPromise(() => Bun.file(hdc).exists())
-          if (!hdcExists) {
-            throw new Error(`hdc not found: ${hdc}`)
-          }
           const out = yield* Effect.tryPromise(() => run([hdc, ...target(args.device_id), "shell", "hilog", "-r"]))
           if (out.exitCode !== 0) {
             throw new Error(`hdc hilog -r failed (code=${out.exitCode}): ${out.stderr || out.stdout}`)
@@ -124,16 +115,11 @@ export const HdcLogTool = Tool.define("hdc_log", Effect.gen(function* () {
           }
         }
 
-        const cliArgs = buildDevecoCliLogArgs({
-          device: args.device_id,
-          keyword: args.log_prefix,
-          tail: args.lines,
-        })
-        const out = yield* Effect.tryPromise(() => runBundledDevecoCli(cliArgs, cwd))
+        const out = yield* Effect.tryPromise(() => run([hdc, ...target(args.device_id), "shell", "hilog", "-x"]))
         if (out.exitCode !== 0) {
-          throw new Error(`devecocli ${cliArgs.join(" ")} failed (code=${out.exitCode}): ${out.stderr || out.stdout}`)
+          throw new Error(`hdc hilog -x failed (code=${out.exitCode}): ${out.stderr || out.stdout}`)
         }
-        const logs = logLines(out.stdout)
+        const logs = pick(out.stdout, args.log_prefix ?? "", args.lines ?? 2000)
         if (!logs.length) {
           return {
             title: "No Matching Logs",

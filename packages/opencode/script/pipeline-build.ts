@@ -30,7 +30,6 @@ await import("./generate.ts")
 
 import { Script } from "@opencode-ai/script"
 import pkg from "../package.json"
-import { bundleDevecoCliVendor, DEVECO_CLI_VENDOR_DIRNAME, ensureDevecoCliCached } from "./vendor-deveco-cli.ts"
 
 // Parse CLI arguments
 const singleFlag = process.argv.includes("--single")
@@ -271,13 +270,6 @@ if (!skipInstall) {
   console.log("  Skipping dependency installation (--skip-install)")
 }
 
-try {
-  await ensureDevecoCliCached({ packageDir: dir, cacheDir })
-} catch (e) {
-  console.error(`  ERROR: ${e instanceof Error ? e.message : e}`)
-  process.exit(1)
-}
-
 // Compile targets
 console.log(`\n[5/5] Compiling ${targets.length} targets...`)
 await $`rm -rf dist`
@@ -380,11 +372,6 @@ for (const item of targets) {
       }
       console.log(`    Bundled ripgrep for ${rgKey}`)
     }
-  }
-
-  {
-    const vendorDir = path.join(dir, "dist", name, "vendor", DEVECO_CLI_VENDOR_DIRNAME)
-    await bundleDevecoCliVendor({ packageDir: dir, cacheDir, vendorDir })
   }
 
   // Smoke test: only run if binary is for current platform

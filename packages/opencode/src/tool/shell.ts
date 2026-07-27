@@ -27,16 +27,6 @@ import { setSessionCwd } from "./lib/session-cwd"
 export { Parameters } from "./shell/prompt"
 
 const MAX_METADATA_LENGTH = 30_000
-export const DEVECO_IMAGE_DOWNLOAD_TIMEOUT_MS = 2 * 60 * 60 * 1000
-const DEVECO_IMAGE_DOWNLOAD_COMMAND = /\bdevecocli(?:\.(?:cmd|exe))?\s+emulator\s+image\s+download\b/i
-
-export function resolveShellTimeout(command: string, timeout: number): number {
-  const normalized = command.replace(/["']/g, ' ').replace(/\s+/g, ' ')
-  return DEVECO_IMAGE_DOWNLOAD_COMMAND.test(normalized)
-    ? Math.max(timeout, DEVECO_IMAGE_DOWNLOAD_TIMEOUT_MS)
-    : timeout;
-}
-
 const CWD = new Set(["cd", "chdir", "popd", "pushd", "push-location", "set-location"])
 const FILES = new Set([
   ...CWD,
@@ -658,7 +648,7 @@ export const ShellTool = Tool.define(
               if (params.timeout !== undefined && params.timeout < 0) {
                 throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
               }
-              const timeout = resolveShellTimeout(params.command, params.timeout ?? defaultTimeoutMs)
+              const timeout = params.timeout ?? defaultTimeoutMs
               const ps = Shell.ps(shell)
               yield* Effect.scoped(
                 Effect.gen(function* () {

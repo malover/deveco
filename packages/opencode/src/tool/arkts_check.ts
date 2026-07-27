@@ -86,11 +86,10 @@ function resolveProjectRoot(ctx: Tool.Context): string {
   return process.cwd()
 }
 
-async function run(cmd: string[], cwd: string, env: Record<string, string | undefined>) {
+async function run(cmd: string[], cwd: string) {
   const proc = Bun.spawn({
     cmd,
     cwd,
-    env,
     stdout: "pipe",
     stderr: "pipe",
   })
@@ -127,19 +126,8 @@ export const ArktsCheckTool = Tool.define(
           const scriptPath = yield* Effect.tryPromise(() => ensureScriptOnDisk())
           const filesArr = Array.from(args.files)
 
-          const cmd = [
-            node,
-            scriptPath,
-            "--project",
-            projectRoot,
-            "--deveco-home",
-            home,
-            "--files",
-            ...filesArr,
-          ]
-          const result = yield* Effect.tryPromise(() =>
-            run(cmd, projectRoot, { ...process.env, DEVECO_HOME: home }),
-          )
+          const cmd = [node, scriptPath, "--project", projectRoot, "--files", ...filesArr]
+          const result = yield* Effect.tryPromise(() => run(cmd, projectRoot))
           const stdout = result.stdout.trim()
           const stderr = result.stderr.trim()
 
