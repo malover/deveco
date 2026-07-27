@@ -40,3 +40,8 @@ reports/
 tsconfig.tsbuildinfo
 .build-cache/
 specs/
+
+# Local GitCode MCP runtime
+.agents/skills/gitcode-pr/mcp_server/.venv/
+.agents/skills/gitcode-pr/mcp_server/.env
+.agents/skills/gitcode-pr/mcp_server/__pycache__/

@@ -18,7 +18,7 @@ Examples: `fix(tui): simplify thinking toggle styling`, `docs: update contributi
 
 ### Sign-off
 
-Every commit **must** include a `Signed-off-by` trailer. Read the name and email from git config (`git config user.name`, `git config user.email`). Do **not** add `Co-Authored-By` trailers.
+Every commit **must** include a `Signed-off-by` trailer. Read the name and email from git config (`git config user.name`, `git config user.email`). Commit tooling may append AI attribution metadata and AI `Co-authored-by` trailers. Add human `Co-authored-by` trailers only for people who made an actual contribution.
 
 ```
 Signed-off-by: <git config user.name> <git config user.email>
