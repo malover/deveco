@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { loadSdkMetadata, resolveApiLevel, SkillError } from './detect-sdk.mjs';
 
 const REQUIRED_FILES = [
@@ -52,9 +52,6 @@ function parseArgs(argv) {
     index += 1;
   }
 
-  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-  const templateDir = values.get('template-dir') ??
-    path.resolve(scriptDir, '../../deveco-create-project/application');
   const projectPath = values.get('project-path');
   const appName = values.get('app-name');
   const bundleName = values.get('bundle-name') ?? (appName
@@ -81,30 +78,12 @@ function parseArgs(argv) {
     appName,
     bundleName,
     apiLevel,
-    templateDir: path.resolve(templateDir),
   };
 }
 
 async function resolve(args) {
   const metadata = await loadSdkMetadata();
   return resolveApiLevel(metadata, args.apiLevel);
-}
-
-function copyDirectoryContents(sourceDir, targetDir) {
-  fs.mkdirSync(targetDir, { recursive: true });
-  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
-    const sourcePath = path.join(sourceDir, entry.name);
-    const targetPath = path.join(targetDir, entry.name);
-    if (entry.isDirectory()) {
-      copyDirectoryContents(sourcePath, targetPath);
-      continue;
-    }
-    if (fs.existsSync(targetPath)) {
-      continue;
-    }
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.copyFileSync(sourcePath, targetPath);
-  }
 }
 
 function replaceInFile(filePath, pairs) {
@@ -116,18 +95,6 @@ function replaceInFile(filePath, pairs) {
   if (next !== original) {
     fs.writeFileSync(filePath, next, 'utf-8');
   }
-}
-
-function updateApiLevel(targetRoot, sdkVersion, modelVersion) {
-  replaceInFile(path.join(targetRoot, 'build-profile.json5'), [
-    ['6.0.2(22)', sdkVersion],
-  ]);
-  replaceInFile(path.join(targetRoot, 'hvigor/hvigor-config.json5'), [
-    ['6.0.2', modelVersion],
-  ]);
-  replaceInFile(path.join(targetRoot, 'oh-package.json5'), [
-    ['6.0.2', modelVersion],
-  ]);
 }
 
 function verifyFiles(targetRoot) {
@@ -146,14 +113,6 @@ function validateAppName(appName) {
 }
 
 function setupProject(args) {
-  if (!fs.existsSync(args.templateDir)) {
-    emitError({
-      code: 'TEMPLATE_DIR_MISSING',
-      message: `Template directory not found: ${args.templateDir}`,
-      hint: '请确认内置 skill 资源完整，或重新安装/打包 Deveco Code。',
-      details: { templateDir: args.templateDir },
-    });
-  }
   fs.mkdirSync(args.projectPath, { recursive: true });
   const targetRoot = path.join(args.projectPath, args.appName);
   if (fs.existsSync(targetRoot) && fs.readdirSync(targetRoot).length > 0) {
@@ -164,21 +123,42 @@ function setupProject(args) {
       details: { targetRoot },
     }, 2);
   }
-  copyDirectoryContents(args.templateDir, targetRoot);
   return targetRoot;
 }
 
-function applyReplacements(targetRoot, args, resolved) {
-  replaceInFile(path.join(targetRoot, 'AppScope/resources/base/element/string.json'), [
-    ['MyApplication', args.appName],
-  ]);
+function createProjectWithDevecoCli(targetRoot, args, resolved) {
+  const cliArgs = [
+    'create',
+    '--project-path',
+    targetRoot,
+    '--app-name',
+    args.appName,
+    '--bundle-name',
+    args.bundleName,
+    '--api-level',
+    String(resolved.apiLevel),
+  ];
+  const result = spawnSync('devecocli', cliArgs, {
+    cwd: args.projectPath,
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.error) {
+    throw new Error(`Failed to execute devecocli create: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    const detail = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
+    throw new Error(
+      `devecocli create failed (code=${result.status ?? 'unknown'}): ${detail || 'No output'}`
+    );
+  }
+}
+
+function applyCompatibilityReplacements(targetRoot, args) {
   replaceInFile(path.join(targetRoot, 'entry/src/main/resources/base/element/string.json'), [
     ['"value": "label"', `"value": "${args.appName}"`],
   ]);
-  replaceInFile(path.join(targetRoot, 'AppScope/app.json5'), [
-    ['com.example.myapplication', args.bundleName],
-  ]);
-  updateApiLevel(targetRoot, resolved.sdkVersion, resolved.modelVersion);
 }
 
 function verifyTemplate(targetRoot) {
@@ -213,7 +193,8 @@ async function main() {
   validateAppName(args.appName);
   const resolved = await resolve(args);
   const targetRoot = setupProject(args);
-  applyReplacements(targetRoot, args, resolved);
+  createProjectWithDevecoCli(targetRoot, args, resolved);
+  applyCompatibilityReplacements(targetRoot, args);
   verifyTemplate(targetRoot);
   outputResult(targetRoot, args, resolved);
 }

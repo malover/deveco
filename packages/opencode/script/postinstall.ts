@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Download ripgrep and mcp-bridge binaries to .build-cache/.
+ * Download ripgrep, mcp-bridge, and deveco-cli to .build-cache/.
  *
  * Run automatically via `bun install` (postinstall hook),
  * or manually: `bun run script/postinstall.ts`
@@ -24,6 +24,7 @@ const __dirname = path.dirname(__filename)
 const dir = path.resolve(__dirname, "..")
 
 import pkg from "../package.json" with { type: "json" }
+import { ensureDevecoCliCached } from "./vendor-deveco-cli.ts"
 
 // --- Config ---
 
@@ -199,4 +200,9 @@ for (const platform of platforms) {
   await downloadRipgrep(platform).catch((e) => console.log(`  Failed to download rg for ${platform}: ${e.message}`))
   await downloadMcpBridge(platform).catch((e) => console.log(`  Failed to download mcp-bridge for ${platform}: ${e.message}`))
 }
+
+await ensureDevecoCliCached({ packageDir: dir, cacheDir }).catch((e) => {
+  console.log(`  Failed to cache deveco-cli: ${e.message}`)
+})
+
 console.log("Done.")

@@ -7,11 +7,13 @@ const fs = require('fs');
 // --- Argument parsing ---
 
 function parseArgs(argv) {
-  const args = { project: '', files: [] };
+  const args = { project: '', devecoHome: '', files: [] };
   let i = 2;
   while (i < argv.length) {
     if (argv[i] === '--project' && argv[i + 1]) {
       args.project = path.resolve(argv[++i]);
+    } else if (argv[i] === '--deveco-home' && argv[i + 1]) {
+      args.devecoHome = path.resolve(argv[++i]);
     } else if (argv[i] === '--files') {
       i++;
       while (i < argv.length && !argv[i].startsWith('--')) {
@@ -28,33 +30,6 @@ function parseArgs(argv) {
 
 // --- DevEco SDK detection ---
 
-function findDevecoHome() {
-  const envHome = (process.env.DEVECO_HOME || '').trim();
-  if (envHome && fs.existsSync(envHome)) return envHome;
-
-  const candidates = [];
-  if (process.platform === 'win32') {
-    const userHome = (process.env.USERPROFILE || '').trim();
-    candidates.push(
-      'C:\\Program Files\\Huawei\\DevEco Studio',
-      'C:\\Program Files\\DevEco Studio',
-      'C:\\Program Files (x86)\\DevEco Studio',
-      userHome ? path.join(userHome, 'DevEco Studio') : '',
-    );
-  } else if (process.platform === 'darwin') {
-    candidates.push('/Applications/DevEco-Studio.app/Contents');
-  } else {
-    const home = (process.env.HOME || '').trim();
-    if (home) {
-      candidates.push(path.join(home, 'devecostudio/Contents'));
-      candidates.push(path.join(home, 'DevEco-Studio/Contents'));
-    }
-  }
-  for (const c of candidates.filter(Boolean)) {
-    if (fs.existsSync(c)) return c;
-  }
-  return null;
-}
 function findEtsLoader(devecoHome) {
   const candidates = [
     path.join(devecoHome, 'sdk', 'default', 'openharmony', 'ets', 'build-tools', 'ets-loader'),
@@ -306,11 +281,11 @@ function main() {
     process.exit(1);
   }
 
-  const devecoHome = findDevecoHome();
-  if (!devecoHome) {
-    process.stdout.write(JSON.stringify({ success: false, error: 'Cannot find DevEco Studio. Set DEVECO_HOME environment variable.', errors: [], summary: { errorCount: 0, warnCount: 0 } }));
+  if (!args.devecoHome) {
+    process.stdout.write(JSON.stringify({ success: false, error: 'Missing --deveco-home argument', errors: [], summary: { errorCount: 0, warnCount: 0 } }));
     process.exit(1);
   }
+  const devecoHome = args.devecoHome;
 
   const etsLoaderPath = findEtsLoader(devecoHome);
   if (!etsLoaderPath) {

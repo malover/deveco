@@ -216,10 +216,6 @@ describe("sanitizeFilePath", () => {
 
 describe("execute flow simulation — callHarmonyNapiTool with mock bridge", () => {
   checkTool("check_ets_files")({ files: ["src/Main.ets"] })
-  checkTool("build_project")({ build_mode: "debug" })
-  checkTool("start_app")({ ability: "EntryAbility", target: "default" })
-  checkTool("verify_ui")({ testPlan: "click login button" })
-  checkTool("get_ui_verification_log")({ id: "v1", maxLogSize: 5000 })
 
   function checkTool(name: string) {
     return (validArgs: Record<string, unknown>) => {
@@ -274,15 +270,6 @@ describe("execute flow simulation — callHarmonyNapiTool with mock bridge", () 
 })
 
 describe("execute flow — verify_ui specific logic", () => {
-  const verifyUITool = emulatorTools.find((t) => t.name === "verify_ui")!
-
-  it("parseToolArgs + sessionId injection produces correct payload", () => {
-    const payload = parseToolArgs({ testPlan: "tap settings icon" }, verifyUITool.inputSchema)
-    payload.sessionId = "ses_abc123"
-    expect(payload.testPlan).toBe("tap settings icon")
-    expect(payload.sessionId).toBe("ses_abc123")
-  })
-
   it("resolveUIVerifyParams returns null params when unconfigured", async () => {
     bridge.setUIVerifyParams({ baseURL: null, apiKey: null, modelName: null })
     const params = await bridge.resolveUIVerifyParams_("/test")
@@ -301,55 +288,6 @@ describe("execute flow — verify_ui specific logic", () => {
     expect(params.baseURL).toBe("https://model.example.com/v1")
     expect(params.apiKey).toBe("sk-test-key")
     expect(params.modelName).toBe("qwen3-vl-plus")
-  })
-
-  it("verify_ui args with all optional fields", () => {
-    const payload = parseToolArgs(
-      { testPlan: "swipe left", bundleName: "com.example", device: "emulator", freshStart: true },
-      verifyUITool.inputSchema,
-    )
-    expect(payload.testPlan).toBe("swipe left")
-    expect(payload.bundleName).toBe("com.example")
-    expect(payload.device).toBe("emulator")
-    expect(payload.freshStart).toBe(true)
-  })
-})
-
-describe("execute flow — save_ui_screenshot specific logic", () => {
-  const screenshotTool = emulatorTools.find((t) => t.name === "save_ui_screenshot")!
-
-  it("full flow with valid path within worktree", async () => {
-    const realTmp = fs.realpathSync(os.tmpdir())
-    const payload = parseToolArgs({ id: "v1", dirname: realTmp }, screenshotTool.inputSchema)
-    validatePathParameters(payload, realTmp)
-    bridge.next({
-      content: [{ type: "text", text: "screenshots saved: [shot1.png, shot2.png]" }],
-    })
-    const result = await harmonyNapi.callHarmonyNapiTool({ worktree: realTmp, toolName: "save_ui_screenshot", args: payload })
-    const text = textFromCallResult(result)
-    expect(text).toBe("screenshots saved: [shot1.png, shot2.png]")
-    expect(bridge.calls[0].args.dirname).toBe(realTmp)
-  })
-
-  it("rejects dirname with path traversal", () => {
-    const payload = parseToolArgs({ id: "v1", dirname: "/tmp/screenshots" }, screenshotTool.inputSchema)
-    expect(() => validatePathParameters(payload, os.homedir())).toThrow("Path traversal detected")
-  })
-
-  it("rejects missing required fields before bridge call", () => {
-    expect(() => parseToolArgs({ dirname: "/tmp" }, screenshotTool.inputSchema)).toThrow("Args validation failed:")
-    expect(() => parseToolArgs({ id: "v1" }, screenshotTool.inputSchema)).toThrow("Args validation failed:")
-    expect(bridge.calls).toHaveLength(0)
-  })
-
-  it("bridge error after valid args", async () => {
-    const realTmp = fs.realpathSync(os.tmpdir())
-    const payload = parseToolArgs({ id: "v1", dirname: realTmp }, screenshotTool.inputSchema)
-    validatePathParameters(payload, realTmp)
-    bridge.nextError(new Error("device not connected"))
-    await expect(
-      harmonyNapi.callHarmonyNapiTool({ worktree: realTmp, toolName: "save_ui_screenshot", args: payload }),
-    ).rejects.toThrow("device not connected")
   })
 })
 

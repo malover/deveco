@@ -85,7 +85,7 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
         "README.md",
         "CHANGELOG.md",
       ],
-      optionalDependencies: binaries,
+      optionalDependencies: Object.fromEntries(Object.entries(binaries).map(([k, v]) => [k, v.version])),
     },
     null,
     2,

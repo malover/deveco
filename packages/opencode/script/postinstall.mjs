@@ -136,6 +136,9 @@ function copyDir(src, dst) {
       copyDir(srcPath, dstPath)
     } else {
       fs.copyFileSync(srcPath, dstPath)
+      if (process.platform !== "win32") {
+        fs.chmodSync(dstPath, fs.statSync(srcPath).mode)
+      }
     }
   }
 }
@@ -145,7 +148,23 @@ function copyVendor(packageDir) {
   const vendorDst = path.join(__dirname, "vendor")
   if (fs.existsSync(vendorSrc)) {
     copyDir(vendorSrc, vendorDst)
+    restoreDevecoCliDeps(path.join(vendorDst, "deveco-cli"))
   }
+}
+
+function restoreDevecoCliDeps(cliDir) {
+  const tarPath = path.join(cliDir, "deps.tar.gz")
+  if (!fs.existsSync(tarPath)) return
+  const result = childProcess.spawnSync("tar", ["-xzf", tarPath, "-C", cliDir], {
+    stdio: "inherit",
+    windowsHide: true,
+    shell: true,
+  })
+  if (result.status !== 0) {
+    console.warn("Warning: failed to restore deveco-cli dependencies")
+    return
+  }
+  fs.unlinkSync(tarPath)
 }
 
 function installPackage(name) {

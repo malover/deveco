@@ -1,12 +1,16 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
-import { describe, expect } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Cause, Effect, Exit, Layer } from "effect"
 import type * as Scope from "effect/Scope"
 import os from "os"
 import path from "path"
 import { Config } from "@/config/config"
 import { Shell } from "@opencode-ai/core/shell"
-import { ShellTool } from "../../src/tool/shell"
+import {
+  DEVECO_IMAGE_DOWNLOAD_TIMEOUT_MS,
+  resolveShellTimeout,
+  ShellTool,
+} from "../../src/tool/shell"
 import { Filesystem } from "@/util/filesystem"
 import { provideInstance, testInstanceStoreLayer, tmpdirScoped } from "../fixture/fixture"
 import type { Permission } from "../../src/permission"
@@ -214,6 +218,26 @@ describe("tool.shell", () => {
       )
     }),
   )
+})
+
+describe("tool.shell timeout policy", () => {
+  test("extends deveco emulator image downloads to two hours", () => {
+    expect(
+      resolveShellTimeout(
+        'devecocli emulator image download --device-type phone --os-version "OS 6.0.2(22)"',
+        600_000,
+      ),
+    ).toBe(DEVECO_IMAGE_DOWNLOAD_TIMEOUT_MS)
+    expect(resolveShellTimeout('"devecocli.cmd" emulator image download', 600_000)).toBe(
+      DEVECO_IMAGE_DOWNLOAD_TIMEOUT_MS,
+    )
+  })
+
+  test("preserves longer explicit and unrelated command timeouts", () => {
+    const longer = DEVECO_IMAGE_DOWNLOAD_TIMEOUT_MS + 1
+    expect(resolveShellTimeout("devecocli emulator image download", longer)).toBe(longer)
+    expect(resolveShellTimeout("devecocli emulator image list", 600_000)).toBe(600_000)
+  })
 })
 
 describe("tool.shell permissions", () => {

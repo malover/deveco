@@ -1,0 +1,14 @@
+Compile and package a HarmonyOS project or modules using the bundled `devecocli build` command.
+
+Defaults when omitted: `--product default`, `--build-mode debug`.
+
+| Goal | How to call |
+|------|-------------|
+| Single-module / single-`entry` project | Omit `product` and `modules` |
+| Specific modules | Set `modules` (e.g. `["entry"]`, `["library@phone"]`) |
+| Whole product bundle (`.app`) | Set `product` only (omit `modules`) |
+| Clean build outputs | Set `clean=true` |
+
+Run `switch_cwd` first if the session directory is not the HarmonyOS project root.
+
+This tool runs outside the sandbox and invokes the bundled deveco-cli, not a globally installed `devecocli`.

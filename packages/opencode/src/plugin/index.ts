@@ -19,6 +19,7 @@ import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cl
 import { AzureAuthPlugin } from "./azure"
 import { DigitalOceanAuthPlugin } from "./digitalocean"
 import { DevEcoAuthPlugin } from "./deveco"
+import { DevEcoCliEnvPlugin } from "./deveco-cli-env"
 import AnalyticsPlugin from "./analytics/analytics-plugin"
 import HarmonyNapiDynamicToolsPlugin from "./harmony-napi-dynamic-tools"
 import { XaiAuthPlugin } from "./xai"
@@ -80,6 +81,7 @@ function internalPlugins(flags: RuntimeFlags.Info): PluginInstance[] {
     AzureAuthPlugin,
     DigitalOceanAuthPlugin,
     DevEcoAuthPlugin,
+    DevEcoCliEnvPlugin,
     AnalyticsPlugin,
     HarmonyNapiDynamicToolsPlugin,
     SnowflakeCortexAuthPlugin,
