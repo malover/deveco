@@ -5,8 +5,6 @@ import { Global } from "@opencode-ai/core/global"
 import { devecoAuth } from "../deveco"
 import { globalCollector } from "./collector"
 import type { SessionStart } from "./collector"
-import { createCodeAttributionTracker } from "./code-attribution"
-import type { CodeAttributionTracker, CodeAttributionTrackerOptions } from "./code-attribution"
 import { getOrCreateProjectId } from "./project-id"
 import { globalUploader } from "./uploader"
 import { getVersion } from "./storage"
@@ -44,7 +42,6 @@ interface AnalyticsPluginDependencies {
   isJwtExpired(): Promise<boolean | null>
   diagnostic(message: string): void | Promise<void>
   projectId(directory: string): Promise<string>
-  codeAttribution(options: CodeAttributionTrackerOptions): Promise<CodeAttributionTracker>
   version(): string
 }
 
@@ -70,32 +67,6 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
         // Diagnostics must never affect the TUI or tool execution.
       }
     }
-    const attribution = await dependencies.codeAttribution({
-      directory: projectPath,
-      projectId,
-      diagnostic,
-      submit: async (event) => {
-        const accepted = await uploader.upload({ action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION, event })
-        await diagnostic(`Attribution event queued: ${accepted}`)
-        return accepted
-      },
-    })
-
-    const updateAttributionEligibility = async (eligible: boolean) => {
-      try {
-        await attribution.setEnabled(eligible)
-      } catch {
-        await diagnostic("Attribution tracker operation failed: eligibility")
-      }
-    }
-
-    const runAttribution = async (operationName: string, operation: () => Promise<void>) => {
-      try {
-        await operation()
-      } catch {
-        await diagnostic(`Attribution tracker operation failed: ${operationName}`)
-      }
-    }
 
     const refreshIdentityEligibility = async () => {
       const loggedIn = await dependencies.isLoggedIn()
@@ -109,13 +80,11 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
       const eligibleIdentity = await refreshIdentityEligibility()
       const eligible = eligibleIdentity && (await collector.shouldCollect())
       if (!eligible) collector.clear()
-      await updateAttributionEligibility(eligible)
       return eligible
     }
 
     await collector.init()
     const isLoggedIn = await refreshIdentityEligibility()
-    await updateAttributionEligibility(isLoggedIn && (await collector.shouldCollect()))
 
     await diagnostic(`Plugin initialized, version: ${dependencies.version()}, logged in: ${isLoggedIn}`)
 
@@ -131,7 +100,6 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
     const shutdownHandler = async () => {
       if (shutdown) return
       shutdown = true
-      await runAttribution("shutdown", () => attribution.shutdown())
       await uploader.shutdown()
     }
 
@@ -184,16 +152,10 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
       "tool.execute.before": async (input) => {
         if (!(await ensureEligible())) return
         toolStartTimes.set(input.callID, Date.now())
-        if (["write", "edit", "multiedit", "apply_patch", "bash"].includes(input.tool)) {
-          await runAttribution("before-ai-tool", () => attribution.beforeAiTool())
-        }
       },
 
       "tool.execute.after": async (input, output) => {
         if (!(await ensureEligible())) return
-        if (["write", "edit", "multiedit", "apply_patch", "bash"].includes(input.tool)) {
-          await runAttribution("after-ai-tool", () => attribution.afterAiTool())
-        }
 
         const metadata = output.metadata as Record<string, unknown> | undefined
         const hasError = metadata?.error || output.output?.includes("Error") || output.output?.includes("Failed")
@@ -235,7 +197,6 @@ const AnalyticsPlugin = createAnalyticsPlugin({
   isJwtExpired: () => devecoAuth.isJwtExpired(),
   diagnostic: writeLog,
   projectId: getOrCreateProjectId,
-  codeAttribution: createCodeAttributionTracker,
   version: getVersion,
 })
 

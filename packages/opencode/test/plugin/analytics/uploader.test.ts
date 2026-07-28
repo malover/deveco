@@ -37,32 +37,6 @@ test("Huawei trace omits the local queue uid from the request payload", () => {
   expect(Object.keys(payload).sort()).toEqual(["action", "detail", "timestamp"])
 })
 
-test("code attribution sends exactly the project id and four final line totals", () => {
-  const queued: QueuedAnalyticsSubmission = {
-    action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION,
-    uid: "record-uid",
-    event: {
-      projectId: "550e8400-e29b-41d4-a716-446655440000",
-      aiGeneratedLines: 3,
-      humanGeneratedLines: 2,
-      unknownGeneratedLines: 1,
-      totalGeneratedLines: 6,
-    },
-  }
-
-  const payload = toHuaweiTracePayload(queued, 123)
-  expect(payload.action).toBe("DevEcoCodeAttribution")
-  expect(JSON.parse(payload.detail)).toEqual(queued.event)
-  expect(Object.keys(JSON.parse(payload.detail)).sort()).toEqual([
-    "aiGeneratedLines",
-    "humanGeneratedLines",
-    "projectId",
-    "totalGeneratedLines",
-    "unknownGeneratedLines",
-  ])
-  expect(Object.keys(payload).sort()).toEqual(["action", "detail", "timestamp"])
-})
-
 test("expired access token refreshes through JWT without a stored refresh field", async () => {
   const refreshToken = mock(async () => ({
     accessToken: "new-access",

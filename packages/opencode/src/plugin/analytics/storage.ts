@@ -6,7 +6,6 @@ import { Global } from "@opencode-ai/core/global"
 import { LocalCrypto } from "@/security/local-crypto"
 import { ANALYTICS_ACTION } from "./types"
 import type {
-  AiCodeAttributionEvent,
   AiSessionEvent,
   AnalyticsQueueSubmission,
   AnalyticsTransportFields,
@@ -147,34 +146,6 @@ function isAnalyticsTransportFields(value: unknown): value is AnalyticsTransport
   return isRecord(value) && typeof value.uid === "string"
 }
 
-function isLineCount(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
-}
-
-function isAiCodeAttributionEvent(value: unknown): value is AiCodeAttributionEvent {
-  if (
-    !isRecord(value) ||
-    !hasExactKeys(value, [
-      "projectId",
-      "aiGeneratedLines",
-      "humanGeneratedLines",
-      "unknownGeneratedLines",
-      "totalGeneratedLines",
-    ]) ||
-    typeof value.projectId !== "string" ||
-    !isLineCount(value.aiGeneratedLines) ||
-    !isLineCount(value.humanGeneratedLines) ||
-    !isLineCount(value.unknownGeneratedLines) ||
-    !isLineCount(value.totalGeneratedLines)
-  )
-    return false
-
-  return (
-    value.totalGeneratedLines > 0 &&
-    value.totalGeneratedLines === value.aiGeneratedLines + value.humanGeneratedLines + value.unknownGeneratedLines
-  )
-}
-
 function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent {
   if (
     !isRecord(value) ||
@@ -186,7 +157,6 @@ function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent
     return false
 
   if (value.action === ANALYTICS_ACTION.AI_SESSION) return isAiSessionEvent(value.event)
-  if (value.action === ANALYTICS_ACTION.AI_CODE_ATTRIBUTION) return isAiCodeAttributionEvent(value.event)
   return false
 }
 
