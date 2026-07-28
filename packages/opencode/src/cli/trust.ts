@@ -9,11 +9,12 @@ const WARNING = "\x1b[38;2;150;108;30m"
 const RESET = "\x1b[0m"
 
 // ── CLI i18n ────────────────────────────────────────────────
-// Detects locale from the TUI KV store first (user's explicit language
-// preference via the /lang switch), then falls back to system environment
-// (LANG / LC_ALL / LC_MESSAGES). Only "en" and "zh" are supported here
-// — the trust prompt runs before the TUI boots, so it cannot reuse
-// TUI's i18next instance directly.
+// Detects locale from the TUI KV store (user's explicit language
+// preference via Ctrl+P). Falls back to English when no preference
+// is set — the trust prompt runs before the TUI boots, so it
+// cannot reuse TUI's i18next instance directly, and macOS locale
+// env vars (LANG etc.) often don't reflect the actual display
+// language.
 
 const DICT: Record<string, Record<string, string>> = {
   en: {
@@ -56,20 +57,7 @@ function readKVLanguage(): "en" | "zh" | undefined {
 }
 
 function detectCliLocale(): "en" | "zh" {
-  const kvLang = readKVLanguage()
-  if (kvLang) return kvLang
-
-  const candidates = [
-    process.env.LC_ALL,
-    process.env.LC_MESSAGES,
-    process.env.LANG,
-  ]
-  for (const raw of candidates) {
-    if (!raw) continue
-    const lower = raw.toLowerCase()
-    if (lower.startsWith("zh")) return "zh"
-  }
-  return "en"
+  return readKVLanguage() ?? "en"
 }
 
 const locale = detectCliLocale()

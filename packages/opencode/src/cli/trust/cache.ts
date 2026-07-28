@@ -2,16 +2,12 @@ import fs from "fs"
 import path from "path"
 import os from "os"
 import { Global } from "@opencode-ai/core/global"
-import { Flag } from "@opencode-ai/core/flag/flag"
 import { Flock } from "@opencode-ai/core/util/flock"
 
 /**
  * Trust directory cache — persists workspace trust decisions to
  * the XDG data directory so the trust prompt is only shown once per
  * directory (with parent-directory inheritance).
- *
- * Previously stored in the config directory; migrated to the data
- * directory on first read (see migrateFromConfigDir).
  */
 
 // ── Session-only trust for home directory ──
@@ -25,9 +21,8 @@ let sessionHomeTrusted = false
 
 function getCacheFilePath(): string {
   //   macOS / Linux: ~/.local/share/deveco/trusted-paths.json
-  //   Windows:       %APPDATA%/deveco/trusted-paths.json
-  //   XDG data dir (not config) — trust records are app-generated state, not user preferences.
-  return path.join(Flag.DEVECO_CONFIG_DIR ?? Global.Path.data, "trusted-paths.json")
+  //   Windows:       %LOCALAPPDATA%/deveco/trusted-paths.json
+  return path.join(Global.Path.data, "trusted-paths.json")
 }
 
 // ── Data shape (matches Claude Code's ~/.claude/.claude.json) ──
