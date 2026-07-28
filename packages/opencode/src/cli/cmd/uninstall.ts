@@ -16,7 +16,7 @@ interface UninstallArgs {
   force: boolean
 }
 
-interface RemovalTargets {
+export interface RemovalTargets {
   directories: Array<{ path: string; label: string; keep: boolean }>
   shellConfig: string | null
   binary: string | null
@@ -95,8 +95,8 @@ async function collectRemovalTargets(args: UninstallArgs, method: Installation.M
     { path: Global.Path.state, label: "State", keep: false },
   ]
 
-  const shellConfig = method === "curl" ? await getShellConfigFile() : null
-  const binary = method === "curl" ? process.execPath : null
+  const shellConfig = method === "curl" || method === "irm" ? await getShellConfigFile() : null
+  const binary = method === "curl" || method === "irm" ? process.execPath : null
 
   return { directories, shellConfig, binary }
 }
@@ -127,7 +127,7 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
     prompts.log.info(`  ✓ Shell PATH in ${shortenPath(targets.shellConfig)}`)
   }
 
-  if (method !== "curl" && method !== "unknown") {
+  if (method !== "curl" && method !== "irm" && method !== "unknown") {
     const cmds: Record<string, string> = {
       npm: "npm uninstall -g @deveco/deveco-code",
       pnpm: "pnpm uninstall -g @deveco/deveco-code",
@@ -141,16 +141,35 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
   const spinner = prompts.spinner()
   const errors: string[] = []
 
+  await removeDirectories(targets, spinner, errors)
+  await cleanShellConfigSafe(targets, spinner, errors)
+  await uninstallPackage(method, spinner)
+  showBinaryRemovalInstructions(method, targets)
+
+  if (errors.length > 0) {
+    UI.empty()
+    prompts.log.warn('Some operations failed:')
+    for (const err of errors) {
+      prompts.log.error(`  ${err}`)
+    }
+  }
+
+  UI.empty()
+  prompts.log.success('Thank you for using DevEco Code!')
+}
+
+async function removeDirectories(
+  targets: RemovalTargets,
+  spinner: ReturnType<typeof prompts.spinner>,
+  errors: string[],
+) {
   for (const dir of targets.directories) {
     if (dir.keep) {
       prompts.log.step(`Skipping ${dir.label} (--keep-${dir.label.toLowerCase()})`)
       continue
     }
 
-    const exists = await fs
-      .access(dir.path)
-      .then(() => true)
-      .catch(() => false)
+    const exists = await fs.access(dir.path).then(() => true).catch(() => false)
     if (!exists) continue
 
     spinner.start(`Removing ${dir.label}...`)
@@ -162,63 +181,84 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
     }
     spinner.stop(`Removed ${dir.label}`)
   }
+}
 
-  if (targets.shellConfig) {
-    spinner.start("Cleaning shell config...")
-    const err = await cleanShellConfig(targets.shellConfig).catch((e) => e)
-    if (err) {
-      spinner.stop("Failed to clean shell config", 1)
-      errors.push(`Shell config: ${err.message}`)
-    } else {
-      spinner.stop("Cleaned shell config")
-    }
+async function cleanShellConfigSafe(
+  targets: RemovalTargets,
+  spinner: ReturnType<typeof prompts.spinner>,
+  errors: string[],
+) {
+  if (!targets.shellConfig) {
+    return
   }
 
-  if (method !== "curl" && method !== "unknown") {
-    const cmds: Record<string, string[]> = {
-      npm: ["npm", "uninstall", "-g", "@deveco/deveco-code"],
-      pnpm: ["pnpm", "uninstall", "-g", "@deveco/deveco-code"],
-      bun: ["bun", "remove", "-g", "@deveco/deveco-code"],
-    }
+  spinner.start('Cleaning shell config...')
+  const err = await cleanShellConfig(targets.shellConfig).catch((e) => e)
+  if (err) {
+    spinner.stop('Failed to clean shell config', 1)
+    errors.push(`Shell config: ${err.message}`)
+  } else {
+    spinner.stop('Cleaned shell config')
+  }
+}
 
-    const cmd = cmds[method]
-    if (cmd) {
-      spinner.start(`Running ${cmd.join(" ")}...`)
-      const result = await Process.run(cmd, { nothrow: true })
-      if (result.code !== 0) {
-        spinner.stop(`Package manager uninstall failed: exit code ${result.code}`, 1)
-        prompts.log.warn(`You may need to run manually: ${cmd.join(" ")}`)
-      } else {
-        spinner.stop("Package removed")
-      }
-    }
+async function uninstallPackage(method: Installation.Method, spinner: ReturnType<typeof prompts.spinner>) {
+  if (method === 'curl' || method === 'irm' || method === 'unknown') {
+    return
   }
 
-  // curl: don't auto-delete binary — show manual rm commands (safety: binary may be running)
-  if (method === "curl" && targets.binary) {
-    UI.empty()
-    prompts.log.message("To finish removing the binary, run:")
-    prompts.log.info(`  rm "${targets.binary}"`)
-
-    const installDir = path.dirname(path.dirname(targets.binary))
-    if (installDir.includes(".deveco")) {
-      prompts.log.info(`  rmdir "${installDir}" 2>/dev/null`)
-    }
+  const cmds: Record<string, string[]> = {
+    npm: ['npm', 'uninstall', '-g', '@deveco/deveco-code'],
+    pnpm: ['pnpm', 'uninstall', '-g', '@deveco/deveco-code'],
+    bun: ['bun', 'remove', '-g', '@deveco/deveco-code'],
   }
 
-  if (errors.length > 0) {
-    UI.empty()
-    prompts.log.warn("Some operations failed:")
-    for (const err of errors) {
-      prompts.log.error(`  ${err}`)
-    }
+  const cmd = cmds[method]
+  if (!cmd) {
+    return
+  }
+
+  spinner.start(`Running ${cmd.join(' ')}...`)
+  const result = await Process.run(cmd, { nothrow: true })
+  if (result.code !== 0) {
+    spinner.stop(`Package manager uninstall failed: exit code ${result.code}`, 1)
+    prompts.log.warn(`You may need to run manually: ${cmd.join(' ')}`)
+  } else {
+    spinner.stop('Package removed')
+  }
+}
+
+// curl: don't auto-delete binary — show manual rm commands (safety: binary may be running)
+export function showBinaryRemovalInstructions(method: Installation.Method, targets: RemovalTargets) {
+  if ((method !== "curl" && method !== "irm") || !targets.binary) {
+    return
   }
 
   UI.empty()
-  prompts.log.success("Thank you for using DevEco Code!")
+  prompts.log.message('To finish removing the binary, run:')
+  if (process.platform === 'win32') {
+    prompts.log.info(`  Remove-Item "${targets.binary}" -Force`)
+    const installDir = path.dirname(path.dirname(targets.binary))
+    if (installDir.includes('.deveco')) {
+      prompts.log.info(`  Remove-Item "${installDir}" -Recurse -Force`)
+    }
+    // Windows PATH is managed via the registry, not shell config files — prompt user to remove the entry manually
+    const binDir = path.dirname(targets.binary)
+    prompts.log.info(`  # Remove "${binDir}" from user PATH via System Settings or PowerShell`)
+  } else {
+    prompts.log.info(`  rm "${targets.binary}"`)
+    const installDir = path.dirname(path.dirname(targets.binary))
+    if (installDir.includes('.deveco')) {
+      prompts.log.info(`  rmdir "${installDir}" 2>/dev/null`)
+    }
+  }
 }
 
 async function getShellConfigFile(): Promise<string | null> {
+  // Windows: PATH is managed via the registry, not shell config files
+  if (process.platform === "win32") {
+    return null
+  }
   const shell = path.basename(process.env.SHELL || "bash")
   const home = os.homedir()
   const zdotdir = process.env.ZDOTDIR || home

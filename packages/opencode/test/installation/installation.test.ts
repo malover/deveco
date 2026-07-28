@@ -1,3 +1,4 @@
+import path from "path"
 import { describe, expect, test } from "bun:test"
 import { Effect, Layer, Stream } from "effect"
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
@@ -151,6 +152,27 @@ describe("installation", () => {
       }),
     )
 
+    let irmTagsUrl = ""
+    testEffect(testLayer((request) => {
+      irmTagsUrl = request.url
+      if (request.url.includes("/tags")) {
+        return jsonResponse([
+          { name: "v0.1.3" },
+          { name: "v0.1.2" },
+          { name: "v0.1.1" },
+          { name: "v0.1.0" },
+          { name: "some-non-version-tag" },
+        ])
+      }
+      return jsonResponse({ version: "1.2.3" })
+    })).effect("reads the latest version from GitCode tags API for irm installs", () =>
+      Effect.gen(function* () {
+        const result = yield* Installation.use.latest("irm")
+        expect(result).toBe("0.1.3")
+        expect(irmTagsUrl).toContain("/tags")
+      }),
+    )
+
     testEffect(testLayer(() => jsonResponse([{ name: "release-candidate" }, { name: "nightly" }]))).effect(
       "fails when GitCode has no semver version tags for curl installs",
       () =>
@@ -209,15 +231,44 @@ describe("installation", () => {
       () =>
         Effect.gen(function* () {
           const original = process.execPath
+          const originalPlatform = process.platform
           try {
             Object.defineProperty(process, "execPath", {
-              value: "/home/testuser/.deveco/bin/deveco",
+              // Use path.join so the separator matches what path.join(".deveco","bin")
+              // produces on the current platform (backslash on win32, forward on POSIX).
+              value: path.join("/home/testuser", ".deveco", "bin", "deveco"),
               configurable: true,
             })
+            Object.defineProperty(process, "platform", { value: "linux", configurable: true })
             const method = yield* Installation.use.method()
             expect(method).toBe("curl")
           } finally {
             Object.defineProperty(process, "execPath", { value: original, configurable: true })
+            Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true })
+          }
+        }),
+    )
+
+    testEffect(testLayer(() => jsonResponse({}), () => "")).effect(
+      "detects irm when execPath is a Windows .deveco\\bin path",
+      () =>
+        Effect.gen(function* () {
+          const original = process.execPath
+          const originalPlatform = process.platform
+          try {
+            // Use path.join to build a platform-correct mock path so the
+            // separator matches what path.join(".deveco","bin") produces on
+            // the current platform (backslash on win32, forward slash on POSIX).
+            Object.defineProperty(process, "execPath", {
+              value: path.join("C:", "Users", "testuser", ".deveco", "bin", "deveco.exe"),
+              configurable: true,
+            })
+            Object.defineProperty(process, "platform", { value: "win32", configurable: true })
+            const method = yield* Installation.use.method()
+            expect(method).toBe("irm")
+          } finally {
+            Object.defineProperty(process, "execPath", { value: original, configurable: true })
+            Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true })
           }
         }),
     )
@@ -368,6 +419,123 @@ describe("installation", () => {
       Effect.gen(function* () {
         yield* Installation.use.upgrade("curl", "9.9.9")
         expect(curlShellCalls.some((call) => call.cmd === "sh")).toBe(true)
+      }),
+    )
+
+    // Windows shell 调用记录(独立作用域,避免与其他测试共享状态)
+    const winShellCalls: Array<{ cmd: string; args: readonly string[] }> = []
+    testEffect(
+      testLayer(
+        () => new Response("install.ps1 script content", { status: 200 }),
+        (cmd, args) => {
+          winShellCalls.push({ cmd, args })
+          if (cmd === "pwsh") return "PowerShell 7.4.0"
+          if (cmd === "powershell.exe") return "5.1"
+          return ""
+        },
+      ),
+    ).effect("uses pwsh for irm upgrades on Windows", () =>
+      Effect.gen(function* () {
+        // 清空调用记录,避免跨测试污染
+        winShellCalls.length = 0
+
+        const originalPlatform = process.platform
+        try {
+          Object.defineProperty(process, "platform", { value: "win32", configurable: true })
+          yield* Installation.use.upgrade("irm", "9.9.9")
+
+          // 断言 pwsh 被实际调用(而非 bash/sh)
+          expect(winShellCalls.some((c) => c.cmd === "pwsh")).toBe(true)
+          // 定位脚本执行调用(跳过 --version 探测调用),断言参数含 -Command 和 -
+          const pwshExecCall = winShellCalls.find(
+            (c) => c.cmd === "pwsh" && c.args.includes("-Command"),
+          )
+          expect(pwshExecCall).toBeDefined()
+          expect(pwshExecCall?.args).toContain("-Command")
+          expect(pwshExecCall?.args).toContain("-")
+          // 断言未调用 bash/sh
+          expect(winShellCalls.some((c) => c.cmd === "bash" || c.cmd === "sh")).toBe(false)
+        } finally {
+          Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true })
+        }
+      }),
+    )
+
+    const irmHttpUrls: string[] = []
+    testEffect(
+      testLayer(
+        (request) => {
+          irmHttpUrls.push(request.url)
+          return new Response("install.ps1 script content", { status: 200 })
+        },
+        (cmd, args) => {
+          if (cmd === "pwsh" && args.includes("--version")) return "PowerShell 7.4.0"
+          return ""
+        },
+      ),
+    ).effect("fetches install.ps1 for irm upgrades", () =>
+      Effect.gen(function* () {
+        irmHttpUrls.length = 0
+        const originalPlatform = process.platform
+        try {
+          Object.defineProperty(process, "platform", { value: "win32", configurable: true })
+          yield* Installation.use.upgrade("irm", "9.9.9")
+          expect(irmHttpUrls.some((url) => url.includes("install.ps1"))).toBe(true)
+        } finally {
+          Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true })
+        }
+      }),
+    )
+
+    const irmFallbackCalls: Array<{ cmd: string; args: readonly string[] }> = []
+    testEffect(
+      testLayer(
+        () => new Response("install.ps1 script content", { status: 200 }),
+        (cmd, args) => {
+          irmFallbackCalls.push({ cmd, args })
+          if (cmd === "pwsh") return ""
+          if (cmd === "powershell.exe" && args.some((a) => a.includes("$PSVersionTable"))) return "5.1"
+          return ""
+        },
+      ),
+    ).effect("falls back to powershell.exe when pwsh is unavailable", () =>
+      Effect.gen(function* () {
+        irmFallbackCalls.length = 0
+        const originalPlatform = process.platform
+        try {
+          Object.defineProperty(process, "platform", { value: "win32", configurable: true })
+          yield* Installation.use.upgrade("irm", "9.9.9")
+          const psExecCall = irmFallbackCalls.find(
+            (c) => c.cmd === "powershell.exe" && c.args.includes("-ExecutionPolicy"),
+          )
+          expect(psExecCall).toBeDefined()
+        } finally {
+          Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true })
+        }
+      }),
+    )
+
+    testEffect(
+      testLayer(
+        () => new Response("install.ps1 with token=secret", { status: 200 }),
+        (cmd, args) => {
+          if (cmd === "pwsh" && args.includes("--version")) return "PowerShell 7.4.0"
+          if (cmd === "pwsh" && args.includes("-Command")) return { code: 1, stderr: "token=secret command output" }
+          return ""
+        },
+      ),
+    ).effect("sanitizes typed errors for failed irm upgrades", () =>
+      Effect.gen(function* () {
+        const originalPlatform = process.platform
+        try {
+          Object.defineProperty(process, "platform", { value: "win32", configurable: true })
+          const error = yield* Effect.flip(Installation.use.upgrade("irm", "9.9.9"))
+          expect(error).toBeInstanceOf(UpgradeFailedError)
+          expect(error.stderr).not.toContain("secret")
+          expect(error.stderr).not.toContain("command output")
+        } finally {
+          Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true })
+        }
       }),
     )
   })

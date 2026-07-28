@@ -14,7 +14,7 @@ import semver from "semver"
 import { InstallationChannel, InstallationVersion } from "@opencode-ai/core/installation/version"
 import { NpmConfig } from "@opencode-ai/core/npm-config"
 
-export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
+export type Method = "curl" | "irm" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
 
 export type ReleaseType = "patch" | "minor" | "major"
 
@@ -79,6 +79,7 @@ const GITCODE_OWNER = process.env.GITCODE_OWNER || "openharmony-sig"
 const GITCODE_REPO = process.env.GITCODE_REPO || "deveco-code"
 const GITCODE_API = `https://gitcode.com/api/v5/repos/${GITCODE_OWNER}/${GITCODE_REPO}`
 const INSTALL_SCRIPT_URL = `https://raw.gitcode.com/${GITCODE_OWNER}/${GITCODE_REPO}/raw/develop/install`
+const INSTALL_PS1_URL = `https://raw.gitcode.com/${GITCODE_OWNER}/${GITCODE_REPO}/raw/develop/install.ps1`
 
 const GitCodeTag = Schema.Struct({ name: Schema.String })
 const GitCodeTags = Schema.Array(GitCodeTag)
@@ -143,11 +144,21 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
 
     const upgradeFailure = (method: Method, result?: { code: number; stdout: string; stderr: string }) => {
       if (method === "choco") return "not running from an elevated command shell"
+      if (method === "irm") {
+        if (result) return `Upgrade failed for irm (exit code ${result.code}). Try: irm ${INSTALL_PS1_URL} | iex`
+        return `Upgrade failed for irm. Try: irm ${INSTALL_PS1_URL} | iex`
+      }
       if (result) return `Upgrade failed for ${method} (exit code ${result.code}).`
       return `Upgrade failed for ${method}.`
     }
 
     const upgradeScriptShell = Effect.fnUntraced(function* () {
+      if (process.platform === "win32") {
+        const pwshVersion = yield* text(["pwsh", "--version"])
+        if (pwshVersion) return "pwsh"
+        const psVersion = yield* text(["powershell.exe", "-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"])
+        if (psVersion) return "powershell.exe"
+      }
       const bashVersion = yield* text(["bash", "--version"])
       if (bashVersion) return "bash"
       return "sh"
@@ -175,6 +186,28 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
       Effect.mapError(() => new UpgradeFailedError({ stderr: upgradeFailure("curl") })),
     )
 
+    const upgradeIrm = Effect.fnUntraced(
+      function* (target: string) {
+        const response = yield* httpOk.execute(HttpClientRequest.get(INSTALL_PS1_URL))
+        const body = yield* response.text
+        const bodyBytes = new TextEncoder().encode(body)
+        const shell = yield* upgradeScriptShell()
+        const result = yield* appProcess.run(
+          ChildProcess.make(shell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "-"], {
+            stdin: Stream.make(bodyBytes),
+            env: { VERSION: target, GITCODE_OWNER, GITCODE_REPO },
+            extendEnv: true,
+          }),
+        )
+        return {
+          code: result.exitCode,
+          stdout: result.stdout.toString("utf8"),
+          stderr: result.stderr.toString("utf8"),
+        }
+      },
+      Effect.mapError(() => new UpgradeFailedError({ stderr: upgradeFailure("irm") })),
+    )
+
 
     const result: Interface = {
       info: Effect.fn("Installation.info")(function* () {
@@ -184,7 +217,10 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
         }
       }),
       method: Effect.fn("Installation.method")(function* () {
-        if (process.execPath.includes(path.join(".deveco", "bin"))) return "curl" as Method
+        if (process.execPath.includes(path.join(".deveco", "bin"))) {
+          if (process.platform === "win32") return "irm" as Method
+          return "curl" as Method
+        }
         const exec = process.execPath.toLowerCase()
 
         const checks: Array<{ name: Method; command: () => Effect.Effect<string> }> = [
@@ -214,7 +250,7 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
       latest: Effect.fn("Installation.latest")(function* (installMethod?: Method) {
         const detectedMethod = installMethod || (yield* result.method())
 
-        if (detectedMethod === "curl") {
+        if (detectedMethod === "curl" || detectedMethod === "irm") {
           const response = yield* httpOk.execute(
             HttpClientRequest.get(`${GITCODE_API}/tags?per_page=100`).pipe(HttpClientRequest.acceptJson),
           )
@@ -252,6 +288,9 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
             break
           case "curl":
             upgradeResult = yield* upgradeCurl(target)
+            break
+          case "irm":
+            upgradeResult = yield* upgradeIrm(target)
             break
           default:
             return yield* new UpgradeFailedError({ stderr: `Unknown installation method: ${m}` })
