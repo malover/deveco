@@ -37,29 +37,6 @@ test("Huawei trace omits the local queue uid from the request payload", () => {
   expect(Object.keys(payload).sort()).toEqual(["action", "detail", "timestamp"])
 })
 
-test("usage records use the fixed DevEcoCodeUsage action", () => {
-  const queued: QueuedAnalyticsSubmission = {
-    action: ANALYTICS_ACTION.TUI_USAGE,
-    uid: "record-uid",
-    event: {
-      sourceType: "DevEco-Code-Cli",
-      sourceVersion: "1.2.3",
-      os_arch: "arm64",
-      os_name: process.platform,
-      os_version: "os-version",
-      statDate: "2026-07-22",
-      isStartup: false,
-    },
-  }
-
-  const payload = toHuaweiTracePayload(queued, 123)
-  expect(payload.action).toBe("DevEcoCodeUsage")
-  expect(JSON.parse(payload.detail).isStartup).toBe(false)
-  expect(JSON.parse(payload.detail)).not.toHaveProperty("userid")
-  expect(JSON.parse(payload.detail)).not.toHaveProperty("tuiSessionCount")
-  expect(Object.keys(payload).sort()).toEqual(["action", "detail", "timestamp"])
-})
-
 test("code attribution sends exactly the project id and four final line totals", () => {
   const queued: QueuedAnalyticsSubmission = {
     action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION,

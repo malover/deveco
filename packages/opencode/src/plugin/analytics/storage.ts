@@ -11,7 +11,6 @@ import type {
   AnalyticsQueueSubmission,
   AnalyticsTransportFields,
   QueuedAnalyticsSubmission,
-  TuiUsageDailyEvent,
   ToolExecution,
   ToolSummary,
 } from "./types"
@@ -148,21 +147,6 @@ function isAnalyticsTransportFields(value: unknown): value is AnalyticsTransport
   return isRecord(value) && typeof value.uid === "string"
 }
 
-function isTuiUsageDailyEvent(value: unknown): value is TuiUsageDailyEvent {
-  return (
-    isRecord(value) &&
-    hasExactKeys(value, ["sourceType", "sourceVersion", "os_arch", "os_name", "os_version", "statDate", "isStartup"]) &&
-    value.sourceType === "DevEco-Code-Cli" &&
-    typeof value.sourceVersion === "string" &&
-    typeof value.os_arch === "string" &&
-    typeof value.os_name === "string" &&
-    typeof value.os_version === "string" &&
-    typeof value.statDate === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(value.statDate) &&
-    typeof value.isStartup === "boolean"
-  )
-}
-
 function isLineCount(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
 }
@@ -203,7 +187,6 @@ function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent
 
   if (value.action === ANALYTICS_ACTION.AI_SESSION) return isAiSessionEvent(value.event)
   if (value.action === ANALYTICS_ACTION.AI_CODE_ATTRIBUTION) return isAiCodeAttributionEvent(value.event)
-  if (value.action === ANALYTICS_ACTION.TUI_USAGE) return isTuiUsageDailyEvent(value.event)
   return false
 }
 

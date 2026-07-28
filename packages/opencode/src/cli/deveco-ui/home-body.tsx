@@ -65,7 +65,7 @@ const placeholder = {
   shell: ["ls -la", "git status", "pwd"],
 }
 
-export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number; onReady?: () => void }) {
+export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number }) {
   const sync = props.sync
   const kv = useKV()
   const { theme } = useTheme()
@@ -231,13 +231,6 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
     if (sync.status === "complete" && authCanEnter()) {
       setDevecoReady(true)
     }
-  })
-
-  let readyNotified = false
-  createEffect(() => {
-    if (devecoReady() !== true || readyNotified) return
-    readyNotified = true
-    props.onReady?.()
   })
 
   const mcpError = createMemo(() => {
