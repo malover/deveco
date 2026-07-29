@@ -1,6 +1,5 @@
-import { exec } from "child_process"
-import { promisify } from "util"
 import crypto from "crypto"
+import open from "open"
 import { logInfo, logWarn, logError } from "./log"
 import { LoginCancelledError, UnsupportedRegionError } from "./errors"
 import { httpClient } from "./http-client"
@@ -9,8 +8,6 @@ import { tokenStorage } from "./token-storage"
 import { saveAuthToDisk } from "./storage"
 import type { JwtPayload, LoginConfig, LoginResult, TokenCheckResponse, UserInfo } from "./types"
 import { DEFAULT_CONFIG } from "./types"
-
-const execAsync = promisify(exec)
 
 export class LoginService {
   private config: LoginConfig
@@ -124,26 +121,31 @@ export class LoginService {
 
   private async openLoginPage(port: number, clientSecret: string): Promise<void> {
     const loginUrl = `${this.config.baseUrl}/${this.config.authUrl}?port=${port}&appid=${this.config.appId}&code=${clientSecret}`
+    const safeUrl = loginUrl.replace(/code=[^&]*/g, "code=***")
 
-    const platform = process.platform
-    let command: string
-    switch (platform) {
-      case "win32":
-        command = `start "" "${loginUrl}"`
-        break
-      case "darwin":
-        command = `open "${loginUrl}"`
-        break
-      default:
-        command = `xdg-open "${loginUrl}"`
-        break
-    }
+    // Allowlist the canonicalized href: `new URL` leaves `$`/backtick, which
+    // stay active in the Windows launcher's PowerShell `Start "..."` string.
+    let parsed: URL
     try {
-      await execAsync(command)
+      parsed = new URL(loginUrl)
+    } catch (err) {
+      logError("invalid login URL", { service: "deveco", url: safeUrl })
+      throw new Error("Invalid login URL", { cause: err })
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      logError("unsupported login URL scheme", { service: "deveco", scheme: parsed.protocol, url: safeUrl })
+      throw new Error(`Unsupported login URL scheme: ${parsed.protocol}`)
+    }
+    if (!/^[A-Za-z0-9._~:/?=&%#@+-]+$/.test(parsed.href)) {
+      logError("login URL contains disallowed characters", { service: "deveco", url: safeUrl })
+      throw new Error("Login URL contains disallowed characters")
+    }
+
+    try {
+      await open(parsed.href)
     } catch (err) {
       logError("failed to open login page in browser", {
         service: "deveco",
-        command,
         error: err instanceof Error ? err.message : String(err),
       })
       throw new Error("Failed to open login page", { cause: err })
