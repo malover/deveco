@@ -43,13 +43,17 @@ function pluralize(count: number, singular: string, plural: string): string {
   return template.replace("{}", String(count))
 }
 
-export function registerDevEcoTuiExtensions(): void {
+export function registerDevEcoTuiExtensions(
+  options: {
+    onAnalyticsMagpieEnabledChange?: (enabled: boolean) => void | Promise<void>
+  } = {},
+): void {
   registerDevEcoExtensions({
     homeBody: DevEcoHomeBody,
     readLocalAuthError,
     openComplainPage,
     pluralize,
-    privacyDialog: DialogPrivacy,
+    privacyDialog: () => DialogPrivacy({ onAnalyticsMagpieEnabledChange: options.onAnalyticsMagpieEnabledChange }),
     collectDialog: DialogCollect,
     consumeCrashInfo: detectCrashedFlag,
   })

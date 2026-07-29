@@ -6,7 +6,7 @@ import { fileURLToPath } from "url"
 import { UI } from "@/cli/ui"
 import { errorMessage } from "@opencode-ai/tui/util/error"
 import { withTimeout } from "@/util/timeout"
-import { withNetworkOptions, resolveNetworkOptionsNoConfig } from "@/cli/network"
+import { withNetworkOptions, resolveNetworkOptionsNoConfig, type NetworkOptions } from "@/cli/network"
 import { Filesystem } from "@/util/filesystem"
 import type { GlobalEvent } from "@opencode-ai/sdk/v2"
 import type { EventSource } from "@opencode-ai/tui/context/sdk"
@@ -56,6 +56,15 @@ function createEventSource(client: RpcClient): EventSource {
   }
 }
 
+async function registerDevEcoTuiExtensionsForClient(client: RpcClient): Promise<void> {
+  const { registerDevEcoTuiExtensions } = await import("@/cli/deveco-ui/register")
+  registerDevEcoTuiExtensions({
+    onAnalyticsMagpieEnabledChange: async (enabled) => {
+      await client.call("setAnalyticsMagpieEnabled", { enabled }).catch(() => {})
+    },
+  })
+}
+
 async function target() {
   if (typeof DEVECO_WORKER_PATH !== "undefined") return DEVECO_WORKER_PATH
   const dist = new URL("./cli/tui/worker.js", import.meta.url)
@@ -85,6 +94,170 @@ async function ensureDevEcoHomeForTuiStartup() {
     process.env.DEVECO_HOME = saved
     return
   }
+}
+
+type TuiThreadArgs = NetworkOptions & {
+  project?: string
+  model?: string
+  continue?: boolean
+  session?: string
+  fork?: boolean
+  prompt?: string
+  agent?: string
+}
+
+type TuiTransport = {
+  url: string
+  fetch: typeof fetch | undefined
+  events: EventSource | undefined
+}
+
+type TuiConfigValue = Awaited<ReturnType<(typeof import("@/config/tui"))["TuiConfig"]["get"]>>
+
+async function createTuiWorker(directory: string) {
+  const file = await target()
+  try {
+    process.chdir(directory)
+  } catch {
+    UI.error("Failed to change directory to " + directory)
+    return undefined
+  }
+  const cwd = Filesystem.resolve(process.cwd())
+  const worker = new Worker(file, {
+    env: sanitizedProcessEnv({
+      [DEVECO_PROCESS_ROLE]: "worker",
+      [DEVECO_RUN_ID]: ensureRunID(),
+    }),
+  })
+  const client = Rpc.client<typeof rpc>(worker)
+  const reload = () => {
+    client.call("reload", undefined).catch(() => {})
+  }
+  process.on("SIGUSR2", reload)
+
+  let stopped = false
+  const stop = async () => {
+    if (stopped) return
+    stopped = true
+    process.off("SIGUSR2", reload)
+    await withTimeout(client.call("shutdown", undefined), 5000).catch(() => {})
+    worker.terminate()
+  }
+  return { client, cwd, stop }
+}
+
+async function createTuiTransport(client: RpcClient, args: TuiThreadArgs): Promise<TuiTransport> {
+  const network = resolveNetworkOptionsNoConfig(args)
+  const external =
+    process.argv.includes("--port") ||
+    process.argv.includes("--hostname") ||
+    process.argv.includes("--mdns") ||
+    network.mdns ||
+    network.port !== 0 ||
+    network.hostname !== "127.0.0.1"
+  if (external) {
+    return {
+      url: (await client.call("server", network)).url,
+      fetch: undefined,
+      events: undefined,
+    }
+  }
+  return {
+    url: "http://opencode.internal",
+    fetch: createWorkerFetch(client),
+    events: createEventSource(client),
+  }
+}
+
+async function validateTuiSession(transport: TuiTransport, cwd: string, sessionID?: string): Promise<boolean> {
+  try {
+    await validateSession({
+      url: transport.url,
+      sessionID,
+      directory: cwd,
+      fetch: transport.fetch,
+    })
+    return true
+  } catch (error) {
+    UI.error(errorMessage(error))
+    process.exitCode = 1
+    return false
+  }
+}
+
+async function runTuiApp(
+  client: RpcClient,
+  cwd: string,
+  transport: TuiTransport,
+  args: TuiThreadArgs,
+  prompt: string | undefined,
+  config: TuiConfigValue,
+): Promise<void> {
+  const { Effect } = await import("effect")
+  const { run } = await import("../tui/layer")
+  const { createLegacyTuiPluginHost } = await import("@/plugin/tui/runtime")
+  // Register DevEco-specific extensions into the generic TUI package before
+  // rendering. This is the only site that bridges deveco → TUI, which keeps
+  // TUI free of `deveco` imports (breaks the workspace cycle).
+  await registerDevEcoTuiExtensionsForClient(client)
+  await Effect.runPromise(
+    run({
+      url: transport.url,
+      async onSnapshot() {
+        const tui = writeHeapSnapshot("tui.heapsnapshot")
+        const server = await client.call("snapshot", undefined)
+        return [tui, server]
+      },
+      config,
+      pluginHost: createLegacyTuiPluginHost(),
+      directory: cwd,
+      fetch: transport.fetch,
+      events: transport.events,
+      args: {
+        continue: args.continue,
+        sessionID: args.session,
+        agent: args.agent,
+        model: args.model,
+        prompt,
+        fork: args.fork,
+      },
+    }),
+  )
+}
+
+async function launchTui(args: TuiThreadArgs, directory: string): Promise<void> {
+  // Keep ENABLE_PROCESSED_INPUT cleared even if other code flips it.
+  // (Important when running under `bun run` wrappers on Windows.)
+  const unguard = win32InstallCtrlCGuard()
+  try {
+    const { TuiConfig } = await import("@/config/tui")
+    if (args.fork && !args.continue && !args.session) {
+      UI.error("--fork requires --continue or --session")
+      process.exitCode = 1
+      return
+    }
+    const runtime = await createTuiWorker(directory)
+    if (!runtime) return
+    const prompt = await input(args.prompt)
+    const config = await TuiConfig.get()
+    const transport = await createTuiTransport(runtime.client, args)
+    if (!(await validateTuiSession(transport, runtime.cwd, args.session))) return
+
+    setTimeout(() => {
+      runtime.client.call("checkUpgrade", { directory: runtime.cwd }).catch(() => {})
+    }, 1000).unref?.()
+
+    try {
+      await runTuiApp(runtime.client, runtime.cwd, transport, args, prompt, config)
+    } finally {
+      await runtime.stop()
+    }
+  } finally {
+    try {
+      unguard?.()
+    } catch {}
+  }
+  process.exit(0)
 }
 
 export const TuiThreadCommand = cmd({
@@ -128,137 +301,10 @@ export const TuiThreadCommand = cmd({
 
     // Show workspace trust prompt before booting the TUI.
     const next = resolveThreadDirectory(args.project)
-    if (!(await trustPrompt(next))) {
-      // User declined trust — exit normally (no error code); this is a
-      // user-initiated choice, not a failure.
-      return
-    }
-
-    // Keep ENABLE_PROCESSED_INPUT cleared even if other code flips it.
-    // (Important when running under `bun run` wrappers on Windows.)
-    const unguard = win32InstallCtrlCGuard()
-    try {
-      const { TuiConfig } = await import("@/config/tui")
-      if (args.fork && !args.continue && !args.session) {
-        UI.error("--fork requires --continue or --session")
-        process.exitCode = 1
-        return
-      }
-
-      // Resolve relative --project paths from PWD, then use the real cwd after
-      // chdir so the thread and worker share the same directory key.
-      // (next already resolved above for the trust prompt)
-      const file = await target()
-      try {
-        process.chdir(next)
-      } catch {
-        UI.error("Failed to change directory to " + next)
-        return
-      }
-      const cwd = Filesystem.resolve(process.cwd())
-      const env = sanitizedProcessEnv({
-        [DEVECO_PROCESS_ROLE]: "worker",
-        [DEVECO_RUN_ID]: ensureRunID(),
-      })
-
-      const worker = new Worker(file, { env })
-      const client = Rpc.client<typeof rpc>(worker)
-      const reload = () => {
-        client.call("reload", undefined).catch(() => {})
-      }
-      process.on("SIGUSR2", reload)
-
-      let stopped = false
-      const stop = async () => {
-        if (stopped) return
-        stopped = true
-        process.off("SIGUSR2", reload)
-        await withTimeout(client.call("shutdown", undefined), 5000).catch(() => {})
-        worker.terminate()
-      }
-
-      const prompt = await input(args.prompt)
-      const config = await TuiConfig.get()
-
-      const network = resolveNetworkOptionsNoConfig(args)
-      const external =
-        process.argv.includes("--port") ||
-        process.argv.includes("--hostname") ||
-        process.argv.includes("--mdns") ||
-        network.mdns ||
-        network.port !== 0 ||
-        network.hostname !== "127.0.0.1"
-
-      const transport = external
-        ? {
-            url: (await client.call("server", network)).url,
-            fetch: undefined,
-            events: undefined,
-          }
-        : {
-            url: "http://opencode.internal",
-            fetch: createWorkerFetch(client),
-            events: createEventSource(client),
-          }
-
-      try {
-        await validateSession({
-          url: transport.url,
-          sessionID: args.session,
-          directory: cwd,
-          fetch: transport.fetch,
-        })
-      } catch (error) {
-        UI.error(errorMessage(error))
-        process.exitCode = 1
-        return
-      }
-
-      setTimeout(() => {
-        client.call("checkUpgrade", { directory: cwd }).catch(() => {})
-      }, 1000).unref?.()
-
-      try {
-        const { Effect } = await import("effect")
-        const { run } = await import("../tui/layer")
-        const { createLegacyTuiPluginHost } = await import("@/plugin/tui/runtime")
-        // Register DevEco-specific extensions into the generic TUI package before
-        // rendering. This is the only site that bridges deveco → TUI, which keeps
-        // TUI free of `deveco` imports (breaks the workspace cycle).
-        const { registerDevEcoTuiExtensions } = await import("@/cli/deveco-ui/register")
-        registerDevEcoTuiExtensions()
-        await Effect.runPromise(
-          run({
-            url: transport.url,
-            async onSnapshot() {
-              const tui = writeHeapSnapshot("tui.heapsnapshot")
-              const server = await client.call("snapshot", undefined)
-              return [tui, server]
-            },
-            config,
-            pluginHost: createLegacyTuiPluginHost(),
-            directory: cwd,
-            fetch: transport.fetch,
-            events: transport.events,
-            args: {
-              continue: args.continue,
-              sessionID: args.session,
-              agent: args.agent,
-              model: args.model,
-              prompt,
-              fork: args.fork,
-            },
-          }),
-        )
-      } finally {
-        await stop()
-      }
-    } finally {
-      try {
-        unguard?.()
-      } catch {}
-    }
-    process.exit(0)
+    // User declined trust — exit normally (no error code); this is a
+    // user-initiated choice, not a failure.
+    if (!(await trustPrompt(next))) return
+    await launchTui(args, next)
   },
 })
 // scratch

@@ -10,6 +10,10 @@ import { Heap } from "@/cli/heap"
 import { AppRuntime } from "@/effect/app-runtime"
 import { Effect } from "effect"
 import { disposeAllInstancesAndEmitGlobalDisposed } from "@/server/global-lifecycle"
+import {
+  setAnalyticsMagpieCollectionEnabled,
+  shutdownAnalyticsMagpieCollection,
+} from "@/plugin/analytics-magpie/analytics-plugin"
 
 Heap.start()
 
@@ -73,7 +77,11 @@ export const rpc = {
       }),
     )
   },
+  async setAnalyticsMagpieEnabled(input: { enabled: boolean }) {
+    await setAnalyticsMagpieCollectionEnabled(input.enabled)
+  },
   async shutdown() {
+    await shutdownAnalyticsMagpieCollection().catch(() => {})
     await InstanceRuntime.disposeAllInstances()
     if (server) await server.stop(true)
     process.off("unhandledRejection", onUnhandledRejection)

@@ -20,6 +20,7 @@ import { AzureAuthPlugin } from "./azure"
 import { DigitalOceanAuthPlugin } from "./digitalocean"
 import { DevEcoAuthPlugin } from "./deveco"
 import AnalyticsPlugin from "./analytics/analytics-plugin"
+import AnalyticsMagpiePlugin from "./analytics-magpie/analytics-plugin"
 import HarmonyNapiDynamicToolsPlugin from "./harmony-napi-dynamic-tools"
 import { XaiAuthPlugin } from "./xai"
 import { SnowflakeCortexAuthPlugin } from "./snowflake-cortex"
@@ -81,6 +82,7 @@ function internalPlugins(flags: RuntimeFlags.Info): PluginInstance[] {
     DigitalOceanAuthPlugin,
     DevEcoAuthPlugin,
     AnalyticsPlugin,
+    AnalyticsMagpiePlugin,
     HarmonyNapiDynamicToolsPlugin,
     SnowflakeCortexAuthPlugin,
     XaiAuthPlugin,
