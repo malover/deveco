@@ -1,5 +1,6 @@
 export * as ServerAuth from "./auth"
 
+import crypto from "node:crypto"
 import { Config as EffectConfig, Context, Effect, Layer, Option, Redacted } from "effect"
 
 export type Credentials = {
@@ -45,8 +46,19 @@ export function authorized(credentials: DecodedCredentials, config: Info) {
   return (
     Option.isSome(config.password) &&
     credentials.username === config.username &&
-    Redacted.value(credentials.password) === config.password.value
+    timingSafeStringEqual(Redacted.value(credentials.password), config.password.value)
   )
+}
+
+// Constant-time string comparison to prevent timing attacks on password authentication.
+// Standard === comparison short-circuits on the first mismatched byte, allowing an
+// attacker to infer the password byte-by-byte by measuring response latency.
+// SHA-256 normalizes both inputs to 32 bytes, avoiding timingSafeEqual's exception
+// when buffer lengths differ (e.g. multi-byte UTF-8 characters).
+function timingSafeStringEqual(a: string, b: string) {
+  const hashA = crypto.createHash("sha256").update(a).digest()
+  const hashB = crypto.createHash("sha256").update(b).digest()
+  return crypto.timingSafeEqual(hashA, hashB)
 }
 
 export function header(credentials?: Credentials) {

@@ -56,4 +56,11 @@ describe("ServerAuth", () => {
     expect(ServerAuth.authorized({ username: "alice", password: Redacted.make("secret") }, config)).toBe(true)
     expect(ServerAuth.authorized({ username: "opencode", password: Redacted.make("secret") }, config)).toBe(false)
   })
+
+  test("does not throw when candidate password has different byte length", () => {
+    const config = { password: Option.some("secrét"), username: "alice" }
+
+    expect(ServerAuth.authorized({ username: "alice", password: Redacted.make("ab") }, config)).toBe(false)
+    expect(ServerAuth.authorized({ username: "alice", password: Redacted.make("a much longer candidate") }, config)).toBe(false)
+  })
 })
