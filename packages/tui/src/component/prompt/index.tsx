@@ -699,7 +699,6 @@ export function Prompt(props: PromptProps) {
       },
       {
         title: t("btw.title"),
-        desc: t("btw.description"),
         name: "session.btw.open",
         category: t("category.session"),
         slashName: "btw",
