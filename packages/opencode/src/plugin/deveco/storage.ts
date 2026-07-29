@@ -2,12 +2,7 @@ import fs from "fs"
 import path from "path"
 import { LocalCrypto } from "@/security/local-crypto"
 import { Global } from "@opencode-ai/core/global"
-import { Effect } from "effect"
-
-async function log(effect: Effect.Effect<void>) {
-  const { AppRuntime } = await import("@/effect/app-runtime")
-  return AppRuntime.runPromise(effect)
-}
+import { logError } from "./log"
 
 export function authFilePath() {
   return path.join(Global.Path.data, "auth.json")
@@ -34,7 +29,7 @@ export async function saveAuthToDisk(key: string, info: Record<string, unknown> 
     fs.writeFileSync(tmpPath, JSON.stringify(encrypted, null, 2), { mode: 0o600 })
     fs.renameSync(tmpPath, authFilePath())
   } catch (err) {
-    await log(Effect.logError("failed to save auth to disk", { service: "deveco", key, error: err instanceof Error ? err.message : String(err) }))
+    logError("failed to save auth to disk", { service: "deveco", key, error: err instanceof Error ? err.message : String(err) })
   }
 }
 

@@ -215,6 +215,10 @@ export function Session() {
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  const [hadMessages, setHadMessages] = createSignal(false)
+  createEffect(() => {
+    if (messages().length > 0) setHadMessages(true)
+  })
   const foregroundTasks = createMemo(() =>
     sync.data.capabilities.experimentalBackgroundSubagents
       ? messages().flatMap((message) =>
@@ -1189,7 +1193,7 @@ export function Session() {
                 scrollAcceleration={scrollAcceleration()}
               >
                 <box height={1} />
-                <Show when={messages().length === 0}>
+                <Show when={messages().length === 0 && hadMessages()}>
                   <box width="100%" paddingTop={2} paddingLeft={2} paddingRight={2} flexDirection="column" gap={1}>
                     <text fg={theme.warning} wrapMode="word">
                       {t("session.fresh_start")}

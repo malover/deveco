@@ -4,14 +4,10 @@ import type { Hooks, PluginInput } from "@opencode-ai/plugin"
 import { OAUTH_DUMMY_KEY } from "@/auth"
 import { Global } from "@opencode-ai/core/global"
 import { GlobalBus } from "@/bus/global"
-import { Effect } from "effect"
+import { logError } from "./log"
 import { TOOL_IMPROVEMENT_HEADER, readToolImprovementEnabled } from "@/cli/deveco-privacy-settings"
 import HuaweiEndpoints from "../../../huawei-endpoints.json"
 
-async function log(effect: Effect.Effect<void>) {
-  const { AppRuntime } = await import("@/effect/app-runtime")
-  return AppRuntime.runPromise(effect)
-}
 import { devecoAuth } from "./auth"
 import { sessionChatIdMap } from "./session"
 import { ensureValidToken } from "./token-refresh"
@@ -58,9 +54,7 @@ export async function DevEcoAuthPlugin(_input: PluginInput): Promise<Hooks> {
                 if (newToken) {
                   currentAuth.access = newToken
                 } else {
-                  await log(
-                    Effect.logError("DevEco Code token refresh failed, user needs to re-login", { service: "deveco" }),
-                  )
+                  logError("DevEco Code token refresh failed, user needs to re-login", { service: "deveco" })
                   GlobalBus.emit("event", {
                     directory: "global",
                     payload: {
@@ -129,12 +123,10 @@ export async function DevEcoAuthPlugin(_input: PluginInput): Promise<Hooks> {
                   finalInput = url
                 }
               } catch {
-                await log(
-                  Effect.logError("Failed to rewrite URL for non-streaming request", {
+                logError("Failed to rewrite URL for non-streaming request", {
                     service: "deveco",
                     requestInput: String(requestInput),
-                  }),
-                )
+                  })
               }
             }
 

@@ -1,11 +1,6 @@
 import http, { IncomingMessage, ServerResponse } from "http"
 import { URL } from "url"
-import { Effect } from "effect"
-
-async function log(effect: Effect.Effect<void>) {
-  const { AppRuntime } = await import("@/effect/app-runtime")
-  return AppRuntime.runPromise(effect)
-}
+import { logInfo, logWarn, logError } from "./log"
 import { LoginCancelledError, UnsupportedRegionError } from "./errors"
 import type { CallbackData } from "./types"
 
@@ -39,7 +34,7 @@ export class LocalAuthServer {
         return actualPort
       } catch {
         if (port === portsToTry[portsToTry.length - 1]) {
-          await log(Effect.logError("all auth server ports are in use", { service: "deveco", ports: portsToTry }))
+          logError("all auth server ports are in use", { service: "deveco", ports: portsToTry })
           throw new Error("All ports are in use. Please free up a port or close other DevEco Code instances.")
         }
       }
@@ -149,7 +144,7 @@ export class LocalAuthServer {
     } catch (err) {
       res.writeHead(500)
       res.end("Internal Server Error")
-      void log(Effect.logError("local auth server request error", { service: "deveco", error: err instanceof Error ? err.message : String(err) }))
+      logError("local auth server request error", { service: "deveco", error: err instanceof Error ? err.message : String(err) })
       this.rejectCallback?.(err instanceof Error ? err : new Error(String(err)))
     }
   }
@@ -174,12 +169,12 @@ export class LocalAuthServer {
       const quit = params.get("quit")
 
       if (!code || code !== this.clientSecret) {
-        void log(Effect.logWarning("login callback: code mismatch or missing, ignoring", { service: "deveco", hasCode: !!code }))
+        logWarn("login callback: code mismatch or missing, ignoring", { service: "deveco", hasCode: !!code })
         return
       }
 
       if (quit === "true" || quit === "access_denied") {
-        void log(Effect.logInfo("login callback: user cancelled", { service: "deveco", quit }))
+        logInfo("login callback: user cancelled", { service: "deveco", quit })
         this.rejectCallback?.(
           new LoginCancelledError(quit === "access_denied" ? "Access denied by user" : "Login cancelled by user"),
         )
@@ -191,7 +186,7 @@ export class LocalAuthServer {
       }
 
       if (!tempToken || !siteId) {
-        void log(Effect.logError("login callback: missing tempToken or siteId", { service: "deveco", tempToken: !!tempToken, siteId: !!siteId }))
+        logError("login callback: missing tempToken or siteId", { service: "deveco", tempToken: !!tempToken, siteId: !!siteId })
         this.rejectCallback?.(new Error("Login cancelled by user"))
         res.writeHead(302, {
           Location: `${this.baseUrl}/${this.failedRedirectUrl}`,
@@ -201,7 +196,7 @@ export class LocalAuthServer {
       }
 
       if (siteId !== "1") {
-        void log(Effect.logError("login callback: unsupported region", { service: "deveco", siteId }))
+        logError("login callback: unsupported region", { service: "deveco", siteId })
         this.rejectCallback?.(new UnsupportedRegionError("Unsupported region"))
         res.writeHead(302, {
           Location: `${this.baseUrl}/${this.failedRedirectUrl}`,
@@ -225,7 +220,7 @@ export class LocalAuthServer {
     } catch (err) {
       res.writeHead(500)
       res.end("Internal Server Error")
-      void log(Effect.logError("local auth server callback error", { service: "deveco", error: err instanceof Error ? err.message : String(err) }))
+      logError("local auth server callback error", { service: "deveco", error: err instanceof Error ? err.message : String(err) })
       this.rejectCallback?.(err instanceof Error ? err : new Error(String(err)))
     }
   }

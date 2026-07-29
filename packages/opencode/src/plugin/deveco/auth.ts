@@ -1,9 +1,4 @@
-import { Effect } from "effect"
-
-async function log(effect: Effect.Effect<void>) {
-  const { AppRuntime } = await import("@/effect/app-runtime")
-  return AppRuntime.runPromise(effect)
-}
+import { logWarn } from "./log"
 import { loginService } from "./login-service"
 import { tokenStorage } from "./token-storage"
 import { loadAccessTokenFromDisk, loadIsRealNameFromDisk, saveAuthToDisk } from "./storage"
@@ -46,10 +41,7 @@ export class DevEcoAuth {
         }
       } catch (err) {
         // ignore parse errors — session may not be available from disk token
-        await log(Effect.logWarning("failed to parse jwtToken when restoring session from disk", {
-          service: "deveco",
-          error: err instanceof Error ? err.message : String(err),
-        }))
+        logWarn("failed to parse jwtToken when restoring session from disk", { service: "deveco", error: err instanceof Error ? err.message : String(err) })
       }
     }
     return null
@@ -107,7 +99,7 @@ export class DevEcoAuth {
     try {
       const parsed = loginService.parseJwt(jwtToken)
       if (parsed.exp && Date.now() >= parsed.exp * 1000) {
-        await log(Effect.logWarning('refreshToken skipped: JWT token has expired, user needs to re-login', { service: 'deveco' }))
+        logWarn('refreshToken skipped: JWT token has expired, user needs to re-login', { service: 'deveco' })
         return null
       }
     } catch {
@@ -148,6 +140,17 @@ export class DevEcoAuth {
     return result
   }
 
+  /**
+   * Check real-name verification status via API, returning fresh tokens.
+   * @returns verified status plus current tokens, or null if no token is stored locally
+   * @throws when the network request fails or the server response is invalid
+   */
+  async checkRealNameWithToken(): Promise<{ verified: boolean; accessToken: string; refreshToken: string } | null> {
+    const jwtToken = await tokenStorage.loadToken()
+    if (!jwtToken) return null
+    return loginService.checkRealNameWithToken(jwtToken)
+  }
+
   private getUserInfo() {
     return loginService.getUserInfo()
   }
@@ -166,7 +169,7 @@ export class DevEcoAuth {
       const parsed = loginService.parseJwt(jwtToken)
       return parsed.userId || null
     } catch (err) {
-      await log(Effect.logWarning("failed to parse jwtToken for userId", { service: "deveco", error: err instanceof Error ? err.message : String(err) }))
+      logWarn("failed to parse jwtToken for userId", { service: "deveco", error: err instanceof Error ? err.message : String(err) })
       return null
     }
   }

@@ -3,13 +3,9 @@ import http from "http"
 import querystring from "querystring"
 import { resolveAgreementConfig, getPrivacyAcceptedKey, getSignPendingKey, type AgreementConfig } from "@/cli/deveco-legal"
 import { devecoAuth, saveAuthToDisk, ACCESS_TOKEN_EXPIRES_MS } from "@/plugin/deveco"
-import { Effect } from "effect"
+import { logInfo, logWarn, logError } from "@/plugin/deveco/log"
 import { hashUserId } from "@opencode-ai/core/sanitize-path"
 
-async function log(effect: Effect.Effect<void>) {
-  const { AppRuntime } = await import("@/effect/app-runtime")
-  return AppRuntime.runPromise(effect)
-}
 // ============ Data Models ============
 
 export enum AgreementStatus {
@@ -135,7 +131,7 @@ async function tmsPost(tmsUrl: string, body: TmsFormBody): Promise<string> {
     })
     req.on("timeout", () => {
       req.destroy()
-      void log(Effect.logError("TMS request timeout", { service: "deveco-agreement", url: tmsUrl }))
+      logError("TMS request timeout", { service: "deveco-agreement", url: tmsUrl })
       reject(new Error("TMS request timeout"))
     })
 
@@ -160,15 +156,15 @@ async function handleSessionTimeoutAndRetry<T>(
   try {
     resJson = JSON.parse(rawResponse) as Record<string, unknown>
   } catch {
-    await log(Effect.logWarning("failed to parse TMS response as JSON, falling through to raw parse", { service: "deveco-agreement" }))
+    logWarn("failed to parse TMS response as JSON, falling through to raw parse", { service: "deveco-agreement" })
     return { result: parseResponse(rawResponse), refreshedToken: false }
   }
 
   if (isSessionTimeoutError(resJson[KEY_ERROR])) {
-    await log(Effect.logInfo("session timeout detected, refreshing token", { service: "deveco-agreement" }))
+    logInfo("session timeout detected, refreshing token", { service: "deveco-agreement" })
     const newTokens = await devecoAuth.refreshToken()
     if (!newTokens?.accessToken) {
-      await log(Effect.logWarning("token refresh failed, cannot retry", { service: "deveco-agreement" }))
+      logWarn("token refresh failed, cannot retry", { service: "deveco-agreement" })
       return { result: parseResponse(rawResponse), refreshedToken: false }
     }
 
@@ -282,7 +278,7 @@ class AgreementService {
 
       return result
     } catch (err) {
-      await log(Effect.logError("query agreement exception", { service: "deveco-agreement", error: err instanceof Error ? err.message : String(err) }))
+      logError("query agreement exception", { service: "deveco-agreement", error: err instanceof Error ? err.message : String(err) })
       return {
         status: AgreementStatus.NETWORK_ERROR,
         signInfo: null,
@@ -297,7 +293,7 @@ class AgreementService {
       const resJson = JSON.parse(raw) as Record<string, unknown>
 
       if (isSessionTimeoutError(resJson[KEY_ERROR])) {
-        void log(Effect.logError("query agreement response: session timeout after refresh failure", { service: "deveco-agreement", error: resJson[KEY_ERROR] }))
+        logError("query agreement response: session timeout after refresh failure", { service: "deveco-agreement", error: resJson[KEY_ERROR] })
         return {
           status: AgreementStatus.SESSION_EXPIRED,
           signInfo: null,
@@ -310,7 +306,7 @@ class AgreementService {
       if (errorCode === 0) {
         const signArr = resJson.signInfo as Array<Record<string, unknown>> | undefined
         if (!signArr || signArr.length === 0) {
-          void log(Effect.logWarning("query agreement response: empty signInfo array", { service: "deveco-agreement" }))
+          logWarn("query agreement response: empty signInfo array", { service: "deveco-agreement" })
           return {
             status: AgreementStatus.NEED_SIGN,
             signInfo: null,
@@ -363,7 +359,7 @@ class AgreementService {
         error: `errorCode=${errorCode}`,
       }
     } catch (err) {
-      void log(Effect.logError("failed to parse agreement query response", { service: "deveco-agreement", error: err instanceof Error ? err.message : String(err) }))
+      logError("failed to parse agreement query response", { service: "deveco-agreement", error: err instanceof Error ? err.message : String(err) })
       return {
         status: AgreementStatus.NEED_SIGN,
         signInfo: null,
@@ -419,7 +415,7 @@ class AgreementService {
 
       return { ...result, refreshedToken }
     } catch (err) {
-      await log(Effect.logError("sign agreement exception", { service: "deveco-agreement", error: err instanceof Error ? err.message : String(err) }))
+      logError("sign agreement exception", { service: "deveco-agreement", error: err instanceof Error ? err.message : String(err) })
       return {
         success: false,
         isUpload: false,
@@ -433,7 +429,7 @@ class AgreementService {
       const resJson = JSON.parse(raw) as Record<string, unknown>
 
       if (isSessionTimeoutError(resJson[KEY_ERROR])) {
-        void log(Effect.logError("sign agreement response: session timeout", { service: "deveco-agreement", error: resJson[KEY_ERROR] }))
+        logError("sign agreement response: session timeout", { service: "deveco-agreement", error: resJson[KEY_ERROR] })
         return {
           success: false,
           isUpload: false,
@@ -446,14 +442,14 @@ class AgreementService {
         return { success: true, isUpload: true }
       }
 
-      void log(Effect.logError("sign agreement response: non-zero errorCode", { service: "deveco-agreement", errorCode }))
+      logError("sign agreement response: non-zero errorCode", { service: "deveco-agreement", errorCode })
       return {
         success: false,
         isUpload: false,
         error: `errorCode=${errorCode}`,
       }
     } catch (err) {
-      void log(Effect.logError("failed to parse agreement sign response", { service: "deveco-agreement", error: err instanceof Error ? err.message : String(err) }))
+      logError("failed to parse agreement sign response", { service: "deveco-agreement", error: err instanceof Error ? err.message : String(err) })
       return {
         success: false,
         isUpload: false,
@@ -495,7 +491,7 @@ class AgreementService {
     // Without local cache, show privacy step so user can see the network error
     if (overallStatus === AgreementStatus.NETWORK_ERROR) {
       if (hasLocalCache) {
-        await log(Effect.logInfo("agreement query network error, but local cache exists — allowing entry", { service: "deveco-agreement" }))
+        logInfo("agreement query network error, but local cache exists — allowing entry", { service: "deveco-agreement" })
         return {
           privacyStatus,
           termsStatus,
@@ -550,14 +546,14 @@ class AgreementService {
     }
 
     const hashedUserId = await hashUserId(userId)
-    await log(Effect.logInfo("found pending offline agreement sign, retrying...", { service: "deveco-agreement", userId: hashedUserId }))
+    logInfo("found pending offline agreement sign, retrying...", { service: "deveco-agreement", userId: hashedUserId })
     const signResult = await this.signAgreement(accessToken, false)
 
     if (signResult.isUpload) {
       kvStore.set(getSignPendingKey(userId), false)
-      await log(Effect.logInfo("pending offline agreement sign synced successfully", { service: "deveco-agreement", userId: hashedUserId }))
+      logInfo("pending offline agreement sign synced successfully", { service: "deveco-agreement", userId: hashedUserId })
     } else {
-      await log(Effect.logWarning("pending offline agreement sign retry failed", { service: "deveco-agreement", error: signResult.error ?? "unknown error", userId: hashedUserId }))
+      logWarn("pending offline agreement sign retry failed", { service: "deveco-agreement", error: signResult.error ?? "unknown error", userId: hashedUserId })
     }
   }
 }

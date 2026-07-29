@@ -46,6 +46,7 @@ import { devecoAuth, hasDevecoOAuthEntry, ensureValidToken, loadIsRealNameFromDi
 import { hasConfiguredDevEcoHome } from "@/tool/lib/env"
 import { getPrivacyAcceptedKey, type AgreementConfig } from "@/cli/deveco-legal"
 import { DevEcoOnboarding } from "./onboarding"
+import { logWarn, logError } from "@/plugin/deveco/log"
 
 declare const DEVECO_SKIP_AGREEMENT: boolean | undefined
 
@@ -129,6 +130,7 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
       isRealName = await devecoAuth.checkRealName() ?? false
     }
     if (!isRealName) {
+      logWarn("real-name verification failed, blocking entry", { service: "deveco" })
       setDevecoRealName(true)
       setDevecoReady(false)
       setAuthCheckDone(true)
@@ -205,10 +207,10 @@ export function DevEcoHomeBody(props: { sync: SyncObject; bodySlotHeight: number
     }
 
     } catch (err) {
-      // Any unhandled error (e.g. logging failure, AppRuntime not ready) must not
+      // Any unhandled error must not
       // leave the UI stuck on "Checking login status…".  Fall back to the entry
       // screen so the user can at least re-login or exit.
-      console.error("runDevecoCheck failed:", err)
+      logError("runDevecoCheck failed", { service: "deveco", error: err instanceof Error ? err.message : String(err) })
       // Even if an error occurred, check if JWT is expired so we can show the
       // appropriate "session expired" message instead of the generic login prompt.
       finishCheck(await devecoAuth.isJwtExpired() === true)

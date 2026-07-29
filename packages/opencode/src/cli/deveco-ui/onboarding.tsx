@@ -9,16 +9,12 @@ import { useSDK } from '@opencode-ai/tui/context/sdk';
 import { DialogSelect } from '@opencode-ai/tui/ui/dialog-select';
 import { DialogPrompt } from '@opencode-ai/tui/ui/dialog-prompt';
 import { Link } from '@opencode-ai/tui/ui/link';
+import { useToast } from '@opencode-ai/tui/ui/toast';
 import open from 'open';
 import { devecoAuth, ACCESS_TOKEN_EXPIRES_MS, saveAuthToDisk } from '@/plugin/deveco';
 import { useKV } from '@opencode-ai/tui/context/kv';
 import { resolveAgreementConfig, getPrivacyAcceptedKey, getSignPendingKey, type AgreementConfig } from '@/cli/deveco-legal';
-import { Effect } from 'effect';
-
-async function log(effect: Effect.Effect<void>) {
-  const { AppRuntime } = await import('@/effect/app-runtime')
-  return AppRuntime.runPromise(effect)
-}
+import { logInfo, logWarn, logError } from '@/plugin/deveco/log';
 import { agreementService, AgreementStatus } from '@/cli/deveco-agreement';
 import type { AgreementCheckResult } from '@/cli/deveco-agreement';
 import { resolveDevEcoHome, saveDevEcoHome, findDevEcoHomes, hasConfiguredDevEcoHome } from '@/tool/lib/env';
@@ -266,6 +262,7 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
   const dialog = useDialog();
   const sdk = useSDK();
   const kv = useKV();
+  const toast = useToast();
 
   // Merge project-level agreement config overrides with built-in defaults
   const agreementConfig = createMemo(() =>
@@ -284,6 +281,8 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
   const [sessionExpired, setSessionExpired] = createSignal(props.sessionExpired ?? false);
   const [entryIndex, setEntryIndex] = createSignal(0);
   const [realnameIndex, setRealnameIndex] = createSignal(0);
+  const [realnameRechecking, setRealnameRechecking] = createSignal(false);
+  const [realnameRecheckError, setRealnameRecheckError] = createSignal<string | null>(null);
   const [authMessage, setAuthMessage] = createSignal<string | null>(null);
   const [authBusy, setAuthBusy] = createSignal(false);
   const [providerIndex, setProviderIndex] = createSignal(0);
@@ -457,7 +456,7 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
       try {
         kv.set(getPrivacyAcceptedKey(userId), true)
       } catch (err) {
-        console.error('Failed to update local KV cache after signing', err)
+        logError("failed to update local KV cache after signing", { service: "deveco", error: err instanceof Error ? err.message : String(err) })
       }
       // Signing success → complete onboarding, enter conversation page
       props.onComplete()
@@ -470,9 +469,9 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
       kv.set(getPrivacyAcceptedKey(userId), true)
       kv.set(getSignPendingKey(userId), true)
     } catch (err) {
-      console.error('Failed to save pending agreement sign', err)
+      logError("failed to save pending agreement sign", { service: "deveco", error: err instanceof Error ? err.message : String(err) })
     }
-    await log(Effect.logInfo("agreement sign failed offline, saved pending for retry", { service: "deveco-onboarding", error: signResult.error ?? "unknown" }))
+    logInfo("agreement sign failed offline, saved pending for retry", { service: "deveco-onboarding", error: signResult.error ?? "unknown" })
     props.onComplete()
   }
 
@@ -621,6 +620,7 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
       setAuthBusy(false);
       // Check real-name verification status
       if (result.userInfo && !result.userInfo.isRealName) {
+        logWarn("login succeeded but real-name verification not completed, blocking entry", { service: "deveco" });
         setStep('realname');
         return;
       }
@@ -735,21 +735,87 @@ export function DevEcoOnboarding(props: { onComplete: () => void; bodySlotHeight
       }
       if (evt.name === 'up') {
         evt.preventDefault();
-        setRealnameIndex(0);
+        setRealnameIndex(Math.max(0, realnameIndex() - 1));
         return;
       }
       if (evt.name === 'down') {
         evt.preventDefault();
-        setRealnameIndex(1);
+        setRealnameIndex(Math.min(2, realnameIndex() + 1));
         return;
       }
       if (evt.name === 'return') {
         evt.preventDefault();
         if (realnameIndex() === 0) {
           // "Authenticate" — open real-name authentication page in browser
-          // and return to entry page where user can sign in or exit
-          open(HuaweiEndpoints.huaweiRealnameAuth).catch(() => {});
-          setStep('entry');
+          logInfo("opening real-name authentication page in browser", { service: "deveco", url: HuaweiEndpoints.huaweiRealnameAuth });
+          open(HuaweiEndpoints.huaweiRealnameAuth).catch((err) => {
+            logError("failed to open real-name authentication page", { service: "deveco", error: err instanceof Error ? err.message : String(err) });
+          });
+        } else if (realnameIndex() === 1) {
+          // "Re-check real-name" — call API to re-verify
+          if (realnameRechecking()) return;
+          setRealnameRechecking(true);
+          setRealnameRecheckError(null);
+          toast.show({ variant: 'info', message: 'Checking real-name status...', duration: 5000 });
+          try {
+            devecoAuth.checkRealNameWithToken()
+              .then(async (result) => {
+                try {
+                  setRealnameRechecking(false);
+                  if (result === null) {
+                    logWarn("real-name re-check skipped: no stored token found", { service: "deveco" });
+                    setRealnameRecheckError('No active session found. Please sign in first.');
+                    return;
+                  }
+                  if (result.verified) {
+                    // Save refreshed tokens only when verification passes
+                    await saveAuthToDisk('deveco', {
+                      type: 'oauth',
+                      access: result.accessToken,
+                      refresh: result.refreshToken,
+                      expires: Date.now() + ACCESS_TOKEN_EXPIRES_MS,
+                      isRealName: true,
+                    });
+                    await sdk.client.instance.dispose();
+                    await sync.bootstrap();
+                    setRealnameRecheckError(null);
+                    logInfo("real-name verification passed after re-check", { service: "deveco" });
+                    toast.show({ variant: 'success', message: 'Real-name verification passed!', duration: 1000 });
+                    if (!(await hasConfiguredDevEcoHome())) {
+                      setStep('deveco-home');
+                      void runDevEcoHomeDetection();
+                      return;
+                    }
+                    setStep('privacy');
+                    void checkAgreementStatus();
+                  } else {
+                    logWarn("real-name verification still failed after re-check", { service: "deveco" });
+                    toast.show({ variant: 'warning', message: 'Real-name authentication not yet completed.', duration: 3000 });
+                  }
+                } catch (innerErr) {
+                  logError("real-name re-check handler error", { service: "deveco", error: innerErr instanceof Error ? innerErr.message : String(innerErr) });
+                  setRealnameRecheckError(innerErr instanceof Error ? innerErr.message : String(innerErr));
+                }
+              })
+              .catch(async (err) => {
+                setRealnameRechecking(false);
+                const msg = err instanceof Error ? err.message : String(err);
+                logError("real-name re-check promise error", { service: "deveco", error: msg });
+                const isNetworkError = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|ECONNRESET|fetch failed/i.test(msg);
+                const isJwtExpired = /401|jwt.*expired|token.*expired|invalid.*jwt|jwt.*invalid/i.test(msg);
+                if (isNetworkError) {
+                  setRealnameRecheckError('Network error. Please try again.');
+                } else if (isJwtExpired) {
+                  setRealnameRecheckError('Session expired. Please sign in again.');
+                } else {
+                  setRealnameRecheckError('Server error. Please try again later.');
+                }
+              });
+          } catch (syncErr) {
+            logError("real-name re-check sync error", { service: "deveco", error: syncErr instanceof Error ? syncErr.message : String(syncErr) });
+            setRealnameRechecking(false);
+            setRealnameRecheckError(syncErr instanceof Error ? syncErr.message : String(syncErr));
+          }
         } else {
           void exit();
         }
@@ -1029,6 +1095,9 @@ if (st === 'entry') {
               {selectionLead(privacyIndex() === 1)}
               Cancel
             </text>
+            <text fg={theme.textMuted} selectable={false} marginTop={1}>
+              Use Enter to Select, Up/Down to navigate
+            </text>
           </box>
         </Show>
         <Show when={!checkingStatus() && sessionExpired()}>
@@ -1118,6 +1187,9 @@ if (st === 'entry') {
                   </text>
                 </Show>
               </box>
+              <text fg={theme.textMuted} selectable={false} flexShrink={0} marginTop={1}>
+                Use Enter to Select, Up/Down to navigate
+              </text>
             </box>
             </box>
           </OnboardingContent>
@@ -1273,12 +1345,21 @@ if (st === 'entry') {
             </text>
             <text fg={realnameIndex() === 1 ? theme.success : theme.text} selectable={false}>
               {selectionLead(realnameIndex() === 1)}
-              2. Exit
+              2. Re-check real-name
+            </text>
+            <text fg={realnameIndex() === 2 ? theme.success : theme.text} selectable={false}>
+              {selectionLead(realnameIndex() === 2)}
+              3. Exit
             </text>
           </box>
           <text fg={theme.textMuted} selectable={false} marginTop={1}>
             Use Enter to Select, Up/Down to navigate
           </text>
+          <Show when={realnameRecheckError() !== null}>
+            <text fg={theme.error} selectable={false}>
+              {realnameRecheckError()}
+            </text>
+          </Show>
         </OnboardingContent>
       </Show>
       <Show when={step() === 'providers'}>
