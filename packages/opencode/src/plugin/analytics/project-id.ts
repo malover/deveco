@@ -46,10 +46,10 @@ async function readStorage(file: string): Promise<ProjectIdStorage> {
 }
 
 async function writeStorage(file: string, storage: ProjectIdStorage): Promise<void> {
-  await fs.mkdir(path.dirname(file), { recursive: true })
+  await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
   const temporary = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`
   try {
-    await fs.writeFile(temporary, JSON.stringify(storage, null, 2), "utf8")
+    await fs.writeFile(temporary, JSON.stringify(storage, null, 2), { encoding: "utf8", mode: 0o600 })
     await fs.rename(temporary, file)
   } finally {
     await fs.unlink(temporary).catch(() => undefined)

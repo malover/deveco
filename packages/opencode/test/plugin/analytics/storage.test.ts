@@ -4,7 +4,7 @@ import path from "path"
 import { Global } from "@opencode-ai/core/global"
 import { LocalCrypto } from "@/security/local-crypto"
 import { ANALYTICS_ACTION } from "@/plugin/analytics/types"
-import type { AiSessionEvent } from "@/plugin/analytics/types"
+import type { AiCodeAttributionEvent, AiSessionEvent } from "@/plugin/analytics/types"
 import {
   ANALYTICS_SCHEMA_VERSION,
   enqueuePendingEvent,
@@ -40,6 +40,16 @@ function event(): AiSessionEvent {
     toolExecutions: [],
     totalElapsed: 10,
     firstResultElapsed: 5,
+  }
+}
+
+function attributionEvent(): AiCodeAttributionEvent {
+  return {
+    projectId: "550e8400-e29b-41d4-a716-446655440000",
+    aiGeneratedLines: 3,
+    humanGeneratedLines: 2,
+    unknownGeneratedLines: 1,
+    totalGeneratedLines: 6,
   }
 }
 
@@ -97,6 +107,56 @@ test("current-schema queue rejects ai_session details with forbidden fields", as
         {
           action: ANALYTICS_ACTION.AI_SESSION,
           event: invalidEvent,
+          uid: "uid-1",
+          queueId: "queue-1",
+          sealed: false,
+        },
+      ],
+      lastFlush: 1,
+    }),
+  )
+  await fs.writeFile(file, JSON.stringify(encrypted))
+
+  expect((await loadStorage()).pendingEvents).toEqual([])
+})
+
+test("ai code attribution queue accepts only the five-field aggregate", async () => {
+  await using tmp = await tmpdir()
+  Global.Path.data = tmp.path
+
+  await enqueuePendingEvent({
+    action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION,
+    event: attributionEvent(),
+  })
+
+  const pending = await getPendingEvents()
+  expect(pending).toHaveLength(1)
+  expect(pending[0]?.event).toEqual(attributionEvent())
+  expect(Object.keys(pending[0]?.event ?? {}).sort()).toEqual([
+    "aiGeneratedLines",
+    "humanGeneratedLines",
+    "projectId",
+    "totalGeneratedLines",
+    "unknownGeneratedLines",
+  ])
+})
+
+test("ai code attribution queue rejects invalid totals and extra local fields", async () => {
+  await using tmp = await tmpdir()
+  Global.Path.data = tmp.path
+  const file = path.join(tmp.path, "analytics", "analytics.json")
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  const encrypted = LocalCrypto.encryptForLocalStorage(
+    JSON.stringify({
+      schemaVersion: ANALYTICS_SCHEMA_VERSION,
+      pendingEvents: [
+        {
+          action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION,
+          event: {
+            ...attributionEvent(),
+            totalGeneratedLines: 7,
+            commitSha: "private",
+          },
           uid: "uid-1",
           queueId: "queue-1",
           sealed: false,

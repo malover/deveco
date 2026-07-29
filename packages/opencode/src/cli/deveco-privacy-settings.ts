@@ -10,7 +10,9 @@ export const TOOL_IMPROVEMENT_HEADER = "X-DevEco-Improvement-Enabled"
 export async function readPrivacyBoolean(key: string, fallback: boolean, state = Global.Path.state) {
   const file = path.join(state, "kv.json")
   try {
-    const kv = await Flock.withLock(`tui-kv:${file}`, () => Filesystem.readJson<Record<string, unknown>>(file))
+    // Reads are protected from concurrent privacy readers without contending
+    // with the TUI's long-lived writer lock; its writes use atomic rename.
+    const kv = await Flock.withLock(`privacy-kv:${file}`, () => Filesystem.readJson<Record<string, unknown>>(file))
     return typeof kv[key] === "boolean" ? kv[key] : fallback
   } catch {
     return fallback

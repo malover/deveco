@@ -100,9 +100,11 @@ export function toHuaweiTracePayload(
 export class AnalyticsUploader {
   private readonly config: AnalyticsConfig
   private flushTimer: ReturnType<typeof setInterval> | null = null
+  private activeUpload: AbortController | null = null
   private isUploading = false
   private retryCount = 0
   private queueLength = 0
+  private queueEpoch = 0
 
   constructor(config: Partial<AnalyticsConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -119,8 +121,11 @@ export class AnalyticsUploader {
 
   private async writeLog(message: string): Promise<void> {
     try {
-      fs.mkdirSync(ANALYTICS_DIR, { recursive: true })
-      fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${message}\n`, "utf8")
+      fs.mkdirSync(ANALYTICS_DIR, { recursive: true, mode: 0o700 })
+      fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${message}\n`, {
+        encoding: "utf8",
+        mode: 0o600,
+      })
     } catch {
       // Analytics logging must never affect the TUI.
     }
@@ -157,23 +162,36 @@ export class AnalyticsUploader {
   async flush(): Promise<UploadResult> {
     if (this.isUploading) return { success: true }
     this.isUploading = true
+    const epoch = this.queueEpoch
+    let controller: AbortController | null = null
     try {
       this.queueLength = (await getPendingEvents()).length
       if (!this.queueLength) return { success: true }
+      if (epoch !== this.queueEpoch) return { success: true }
 
       const authToken = await this.resolveAuth()
       if (!authToken) {
         await this.writeLog("Authentication unavailable: queued events retained")
         return { success: false, error: "Authentication unavailable" }
       }
+      if (epoch !== this.queueEpoch) return { success: true }
 
       const batch = await preparePendingBatch(this.config.batchSize)
+      if (epoch !== this.queueEpoch || batch.length === 0) return { success: true }
       await this.writeLog(`Uploading ${batch.length} event(s)`)
+      controller = new AbortController()
+      this.activeUpload = controller
+      if (epoch !== this.queueEpoch) {
+        controller.abort()
+        return { success: true }
+      }
       const response = await fetch(this.config.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", authorization: authToken },
         body: JSON.stringify(batch.map((pending) => toHuaweiTracePayload(pending))),
+        signal: controller.signal,
       })
+      if (epoch !== this.queueEpoch) return { success: true }
       if (!response.ok) {
         this.recordFailure()
         await this.writeLog(`Upload failed: HTTP ${response.status}, ${batch.length} event(s) retained`)
@@ -185,10 +203,12 @@ export class AnalyticsUploader {
       await this.writeLog(`Upload succeeded: HTTP ${response.status}, ${batch.length} event(s)`)
       return { success: true }
     } catch {
+      if (epoch !== this.queueEpoch || controller?.signal.aborted) return { success: true }
       this.recordFailure()
       await this.writeLog("Upload failed: unexpected error, events retained")
       return { success: false, error: "Upload failed" }
     } finally {
+      if (this.activeUpload === controller) this.activeUpload = null
       this.isUploading = false
     }
   }
@@ -197,10 +217,12 @@ export class AnalyticsUploader {
     return this.queueLength
   }
 
-  clearQueue(): void {
+  async clearQueue(): Promise<void> {
+    this.queueEpoch++
+    this.activeUpload?.abort()
     this.queueLength = 0
     this.retryCount = 0
-    void clearPendingEvents().catch(() => undefined)
+    await clearPendingEvents().catch(() => undefined)
   }
 
   startPeriodicFlush(): void {
@@ -231,6 +253,6 @@ export async function flushAnalyticsEvents(): Promise<UploadResult> {
   return globalUploader.flush()
 }
 
-export function clearAnalyticsQueue(): void {
-  globalUploader.clearQueue()
+export async function clearAnalyticsQueue(): Promise<void> {
+  await globalUploader.clearQueue()
 }

@@ -6,6 +6,7 @@ import { Global } from "@opencode-ai/core/global"
 import { LocalCrypto } from "@/security/local-crypto"
 import { ANALYTICS_ACTION } from "./types"
 import type {
+  AiCodeAttributionEvent,
   AiSessionEvent,
   AnalyticsQueueSubmission,
   AnalyticsTransportFields,
@@ -146,6 +147,34 @@ function isAnalyticsTransportFields(value: unknown): value is AnalyticsTransport
   return isRecord(value) && typeof value.uid === "string"
 }
 
+function isLineCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+}
+
+function isAiCodeAttributionEvent(value: unknown): value is AiCodeAttributionEvent {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      "projectId",
+      "aiGeneratedLines",
+      "humanGeneratedLines",
+      "unknownGeneratedLines",
+      "totalGeneratedLines",
+    ]) ||
+    typeof value.projectId !== "string" ||
+    !isLineCount(value.aiGeneratedLines) ||
+    !isLineCount(value.humanGeneratedLines) ||
+    !isLineCount(value.unknownGeneratedLines) ||
+    !isLineCount(value.totalGeneratedLines)
+  )
+    return false
+
+  return (
+    value.totalGeneratedLines > 0 &&
+    value.totalGeneratedLines === value.aiGeneratedLines + value.humanGeneratedLines + value.unknownGeneratedLines
+  )
+}
+
 function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent {
   if (
     !isRecord(value) ||
@@ -157,6 +186,7 @@ function isPendingAnalyticsEvent(value: unknown): value is PendingAnalyticsEvent
     return false
 
   if (value.action === ANALYTICS_ACTION.AI_SESSION) return isAiSessionEvent(value.event)
+  if (value.action === ANALYTICS_ACTION.AI_CODE_ATTRIBUTION) return isAiCodeAttributionEvent(value.event)
   return false
 }
 
@@ -203,12 +233,12 @@ async function loadStorageUnlocked(): Promise<{ storage: AnalyticsStorage; needs
 }
 
 async function saveStorageUnlocked(storage: AnalyticsStorage): Promise<void> {
-  await fs.mkdir(getAnalyticsDir(), { recursive: true })
+  await fs.mkdir(getAnalyticsDir(), { recursive: true, mode: 0o700 })
   const file = getAnalyticsFilePath()
   const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`
   const encrypted = LocalCrypto.encryptForLocalStorage(JSON.stringify(storage))
   try {
-    await fs.writeFile(temporary, JSON.stringify(encrypted, null, 2), "utf8")
+    await fs.writeFile(temporary, JSON.stringify(encrypted, null, 2), { encoding: "utf8", mode: 0o600 })
     await fs.rename(temporary, file)
   } finally {
     await fs.unlink(temporary).catch(() => undefined)
@@ -280,9 +310,9 @@ export async function getOrCreateDeviceId(): Promise<string> {
     const parsed = JSON.parse(await fs.readFile(file, "utf8"))
     if (typeof parsed.deviceId === "string" && parsed.deviceId.trim()) return parsed.deviceId
   } catch {}
-  await fs.mkdir(path.dirname(file), { recursive: true })
+  await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
   const deviceId = randomUUID()
-  await fs.writeFile(file, JSON.stringify({ deviceId }, null, 2), "utf8")
+  await fs.writeFile(file, JSON.stringify({ deviceId }, null, 2), { encoding: "utf8", mode: 0o600 })
   return deviceId
 }
 

@@ -5,6 +5,8 @@ import { Global } from "@opencode-ai/core/global"
 import { devecoAuth } from "../deveco"
 import { globalCollector } from "./collector"
 import type { SessionStart } from "./collector"
+import { createCodeAttributionTracker } from "./code-attribution"
+import type { CodeAttributionTracker, CodeAttributionTrackerOptions } from "./code-attribution"
 import { getOrCreateProjectId } from "./project-id"
 import { globalUploader } from "./uploader"
 import { getVersion } from "./storage"
@@ -13,11 +15,12 @@ import type { AiSessionEvent, AnalyticsSubmission } from "./types"
 
 const ANALYTICS_DIR = path.join(Global.Path.data, "analytics", "log")
 const LOG_FILE = path.join(ANALYTICS_DIR, "analytics.log")
+const ATTRIBUTED_TOOLS = new Set(["write", "edit", "multiedit", "apply_patch", "bash"])
 
 interface AnalyticsCollectorDependency {
   init(): Promise<void>
   setLoggedIn(loggedIn: boolean): void
-  shouldCollect(): Promise<boolean>
+  analyticsEnabled(): Promise<boolean>
   startSession(input: SessionStart): void
   recordResponseDelta(): void
   recordFileEdit(filePath: string): void
@@ -31,6 +34,8 @@ interface AnalyticsCollectorDependency {
 interface AnalyticsUploaderDependency {
   restorePending(): Promise<void>
   startPeriodicFlush(): void
+  stopPeriodicFlush(): void
+  clearQueue(): Promise<void>
   shutdown(): Promise<void>
   upload(submission: AnalyticsSubmission): Promise<boolean>
 }
@@ -42,13 +47,17 @@ interface AnalyticsPluginDependencies {
   isJwtExpired(): Promise<boolean | null>
   diagnostic(message: string): void | Promise<void>
   projectId(directory: string): Promise<string>
+  codeAttribution(options: CodeAttributionTrackerOptions): Promise<CodeAttributionTracker>
   version(): string
 }
 
 async function writeLog(message: string): Promise<void> {
   try {
-    fs.mkdirSync(ANALYTICS_DIR, { recursive: true })
-    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${message}\n`, "utf8")
+    fs.mkdirSync(ANALYTICS_DIR, { recursive: true, mode: 0o700 })
+    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${message}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    })
   } catch {
     // Analytics logging must never affect the TUI.
   }
@@ -58,13 +67,45 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
   return async ({ directory }) => {
     const { collector, uploader } = dependencies
     const toolStartTimes = new Map<string, number>()
+    const attributionCalls = new Set<string>()
     const projectPath = directory || process.cwd()
     const projectId = await dependencies.projectId(projectPath)
+    let attributionEligibility: boolean | undefined
+    let uploaderReady = false
+    let lastAnalyticsEnabled: boolean | undefined
     const diagnostic = async (message: string) => {
       try {
         await dependencies.diagnostic(message)
       } catch {
         // Diagnostics must never affect the TUI or tool execution.
+      }
+    }
+    const attribution = await dependencies.codeAttribution({
+      directory: projectPath,
+      projectId,
+      diagnostic,
+      submit: async (event) => {
+        const accepted = await uploader.upload({ action: ANALYTICS_ACTION.AI_CODE_ATTRIBUTION, event })
+        await diagnostic(`Attribution event queued: ${accepted}`)
+        return accepted
+      },
+    })
+
+    const updateAttributionEligibility = async (eligible: boolean) => {
+      if (attributionEligibility === eligible) return
+      try {
+        await attribution.setEnabled(eligible)
+        attributionEligibility = eligible
+      } catch {
+        await diagnostic("Attribution tracker operation failed: eligibility")
+      }
+    }
+
+    const runAttribution = async (operationName: string, operation: () => Promise<void>) => {
+      try {
+        await operation()
+      } catch {
+        await diagnostic(`Attribution tracker operation failed: ${operationName}`)
       }
     }
 
@@ -76,20 +117,40 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
       return eligible
     }
 
+    const updateUploaderEligibility = async (eligible: boolean, analyticsEnabled: boolean) => {
+      if (!uploaderReady) return
+      if (eligible) {
+        uploader.startPeriodicFlush()
+      } else {
+        uploader.stopPeriodicFlush()
+        if (!analyticsEnabled && lastAnalyticsEnabled !== false) {
+          await uploader.clearQueue()
+          await runAttribution("purge", () => attribution.purge())
+        }
+      }
+      lastAnalyticsEnabled = analyticsEnabled
+    }
+
     const ensureEligible = async () => {
       const eligibleIdentity = await refreshIdentityEligibility()
-      const eligible = eligibleIdentity && (await collector.shouldCollect())
+      const analyticsEnabled = await collector.analyticsEnabled()
+      const eligible = eligibleIdentity && analyticsEnabled
       if (!eligible) collector.clear()
+      await updateAttributionEligibility(eligible)
+      await updateUploaderEligibility(eligible, analyticsEnabled)
       return eligible
     }
 
     await collector.init()
     const isLoggedIn = await refreshIdentityEligibility()
+    const analyticsEnabled = await collector.analyticsEnabled()
+    await updateAttributionEligibility(isLoggedIn && analyticsEnabled)
 
     await diagnostic(`Plugin initialized, version: ${dependencies.version()}, logged in: ${isLoggedIn}`)
 
     await uploader.restorePending()
-    uploader.startPeriodicFlush()
+    uploaderReady = true
+    await updateUploaderEligibility(isLoggedIn && analyticsEnabled, analyticsEnabled)
 
     // Use the worker's shutdown RPC for cleanup instead of SIGINT/SIGTERM
     // handlers. Signal handlers delay process exit and can leave Flock locks
@@ -100,6 +161,13 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
     const shutdownHandler = async () => {
       if (shutdown) return
       shutdown = true
+      try {
+        await ensureEligible()
+      } catch {
+        collector.clear()
+        uploader.stopPeriodicFlush()
+      }
+      await runAttribution("shutdown", () => attribution.shutdown())
       await uploader.shutdown()
     }
 
@@ -109,11 +177,13 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
         const eventType = evt.type as string
         const props = evt.properties as Record<string, unknown> | undefined
 
-        if (!(await ensureEligible())) return
-
-        if (eventType === "message.part.delta" && props?.field === "text" && typeof props.delta === "string") {
-          collector.recordResponseDelta()
+        if (eventType === "message.part.delta") {
+          if (attributionEligibility === true && props?.field === "text" && typeof props.delta === "string")
+            collector.recordResponseDelta()
+          return
         }
+
+        if (!(await ensureEligible())) return
 
         if (eventType === "file.edited" && typeof props?.file === "string") {
           collector.recordFileEdit(props.file)
@@ -152,16 +222,19 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
       "tool.execute.before": async (input) => {
         if (!(await ensureEligible())) return
         toolStartTimes.set(input.callID, Date.now())
+        if (ATTRIBUTED_TOOLS.has(input.tool)) {
+          await runAttribution("before-ai-tool", () => attribution.beforeAiTool())
+          attributionCalls.add(input.callID)
+        }
       },
 
       "tool.execute.after": async (input, output) => {
-        if (!(await ensureEligible())) return
-
+        const startTime = toolStartTimes.get(input.callID)
+        if (startTime === undefined) return
+        toolStartTimes.delete(input.callID)
         const metadata = output.metadata as Record<string, unknown> | undefined
         const hasError = metadata?.error || output.output?.includes("Error") || output.output?.includes("Failed")
-        const startTime = toolStartTimes.get(input.callID)
-        const duration = startTime ? Date.now() - startTime : 0
-        toolStartTimes.delete(input.callID)
+        const duration = Date.now() - startTime
         collector.recordToolExecution(input.tool, duration, !hasError)
 
         if (!["edit", "multiedit", "write", "apply_patch"].includes(input.tool) || !metadata?.filediff) return
@@ -183,6 +256,23 @@ export function createAnalyticsPlugin(dependencies: AnalyticsPluginDependencies)
         if (typeof filePath === "string") collector.recordFileDiff(filePath, additions, deletions)
       },
 
+      "tool.execute.finally": async (input) => {
+        toolStartTimes.delete(input.callID)
+        if (!attributionCalls.delete(input.callID)) return
+        const analyticsEnabled = await collector.analyticsEnabled()
+        if (!analyticsEnabled) {
+          collector.clear()
+          await updateAttributionEligibility(false)
+          await updateUploaderEligibility(false, false)
+          return
+        }
+        await runAttribution("after-ai-tool", () => attribution.afterAiTool())
+        const eligibleIdentity = await refreshIdentityEligibility()
+        if (!eligibleIdentity) collector.clear()
+        await updateAttributionEligibility(eligibleIdentity)
+        await updateUploaderEligibility(eligibleIdentity, true)
+      },
+
       dispose: shutdownHandler,
     }
 
@@ -197,6 +287,7 @@ const AnalyticsPlugin = createAnalyticsPlugin({
   isJwtExpired: () => devecoAuth.isJwtExpired(),
   diagnostic: writeLog,
   projectId: getOrCreateProjectId,
+  codeAttribution: createCodeAttributionTracker,
   version: getVersion,
 })
 

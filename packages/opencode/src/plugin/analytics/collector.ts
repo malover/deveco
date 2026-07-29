@@ -88,8 +88,12 @@ export class SessionCollector {
     if (!loggedIn) this.context = null
   }
 
+  async analyticsEnabled(): Promise<boolean> {
+    return this.dependencies.analyticsEnabled()
+  }
+
   async shouldCollect(): Promise<boolean> {
-    return this.loggedIn && (await this.dependencies.analyticsEnabled())
+    return this.loggedIn && (await this.analyticsEnabled())
   }
 
   startSession(input: SessionStart): void {

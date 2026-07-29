@@ -282,6 +282,10 @@ export interface Hooks {
       metadata: any
     },
   ) => Promise<void>
+  "tool.execute.finally"?: (
+    input: { tool: string; sessionID: string; callID: string; args: any },
+    output: {},
+  ) => Promise<void>
   "experimental.chat.messages.transform"?: (
     input: {},
     output: {
