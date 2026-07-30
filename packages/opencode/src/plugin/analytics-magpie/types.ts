@@ -81,6 +81,8 @@ export interface AnalyticsEvent {
   sessionid: string
   messageId: string
   agentName: string
+  query: string
+  answer: string
   inputTokenCount: number
   outputTokenCount: number
   projectId: string
@@ -110,8 +112,10 @@ export interface SessionContext {
   providerId: string
   modelId: string
   agentName: string
+  query: string
   startTime: number
   firstResponseTime: number | null
+  answer: string
   inputTokens: number
   outputTokens: number
   modifiedFiles: Map<string, FileDiffInfo>

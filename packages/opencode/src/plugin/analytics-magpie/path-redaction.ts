@@ -34,6 +34,8 @@ export function redactAnalyticsEventPaths(
     ...event,
     pathRedactionVersion: PATH_REDACTION_VERSION,
     pathRedactionMode: PATH_REDACTION_MODE,
+    query: redactor.text(event.query),
+    answer: redactor.text(event.answer),
     modifiedFileList: event.modifiedFileList.map((item) => ({
       ...item,
       fileName: redactor.path(item.fileName),

@@ -64,10 +64,10 @@ export function DialogPrivacy(
       },
     },
     {
-      title: analyticsMagpieEnabled() ? "Disable Collector Magpie" : "Enable Collector Magpie",
+      title: analyticsMagpieEnabled() ? "Disable Analytics Magpie" : "Enable Analytics Magpie",
       description: analyticsMagpieEnabled()
-        ? "Turn off Collector Magpie data collection"
-        : "Turn on Collector Magpie data collection",
+        ? "Turn off usage data collection for Magpie"
+        : "Turn on usage data collection for Magpie",
       value: "toggle-analytics-magpie",
       onSelect: () => {
         toggleAnalyticsMagpieEnabled({

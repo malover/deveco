@@ -7,7 +7,7 @@ import {
   globalCollector,
   type AssistantUpdate,
   type SessionCollector,
-  type TextPartSignal,
+  type TextPartSnapshot,
   type ToolPartSnapshot,
 } from "./collector"
 import { getAnalyticsMagpieEnabled, getVersion } from "./storage"
@@ -263,7 +263,7 @@ function toolPart(value: unknown): ToolPartSnapshot | undefined {
   }
 }
 
-function textPart(value: unknown): TextPartSignal | undefined {
+function textPart(value: unknown): TextPartSnapshot | undefined {
   const part = record(value)
   if (
     part?.type !== "text" ||
@@ -282,7 +282,7 @@ function textPart(value: unknown): TextPartSignal | undefined {
     sessionID: part.sessionID,
     messageID: part.messageID,
     type: "text",
-    hasText: part.text.length > 0,
+    text: part.text,
     ...(time
       ? {
           time: {
@@ -298,6 +298,22 @@ type ChatMessageInput = Parameters<NonNullable<Hooks["chat.message"]>>[0]
 type ChatMessageOutput = Parameters<NonNullable<Hooks["chat.message"]>>[1]
 type ToolExecuteAfterInput = Parameters<NonNullable<Hooks["tool.execute.after"]>>[0]
 type ToolExecuteAfterOutput = Parameters<NonNullable<Hooks["tool.execute.after"]>>[1]
+
+function extractTextParts(value: unknown): string {
+  if (!Array.isArray(value)) return ""
+  return value
+    .map(record)
+    .filter((part) => part?.type === "text" && typeof part.text === "string")
+    .map((part) => part?.text ?? "")
+    .join("")
+}
+
+function resolveTurnQuery(output: ChatMessageOutput): string {
+  if (typeof output.message === "string") return output.message
+  const message = record(output.message)
+  if (typeof message?.content === "string" && message.content) return message.content
+  return extractTextParts(output.parts)
+}
 
 class AnalyticsMagpiePluginInstance {
   private readonly ownedSessions = new Set<string>()
@@ -441,7 +457,7 @@ class AnalyticsMagpiePluginInstance {
       props.delta.length === 0
     )
       return
-    this.dependencies.collector.recordTextDelta(props.sessionID, props.messageID, props.partID, receivedAt)
+    this.dependencies.collector.recordTextDelta(props.sessionID, props.messageID, props.partID, props.delta, receivedAt)
   }
 
   private recordAssistant(props: Record<string, unknown> | undefined, receivedAt: number): void {
@@ -509,6 +525,7 @@ class AnalyticsMagpiePluginInstance {
       providerId: model.providerID,
       modelId: model.modelID ?? "unknown",
       agentName: resolveTurnAgentName(input.agent, output.message),
+      query: resolveTurnQuery(output),
       ...(number(time?.created) !== undefined ? { startedAt: number(time?.created) } : {}),
     })
     await this.diagnostic(

@@ -34,6 +34,12 @@ interface ToolLink {
   background?: boolean
 }
 
+interface CollectedTextPart {
+  text: string
+  order: number
+  firstResponseAt?: number
+}
+
 export interface AssistantUpdate {
   sessionID: string
   messageID: string
@@ -69,12 +75,12 @@ export interface ToolPartSnapshot {
   }
 }
 
-export interface TextPartSignal {
+export interface TextPartSnapshot {
   id: string
   sessionID: string
   messageID: string
   type: "text"
-  hasText: boolean
+  text: string
   time?: {
     start?: number
     end?: number
@@ -331,11 +337,12 @@ export class SessionCollector {
   private readonly contexts = new Map<TurnKey, SessionContext>()
   private readonly activeTurnBySession = new Map<string, TurnKey>()
   private readonly assistantToTurn = new Map<AssistantKey, TurnKey>()
-  private readonly textPartFirstResponse = new Map<AssistantKey, Map<string, number>>()
+  private readonly textParts = new Map<AssistantKey, Map<string, CollectedTextPart>>()
   private readonly pendingToolParts = new Map<AssistantKey, Map<string, ToolPartSnapshot>>()
   private readonly toolLinks = new Map<PartKey, ToolLink>()
   private readonly parentBySession = new Map<string, string>()
   private readonly parentRefBySession = new Map<string, ParentRef>()
+  private nextTextPartOrder = 0
   private loggedIn = false
 
   constructor(dependencies: Partial<CollectorDependencies> = {}) {
@@ -362,6 +369,7 @@ export class SessionCollector {
     providerId: string
     modelId: string
     agentName: string
+    query: string
     startedAt?: number
   }): void {
     if (!this.loggedIn || !input.messageID) return
@@ -373,8 +381,10 @@ export class SessionCollector {
       providerId: input.providerId,
       modelId: input.modelId,
       agentName: input.agentName,
+      query: input.query,
       startTime: input.startedAt ?? Date.now(),
       firstResponseTime: null,
+      answer: "",
       inputTokens: 0,
       outputTokens: 0,
       modifiedFiles: new Map(),
@@ -424,7 +434,7 @@ export class SessionCollector {
 
     const assistant = assistantKey(input.sessionID, input.messageID)
     this.assistantToTurn.set(assistant, key)
-    this.syncFirstResponse(key)
+    this.syncTurnAnswer(key)
 
     const parts = this.pendingToolParts.get(assistant)
     if (!parts) return
@@ -432,13 +442,31 @@ export class SessionCollector {
     parts.forEach((part) => this.recordToolPart(part))
   }
 
-  recordTextDelta(sessionID: string, assistantMessageID: string, partID: string, timestamp = Date.now()): void {
-    this.recordFirstResponse(assistantKey(sessionID, assistantMessageID), partID, timestamp)
+  recordTextDelta(
+    sessionID: string,
+    assistantMessageID: string,
+    partID: string,
+    delta: string,
+    timestamp = Date.now(),
+  ): void {
+    if (!delta) return
+    const assistant = assistantKey(sessionID, assistantMessageID)
+    const part = this.getOrCreateTextPart(assistant, partID)
+    part.text += delta
+    part.firstResponseAt ??= timestamp
+    const key = this.assistantToTurn.get(assistant)
+    if (key) this.syncTurnAnswer(key)
   }
 
-  recordTextPart(part: TextPartSignal, timestamp = Date.now()): void {
-    if (!part.hasText) return
-    this.recordFirstResponse(assistantKey(part.sessionID, part.messageID), part.id, part.time?.start ?? timestamp)
+  recordTextPart(part: TextPartSnapshot, timestamp = Date.now()): void {
+    const assistant = assistantKey(part.sessionID, part.messageID)
+    const collected = this.getOrCreateTextPart(assistant, part.id)
+    collected.text = part.text
+    if (part.text && collected.firstResponseAt === undefined) {
+      collected.firstResponseAt = part.time?.start ?? timestamp
+    }
+    const key = this.assistantToTurn.get(assistant)
+    if (key) this.syncTurnAnswer(key)
   }
 
   recordToolPart(part: ToolPartSnapshot): void {
@@ -534,7 +562,7 @@ export class SessionCollector {
     this.assistantToTurn.forEach((value, assistant) => {
       if (value !== key) return
       this.assistantToTurn.delete(assistant)
-      this.textPartFirstResponse.delete(assistant)
+      this.textParts.delete(assistant)
       this.pendingToolParts.delete(assistant)
     })
     context.toolExecutions.forEach((_, partID) => this.toolLinks.delete(partKey(sessionID, partID)))
@@ -551,9 +579,9 @@ export class SessionCollector {
     this.assistantToTurn.forEach((value, key) => {
       if (removed.has(value)) this.assistantToTurn.delete(key)
     })
-    Array.from(this.textPartFirstResponse.keys())
+    Array.from(this.textParts.keys())
       .filter((key) => key.startsWith(`${sessionID}\u0000`))
-      .forEach((key) => this.textPartFirstResponse.delete(key))
+      .forEach((key) => this.textParts.delete(key))
     Array.from(this.pendingToolParts.keys())
       .filter((key) => key.startsWith(`${sessionID}\u0000`))
       .forEach((key) => this.pendingToolParts.delete(key))
@@ -566,11 +594,12 @@ export class SessionCollector {
     this.contexts.clear()
     this.activeTurnBySession.clear()
     this.assistantToTurn.clear()
-    this.textPartFirstResponse.clear()
+    this.textParts.clear()
     this.pendingToolParts.clear()
     this.toolLinks.clear()
     this.parentBySession.clear()
     this.parentRefBySession.clear()
+    this.nextTextPartOrder = 0
   }
 
   private activeContext(sessionID: string): SessionContext | undefined {
@@ -584,20 +613,27 @@ export class SessionCollector {
     return key ? this.contexts.get(key) : undefined
   }
 
-  private recordFirstResponse(assistant: AssistantKey, partID: string, timestamp: number): void {
-    const parts = this.textPartFirstResponse.get(assistant) ?? new Map<string, number>()
-    if (!this.textPartFirstResponse.has(assistant)) this.textPartFirstResponse.set(assistant, parts)
-    if (!parts.has(partID)) parts.set(partID, timestamp)
-    const key = this.assistantToTurn.get(assistant)
-    if (key) this.syncFirstResponse(key)
+  private getOrCreateTextPart(assistant: AssistantKey, partID: string): CollectedTextPart {
+    const parts = this.textParts.get(assistant) ?? new Map<string, CollectedTextPart>()
+    if (!this.textParts.has(assistant)) this.textParts.set(assistant, parts)
+    const existing = parts.get(partID)
+    if (existing) return existing
+    const part = { text: "", order: this.nextTextPartOrder++ }
+    parts.set(partID, part)
+    return part
   }
 
-  private syncFirstResponse(key: TurnKey): void {
+  private syncTurnAnswer(key: TurnKey): void {
     const context = this.contexts.get(key)
     if (!context) return
-    const timestamps = Array.from(this.textPartFirstResponse)
+    const parts = Array.from(this.textParts)
       .filter(([assistant]) => this.assistantToTurn.get(assistant) === key)
-      .flatMap(([, parts]) => Array.from(parts.values()))
+      .flatMap(([, value]) => Array.from(value.values()))
+      .sort((a, b) => a.order - b.order)
+    context.answer = parts.map((part) => part.text).join("")
+    const timestamps = parts
+      .map((part) => part.firstResponseAt)
+      .filter((timestamp): timestamp is number => timestamp !== undefined)
     if (timestamps.length > 0) context.firstResponseTime = Math.min(...timestamps)
   }
 
@@ -613,7 +649,7 @@ export class SessionCollector {
     const toolExecutions = Array.from(context.toolExecutions.values()).sort(
       (a, b) => a.startedAt - b.startedAt || a.partId.localeCompare(b.partId),
     )
-    this.syncFirstResponse(turnKey(context.sessionID, context.messageId))
+    this.syncTurnAnswer(turnKey(context.sessionID, context.messageId))
     const totalElapsed = Math.max(0, Date.now() - context.startTime)
     const firstResultElapsed =
       context.firstResponseTime === null ? totalElapsed : Math.max(0, context.firstResponseTime - context.startTime)
@@ -631,6 +667,8 @@ export class SessionCollector {
       sessionid: context.sessionID,
       messageId: context.messageId,
       agentName: context.agentName,
+      query: context.query,
+      answer: context.answer,
       inputTokenCount: context.inputTokens,
       outputTokenCount: context.outputTokens,
       projectId,

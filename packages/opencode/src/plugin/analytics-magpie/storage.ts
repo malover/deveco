@@ -237,6 +237,8 @@ const ANALYTICS_EVENT_REQUIRED_KEYS = [
   "sessionid",
   "messageId",
   "agentName",
+  "query",
+  "answer",
   "inputTokenCount",
   "outputTokenCount",
   "projectId",
@@ -273,6 +275,8 @@ function hasValidAnalyticsMetadata(value: Record<string, unknown>): boolean {
     typeof value.sessionid === "string" &&
     typeof value.messageId === "string" &&
     typeof value.agentName === "string" &&
+    typeof value.query === "string" &&
+    typeof value.answer === "string" &&
     isNonNegativeNumber(value.inputTokenCount) &&
     isNonNegativeNumber(value.outputTokenCount) &&
     isUuid(value.projectId) &&
