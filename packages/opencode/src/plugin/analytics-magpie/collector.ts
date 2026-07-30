@@ -449,7 +449,7 @@ export class SessionCollector {
     delta: string,
     timestamp = Date.now(),
   ): void {
-    if (!delta) return
+    if (!delta || !this.activeTurnBySession.has(sessionID)) return
     const assistant = assistantKey(sessionID, assistantMessageID)
     const part = this.getOrCreateTextPart(assistant, partID)
     part.text += delta
@@ -459,6 +459,7 @@ export class SessionCollector {
   }
 
   recordTextPart(part: TextPartSnapshot, timestamp = Date.now()): void {
+    if (!this.activeTurnBySession.has(part.sessionID)) return
     const assistant = assistantKey(part.sessionID, part.messageID)
     const collected = this.getOrCreateTextPart(assistant, part.id)
     collected.text = part.text
@@ -472,6 +473,9 @@ export class SessionCollector {
   recordToolPart(part: ToolPartSnapshot): void {
     const key = partKey(part.sessionID, part.id)
     const link = toolLink(part, this.toolLinks.get(key))
+    const sourceActive = this.activeTurnBySession.has(part.sessionID)
+    const childActive = link.childSessionId ? this.activeTurnBySession.has(link.childSessionId) : false
+    if (!sourceActive && !childActive) return
     this.toolLinks.set(key, link)
 
     if (link.childSessionId) {
@@ -495,6 +499,7 @@ export class SessionCollector {
     const turn = this.assistantToTurn.get(assistant)
     const context = turn ? this.contexts.get(turn) : undefined
     if (!context) {
+      if (!sourceActive) return
       const pending = this.pendingToolParts.get(assistant) ?? new Map<string, ToolPartSnapshot>()
       pending.set(part.id, part)
       this.pendingToolParts.set(assistant, pending)

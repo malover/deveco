@@ -431,10 +431,11 @@ class AnalyticsMagpiePluginInstance {
   }
 
   private async handleEvent(event: unknown, receivedAt: number, admitted: boolean, epoch: number): Promise<void> {
-    if (!admitted || this.dependencies.runtimeEpoch() !== epoch || !(await this.ensureEligible(epoch))) return
+    if (!admitted || this.dependencies.runtimeEpoch() !== epoch) return
     const value = event as Record<string, unknown>
     const eventType = typeof value.type === "string" ? value.type : ""
     const props = record(value.properties)
+    if (!this.ownsEvent(eventType, props) || !(await this.ensureEligible(epoch))) return
     const idleSessionID = resolveIdleSessionID(eventType, props)
     if (idleSessionID) return this.persistSession(idleSessionID, epoch)
     if (eventType === "message.part.delta") return this.recordTextDelta(props, receivedAt)
@@ -445,6 +446,34 @@ class AnalyticsMagpiePluginInstance {
     if (eventType === "session.error" && typeof props?.sessionID === "string") {
       this.dependencies.collector.markFailure(props.sessionID, props.error)
     }
+  }
+
+  private ownsEvent(eventType: string, props: Record<string, unknown> | undefined): boolean {
+    const idleSessionID = resolveIdleSessionID(eventType, props)
+    if (idleSessionID) return this.ownedSessions.has(idleSessionID)
+    if (eventType === "message.updated") {
+      const identity = assistantIdentity(props)
+      return (
+        identity !== undefined && identity.info.providerID === "deveco" && this.ownedSessions.has(identity.sessionID)
+      )
+    }
+    if (eventType === "message.part.delta") {
+      return typeof props?.sessionID === "string" && this.ownedSessions.has(props.sessionID)
+    }
+    if (eventType === "message.part.updated") {
+      const part = record(props?.part)
+      return typeof part?.sessionID === "string" && this.ownedSessions.has(part.sessionID)
+    }
+    if (eventType === "session.created") {
+      const info = record(props?.info)
+      return typeof info?.parentID === "string" && this.ownedSessions.has(info.parentID)
+    }
+    if (eventType === "file.edited") {
+      return typeof props?.sessionID !== "string" || this.ownedSessions.has(props.sessionID)
+    }
+    return (
+      eventType === "session.error" && typeof props?.sessionID === "string" && this.ownedSessions.has(props.sessionID)
+    )
   }
 
   private recordTextDelta(props: Record<string, unknown> | undefined, receivedAt: number): void {
@@ -506,11 +535,13 @@ class AnalyticsMagpiePluginInstance {
   ): Promise<void> {
     if (!admitted || this.dependencies.runtimeEpoch() !== epoch) return
     if (!(await this.ensureEligible(epoch))) {
+      this.ownedSessions.delete(input.sessionID)
       this.dependencies.collector.clearSession(input.sessionID)
       return
     }
     const model = resolveTurnModel(input.model, output.message)
     if (model.providerID !== "deveco") {
+      this.ownedSessions.delete(input.sessionID)
       this.dependencies.collector.clearSession(input.sessionID)
       return
     }
