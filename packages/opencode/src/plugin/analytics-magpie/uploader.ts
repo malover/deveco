@@ -16,7 +16,7 @@ import {
   removePendingEvent,
 } from "./storage"
 import type { EnqueuedMagpieAnalyticsEvent, PendingMagpieAnalyticsEvent } from "./storage"
-import { DEFAULT_CONFIG, MAGPIE_ANALYTICS_ACTION } from "./types"
+import { MAGPIE_ANALYTICS_ACTION, MAGPIE_DEFAULT_CONFIG } from "./types"
 import type { AnalyticsConfig, AnalyticsEvent, HuaweiTracePayload } from "./types"
 
 const ANALYTICS_DIR = path.join(Global.Path.data, "analytics", "log")
@@ -167,7 +167,7 @@ export class MagpieAnalyticsUploader {
   private shuttingDown = false
 
   constructor(config: Partial<AnalyticsConfig> = {}, dependencies: Partial<UploaderDependencies> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config }
+    this.config = { ...MAGPIE_DEFAULT_CONFIG, ...config }
     this.dependencies = { ...defaultDependencies, ...dependencies }
   }
 

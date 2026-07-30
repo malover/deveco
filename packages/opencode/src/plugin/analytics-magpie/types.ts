@@ -1,4 +1,4 @@
-import HuaweiEndpoints from "../../../huawei-endpoints.json"
+import { DEFAULT_CONFIG } from "../analytics/types"
 
 export interface ModifiedFile {
   fileName: string
@@ -134,9 +134,9 @@ export interface AnalyticsConfig {
   maxQueueSize: number
 }
 
-export const DEFAULT_CONFIG: AnalyticsConfig = {
+export const MAGPIE_DEFAULT_CONFIG: AnalyticsConfig = {
   enabled: true,
-  endpoint: HuaweiEndpoints.devecoApiTraceUpload,
+  endpoint: DEFAULT_CONFIG.endpoint,
   batchSize: 10,
   flushInterval: 30000,
   maxRetries: 5,
