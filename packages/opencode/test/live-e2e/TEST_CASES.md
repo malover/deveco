@@ -16,6 +16,7 @@ This document is the case map for live end-to-end tests. These tests may use the
 | `PROJECT_CUSTOM_SKILL`             | 创建项目级 skill                       | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/project-custom-skill.case.ts`             |
 | `CONFIG_LOCAL_MCP`                 | 配置本地 MCP                           | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/config-local-mcp.case.ts`                 |
 | `CONFIG_REMOTE_MCP`                | 配置远端 MCP                           | `llm`    | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/config-remote-mcp.case.ts`                |
+| `MCP_ADD_SERVER`                   | 添加 MCP 服务器                        | `cli`    | `P1`     | 无                                                          | `cases/mcp-add-server.case.ts`                   |
 | `MCP_LIST_SERVERS`                 | 列出 MCP 服务器                        | `cli`    | `P1`     | 无                                                          | `cases/mcp-list-servers.case.ts`                 |
 | `SKILL_ERROR_INVALID_IMPORT`       | 无效引用修复                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-error-invalid-import.case.ts`       |
 | `SKILL_ERROR_TYPE_MISMATCH`        | 类型错误修复                           | `skill`  | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-error-type-mismatch.case.ts`        |
@@ -39,17 +40,23 @@ This document is the case map for live end-to-end tests. These tests may use the
 | `PLAN_MODE_BUILTIN_TOOLS`          | plan模式内置工具列表                   | `cli`    | `P1`     | `huawei-auth`, `deveco-provider`, `deveco-home`             | `cases/plan-mode-builtin-tools.case.ts`          |
 | `UPGRADE_COMMAND`                  | upgrade命令验证                        | `cli`    | `P1`     | 无                                                          | `cases/upgrade-command.case.ts`                  |
 | `AUTH_LIST_PROVIDERS`              | 列出已认证的AI服务供应商               | `cli`    | `P1`     | `huawei-auth`                                               | `cases/auth-list-providers.case.ts`              |
+| `AUTH_LOGOUT`                      | 登出认证服务                           | `cli`    | `P1`     | 无                                                          | `cases/auth-logout.case.ts`                      |
 | `MODELS_LIST`                      | 列出可用模型                           | `cli`    | `P1`     | `huawei-auth`                                               | `cases/models-list.case.ts`                      |
 | `AGENT_LIST`                       | 列出所有agent                          | `cli`    | `P1`     | —                                                           | `cases/agent-list.case.ts`                       |
 | `AGENT_CREATE`                     | 创建 agent 配置                        | `llm`    | `P1`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/agent-create.case.ts`                     |
 | `SESSION_LIST`                     | 列出所有会话                           | `cli`    | `P1`     | —                                                           | `cases/session-list.case.ts`                     |
+| `SESSION_IMPORT`                   | 导入最简会话                           | `cli`    | `P1`     | 无                                                          | `cases/session-import.case.ts`                   |
+| `SESSION_EXPORT`                   | 导出指定会话                           | `cli`    | `P1`     | 无                                                          | `cases/session-export.case.ts`                   |
+| `TOKEN_STATS`                      | 查看 Token 使用统计                    | `cli`    | `P1`     | 无                                                          | `cases/token-stats.case.ts`                      |
 | `ACP_STARTUP`                      | ACP 服务启动与握手                     | `cli`    | `P0`     | 无                                                          | `cases/acp-startup.case.ts`                      |
 | `DEVECO_TUI_START`                 | TUI 启动命令可用                       | `cli`    | `P1`     | 无                                                          | `cases/deveco-tui-start.case.ts`                 |
-| `SKILL_ARKUI_CARD_GRID`            | 卡片式网格布局                         | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-card-grid.case.ts`             |
-| `SKILL_ARKUI_OVERLAY_STACK`        | 叠加层布局                             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-overlay-stack.case.ts`         |
-| `SKILL_ARKUI_IMAGE_TEXT_MIX`       | 图文混排                               | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-image-text-mix.case.ts`        |
-| `SKILL_ARKUI_VERTICAL_LIST`        | 垂直列表布局                           | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-vertical-list.case.ts`         |
-| `SKILL_ARKUI_HORIZONTAL_NAVBAR`    | 水平导航栏                             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-horizontal-navbar.case.ts`     |
+| `SERVE_STARTUP`                    | Serve 服务启动与健康检查               | `cli`    | `P1`     | 无                                                          | `cases/serve-startup.case.ts`                    |
+| `ATTACH_RUNNING_SERVER`            | Attach 连接运行中服务器                | `cli`    | `P1`     | 无                                                          | `cases/attach-running-server.case.ts`            |
+| `SKILL_ARKUI_CARD_GRID`            | 卡片式网格布局                         | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-card-grid.case.ts`            |
+| `SKILL_ARKUI_OVERLAY_STACK`        | 叠加层布局                             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-overlay-stack.case.ts`        |
+| `SKILL_ARKUI_IMAGE_TEXT_MIX`       | 图文混排                               | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-image-text-mix.case.ts`       |
+| `SKILL_ARKUI_VERTICAL_LIST`        | 垂直列表布局                           | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-vertical-list.case.ts`        |
+| `SKILL_ARKUI_HORIZONTAL_NAVBAR`    | 水平导航栏                             | `skill`  | `P0`     | `huawei-auth`, `real-llm`, `deveco-provider`                | `cases/skill-arkui-horizontal-navbar.case.ts`    |
 
 ## LLM_BASIC_TEXT
 
@@ -980,6 +987,30 @@ Cleanup:
 
 用例不创建临时工程；不修改任何用户配置或安装状态。
 
+## MCP_ADD_SERVER
+
+Purpose:
+
+验证 `deveco mcp add` 可在隔离配置目录中非交互式添加远程 MCP 服务器，并将配置写入配置文件。
+
+Steps:
+
+1. 创建隔离临时根目录和配置目录。
+2. 执行 `deveco mcp add live-e2e-remote --url https://example.invalid/mcp`。
+3. 验证命令成功退出且输出包含添加成功提示。
+4. 验证命令返回的配置路径位于 `<tempRoot>/config/deveco` 内，且配置文件包含正确的 MCP 服务器配置。
+
+Expected result:
+
+1. `deveco mcp add` 退出码为 0。
+2. 输出包含 `MCP server "live-e2e-remote" added to`。
+3. 配置文件中 `mcp["live-e2e-remote"].type` 为 `remote`。
+4. 配置文件中 `mcp["live-e2e-remote"].url` 为 `https://example.invalid/mcp`。
+
+Cleanup:
+
+执行结束后删除临时根目录；不读取或修改真实用户配置。
+
 ## MCP_LIST_SERVERS
 
 Purpose:
@@ -1026,6 +1057,30 @@ Cleanup:
 
 用例不创建任何临时文件或工程；真实 auth/config 只读不清理。
 
+## AUTH_LOGOUT
+
+Purpose:
+
+验证 `deveco auth logout` 可在隔离环境中删除指定 provider 凭据，输出登出成功提示，并从隔离 `auth.json` 中移除该凭据。整个过程不读取、删除或修改真实用户登录状态。
+
+Steps:
+
+1. 创建隔离临时根目录，将数据、配置、缓存和状态路径全部指向临时目录。
+2. 在隔离 `auth.json` 中预置 `live-e2e-provider` 测试凭据。
+3. 执行 `deveco auth logout live-e2e-provider`。
+4. 验证命令成功退出且输出包含 `Remove credential` 和 `Logout successful`。
+5. 重新读取隔离 `auth.json`，验证凭据已被删除且文件仍为合法 JSON。
+
+Expected result:
+
+1. `deveco auth logout` 退出码为 0。
+2. 输出包含 `Remove credential` 和 `Logout successful`。
+3. 隔离 `auth.json` 中不再包含 `live-e2e-provider`，顶层凭据数量为 0。
+
+Cleanup:
+
+执行结束后删除临时根目录；不读取、删除或修改真实用户登录状态或凭据。
+
 ## SESSION_LIST
 
 Purpose:
@@ -1046,6 +1101,84 @@ Expected result:
 Cleanup:
 
 用例不创建任何临时文件或工程；真实 auth/config 只读不清理。
+
+## SESSION_IMPORT
+
+Purpose:
+
+验证 `deveco import` 可从本地 JSON 文件导入最简会话（仅含元数据、空 messages），并通过 `session list --format json` 验证持久化结果。
+
+Steps:
+
+1. 创建隔离临时工作目录和独立 SQLite 数据库。
+2. 在临时目录生成 `seesion.json`（最简会话数据，空 messages）。
+3. 执行 `deveco import seesion.json`。
+4. 执行 `deveco session list --format json --max-count 10` 验证导入结果。
+
+Expected result:
+
+1. `import` 命令退出码为 0，stdout 包含 `Imported session: ses_live_e2e_import_minimal`。
+2. `session list` 输出 JSON 数组中包含导入的会话，id、title、created、updated 与预置值一致。
+3. 查询到的 directory 为运行时 workspace，projectId 为运行时项目 ID。
+
+Cleanup:
+
+临时 workspace、JSON 文件和 SQLite 数据库均随临时目录删除，真实用户状态不受影响。
+
+## SESSION_EXPORT
+
+Purpose:
+
+验证 `deveco export` 可通过明确 session ID 导出指定会话，输出符合 JSON 数据契约（包含 info 和 messages，字段值与导入 fixture 一致）。
+
+Steps:
+
+1. 创建隔离临时工作目录和独立 SQLite 数据库。
+2. 写入固定 `session.json` fixture（空 messages）。
+3. 执行 `deveco import session.json` 将固定会话写入隔离数据库。
+4. 执行 `deveco export <SESSION_ID>` 导出该会话。
+5. 解析 export stdout JSON 并验证数据契约。
+
+Expected result:
+
+1. `import` 命令退出码为 0，stdout 包含 `Imported session: ses_live_e2e_export_minimal`。
+2. `export` 命令退出码为 0，stdout 可直接 `JSON.parse`。
+3. JSON 顶层同时包含 `info` 和 `messages`。
+4. `info.id`、`info.slug`、`info.title`、`info.time.created`、`info.time.updated` 与固定值一致。
+5. `info.directory` 解析后等于临时 workspace（Windows 不区分大小写）。
+6. `messages` 是数组且长度为 0。
+7. stderr 包含 `Exporting session: ses_live_e2e_export_minimal`，不包含 `Session not found`。
+
+Cleanup:
+
+临时 workspace、fixture 和 SQLite 数据库随临时目录删除，真实用户状态不受影响。
+
+## TOKEN_STATS
+
+Purpose:
+
+验证 `deveco stats` 在隔离数据库中导入带固定 token 和 cost 数据的会话后，总量统计面板（OVERVIEW 和 COST & TOKENS）正确展示会话数、消息数、成本及各类 token。
+
+Steps:
+
+1. 创建隔离临时工作目录和独立 SQLite 数据库。
+2. 写入固定 `session.json` fixture（包含 cost=1.25、input=120、output=45、reasoning=0、cache.read=10、cache.write=5，空 messages）。
+3. 执行 `deveco import session.json` 将固定会话写入隔离数据库。
+4. 执行 `deveco stats` 查看总量统计。
+5. 验证 OVERVIEW 和 COST & TOKENS 面板中各项数值与 fixture 一致。
+
+Expected result:
+
+1. `import` 命令退出码为 0，stdout 包含 `Imported session: ses_live_e2e_token_stats`。
+2. `stats` 命令退出码为 0，stdout 非空。
+3. OVERVIEW 面板：Sessions=1, Messages=0, Days=1。
+4. COST & TOKENS 面板：Total Cost=$1.25, Avg Cost/Day=$1.25, Avg Tokens/Session=180, Median Tokens/Session=180。
+5. COST & TOKENS 面板：Input=120, Output=45, Cache Read=10, Cache Write=5。
+6. stdout 不包含 `NaN` 或 `Large dataset detected`。
+
+Cleanup:
+
+临时 workspace、fixture 和 SQLite 数据库随临时目录删除，真实用户状态不受影响。
 
 ## AGENT_LIST
 
@@ -1152,3 +1285,56 @@ Expected result:
 Cleanup:
 
 用例不创建任何临时文件或工程；真实 auth/config 只读不清理。
+
+## SERVE_STARTUP
+
+Purpose:
+
+验证 `deveco serve` 能在隔离环境中启动真实 CLI 常驻进程，监听动态端口，并通过 `/global/health` 健康检查确认服务可用。
+
+Steps:
+
+1. 创建隔离的临时 home 和 workspace，设置 `DEVECO_PURE=1` 和 `DEVECO_TEST_HOME`，显式清除 `DEVECO_SERVER_PASSWORD` 和 `DEVECO_SERVER_USERNAME`。
+2. 使用 `Bun.spawn` 启动 `deveco serve --hostname 127.0.0.1 --port 0`。
+3. 增量读取 stdout，匹配 `deveco server listening on http://127.0.0.1:<port>` 并提取实际端口。
+4. 请求 `GET http://127.0.0.1:<port>/global/health`（超时 10 秒）。
+5. 验证 HTTP 200、`healthy: true`、`version` 非空。
+6. 主动终止进程并清理临时目录。
+
+Expected result:
+
+1. 服务在 127.0.0.1 上成功监听（端口由服务动态选择，优先尝试 4096，不固定断言）。
+2. 健康检查返回 HTTP 200，响应 JSON 中 `healthy` 为 `true`，`version` 为非空字符串。
+3. 仅访问本机 `127.0.0.1`，不依赖外部网络。
+
+Cleanup:
+
+主动终止 serve 进程，释放监听端口，删除临时 home 和 workspace；不读取或修改真实 auth、config、token 或会话数据。
+
+## ATTACH_RUNNING_SERVER
+
+Purpose:
+
+验证 `deveco attach` 可连接运行中的 `deveco serve`，使用固定会话 ID 恢复远端会话，并进入交互式 TUI。
+
+Steps:
+
+1. 创建隔离根目录、workspace 和 SQLite 数据库，设置 `DEVECO_PURE=1`、`DEVECO_TEST_HOME`、`DEVECO_DB` 等隔离环境变量。
+2. 写入固定会话 fixture（ID `ses_live_e2e_attach_session`，标题 `Live E2E Attach Session`，空 messages），并通过 `deveco import` 导入。
+3. 使用 `deveco serve --hostname 127.0.0.1 --port 0` 启动真实 headless server，增量读取 stdout 等待监听日志并提取实际端口。
+4. 通过 PTY 执行 `deveco attach http://127.0.0.1:<port> --session <固定会话ID> --dir <workspace>`。
+5. 在 30 秒内等待交互式 TUI 就绪提示出现在 PTY 输出中。
+6. TUI 就绪后发送 Ctrl+C，等待 attach 退出；若 4 秒内未退出则强制终止。
+
+Expected result:
+
+1. `import` 命令退出码为 0，stdout 包含 `Imported session: ses_live_e2e_attach_session`。
+2. serve 在 127.0.0.1 上成功监听动态端口。
+3. attach PTY 输出不包含 `ECONNREFUSED`、`Session not found` 或 `Invalid session ID` 等错误。
+4. PTY 输出包含英文或中文的交互式 TUI 就绪提示。
+5. attach 和 serve 均被确认终止。
+6. 仅访问 `127.0.0.1`，不依赖外部网络。
+
+Cleanup:
+
+按顺序停止 attach PTY、确认 attach 退出、停止 serve 进程（普通终止失败后强制终止）、等待 serve 输出流关闭、写入诊断产物，最后容错删除临时根目录。不读取或修改真实 auth、config、token 或会话数据。

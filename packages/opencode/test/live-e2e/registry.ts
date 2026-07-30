@@ -18,6 +18,7 @@ import globalCustomSkill from "./cases/global-custom-skill.case"
 import projectCustomSkill from "./cases/project-custom-skill.case"
 import configLocalMcp from "./cases/config-local-mcp.case"
 import configRemoteMcp from "./cases/config-remote-mcp.case"
+import mcpAddServer from "./cases/mcp-add-server.case"
 import mcpListServers from "./cases/mcp-list-servers.case"
 import startAppDeploy from "./cases/start-app-deploy.case"
 import hdcLogListDevices from "./cases/hdc-log-list-devices.case"
@@ -33,12 +34,18 @@ import buildModeBuiltinTools from "./cases/build-mode-builtin-tools.case"
 import planModeBuiltinTools from "./cases/plan-mode-builtin-tools.case"
 import upgradeCommand from "./cases/upgrade-command.case"
 import authListProviders from "./cases/auth-list-providers.case"
+import authLogout from "./cases/auth-logout.case"
 import modelsList from "./cases/models-list.case"
 import agentList from "./cases/agent-list.case"
 import agentCreate from "./cases/agent-create.case"
 import sessionList from "./cases/session-list.case"
+import sessionImport from "./cases/session-import.case"
+import sessionExport from "./cases/session-export.case"
+import tokenStats from "./cases/token-stats.case"
 import acpStartup from "./cases/acp-startup.case"
 import devecoTuiStart from "./cases/deveco-tui-start.case"
+import serveStartup from "./cases/serve-startup.case"
+import attachRunningServer from "./cases/attach-running-server.case"
 import skillArkuiCardGrid from "./cases/skill-arkui-card-grid.case"
 import skillArkuiOverlayStack from "./cases/skill-arkui-overlay-stack.case"
 import skillArkuiImageTextMix from "./cases/skill-arkui-image-text-mix.case"
@@ -67,6 +74,7 @@ export const cases: LiveTestCase[] = [
   projectCustomSkill,
   configLocalMcp,
   configRemoteMcp,
+  mcpAddServer,
   mcpListServers,
   startAppDeploy,
   hdcLogListDevices,
@@ -82,12 +90,18 @@ export const cases: LiveTestCase[] = [
   planModeBuiltinTools,
   upgradeCommand,
   authListProviders,
+  authLogout,
   modelsList,
   agentList,
   agentCreate,
   sessionList,
+  sessionImport,
+  sessionExport,
+  tokenStats,
   acpStartup,
   devecoTuiStart,
+  serveStartup,
+  attachRunningServer,
   skillArkuiCardGrid,
   skillArkuiOverlayStack,
   skillArkuiImageTextMix,
