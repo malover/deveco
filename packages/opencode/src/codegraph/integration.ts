@@ -57,32 +57,27 @@ export function resolveCodeGraphExecutable(): string {
 
 /**
  * Built-in MCP definition used for every repository opened through DevEco.
+ *
+ * The MCP transport starts in the opened project directory. We route startup
+ * through serve.ts so a missing .codegraph index is initialized before the
+ * MCP server accepts graph queries. This makes CodeGraph zero-setup for the
+ * Project SPEC workflow instead of relying on an LLM shell instruction.
  */
 export function builtInCodeGraphMcp(): ConfigMCPV1.Info | undefined {
   if (!isCodeGraphEnabled()) return undefined
 
   const executable = resolveCodeGraphExecutable()
+  const wrapper = path.join(import.meta.dir, "serve.ts")
 
-  // Expose the exact executable to DevEco child shells/subagents. Project SPEC
-  // generation uses this to bootstrap/sync the opened repository's CodeGraph
-  // index without relying on a global `codegraph` installation or bunx.
+  // Expose the exact executable to child processes/subagents for diagnostics
+  // and explicit sync/rebuild operations in Project SPEC generation.
   process.env.DEVECO_CODEGRAPH_EXECUTABLE = executable
-
-  // A .cmd shim must be launched through cmd.exe on Windows.
-  if (process.platform === "win32" && executable.endsWith(".cmd")) {
-    return {
-      type: "local",
-      command: ["cmd.exe", "/d", "/s", "/c", executable, "serve", "--mcp"],
-      enabled: true,
-      timeout: 120_000,
-    }
-  }
 
   return {
     type: "local",
-    command: [executable, "serve", "--mcp"],
+    command: [process.execPath, wrapper],
     enabled: true,
-    timeout: 120_000,
+    timeout: 300_000,
   }
 }
 
@@ -96,10 +91,10 @@ export function builtInCodeGraphMcp(): ConfigMCPV1.Info | undefined {
 export const CODEGRAPH_INSTRUCTIONS = `
 ## CodeGraph
 
-When a repository has a \`.codegraph/\` directory, reach for CodeGraph BEFORE grep/find or broad file reading when you need to understand or locate code:
+DevEco bootstraps a missing CodeGraph index before starting the built-in MCP server. When CodeGraph is connected, reach for it BEFORE grep/find or broad file reading when you need to understand or locate code:
 
 - **MCP tool** (when available): \`codegraph_explore\` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
-- **Shell**: DevEco exposes the bundled executable through \`DEVECO_CODEGRAPH_EXECUTABLE\`. Project SPEC generation may use it to initialize/index/sync the current workspace before graph exploration.
+- **Shell**: DevEco exposes the bundled executable through \`DEVECO_CODEGRAPH_EXECUTABLE\`. Project SPEC generation may use it for explicit status/sync/rebuild operations.
 
-For ordinary ad-hoc exploration, if there is no \`.codegraph/\` directory, do not create one unless the active workflow explicitly requires graph bootstrap. Project SPEC Step 0 explicitly requires that bootstrap when CodeGraph is available.
+A missing \`.codegraph/\` directory should normally be temporary: the built-in MCP bootstrap creates and indexes it before the server connects. If CodeGraph is shown as connected but the directory is still absent, treat that as a bootstrap failure rather than silently falling back.
 `.trim()
