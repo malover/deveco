@@ -23,6 +23,13 @@ agent: goal
 ## Execution Workflow
 
 0. **Ensure Project SPEC (existing projects only)**:
+    - Before any repository analysis, call `todowrite` with this six-step list so Project SPEC is visible in the Goal UI as Step 0:
+      - `Step 0: Project SPEC — Repository Analysis` → `in_progress`, priority `high`
+      - `Phase 1: Requirements Analysis` → `pending`, priority `high`
+      - `Phase 2: Architecture & Design Planning` → `pending`, priority `high`
+      - `Phase 3: Task Breakdown` → `pending`, priority `high`
+      - `Phase 4: Implementation` → `pending`, priority `high`
+      - `Phase 5: Verification & Validation` → `pending`, priority `high`
     - Set `PROJECT_SPEC = {PROJECT_ROOT}/spec/project-spec.md`.
     - If `PROJECT_SPEC` exists, read it and continue. Do not regenerate it during the same SDD run.
     - If `PROJECT_SPEC` does not exist:
@@ -37,6 +44,8 @@ agent: goal
            - perform no feature implementation or source edits.
         3. Read `PROJECT_SPEC` after successful generation.
     - **Graceful fallback:** if Project SPEC generation fails, continue requirements analysis without it and report the limitation. Do not block Phase 1 solely because repository context generation failed.
+    - After Project SPEC is read successfully, or after the graceful fallback has been recorded, call `todowrite` again with the same six items, changing `Step 0: Project SPEC — Repository Analysis` to `completed` and `Phase 1: Requirements Analysis` to `in_progress`. Keep Phases 2–5 `pending`.
+    - Keep Step 0 in the todo list for the remainder of the Goal run so the UI shows that repository analysis was executed.
     - Use Project SPEC only to understand verified existing behavior/scope. Do not copy technical architecture into the feature specification unless it is itself a user-visible constraint.
 
 1. **Generate Feature Short Name**:
