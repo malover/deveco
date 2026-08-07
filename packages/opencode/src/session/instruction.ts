@@ -13,6 +13,7 @@ import { withTransientReadRetry } from "@/util/effect-http-client"
 import { Global } from "@opencode-ai/core/global"
 import type { MessageV2 } from "./message-v2"
 import type { MessageID } from "./schema"
+import { CODEGRAPH_INSTRUCTIONS, isCodeGraphEnabled } from "@/codegraph/integration"
 
 function extract(messages: SessionV1.WithParts[]) {
   const paths = new Set<string>()
@@ -76,7 +77,7 @@ export const layer: Layer.Layer<
       ),
     )
 
-const relative = Effect.fnUntraced(function* (instruction: string) {
+    const relative = Effect.fnUntraced(function* (instruction: string) {
       const ctx = yield* InstanceState.context
       if (!Flag.DEVECO_DISABLE_PROJECT_CONFIG) {
         return yield* fs
@@ -165,6 +166,7 @@ const relative = Effect.fnUntraced(function* (instruction: string) {
       return [
         ...Array.from(paths).flatMap((item, i) => (files[i] ? [`Instructions from: ${item}\n${files[i]}`] : [])),
         ...urls.flatMap((item, i) => (remote[i] ? [`Instructions from: ${item}\n${remote[i]}`] : [])),
+        ...(isCodeGraphEnabled() ? [`Built-in CodeGraph instructions\n${CODEGRAPH_INSTRUCTIONS}`] : []),
       ]
     })
 

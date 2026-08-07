@@ -35,6 +35,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { McpCatalog } from "./catalog"
+import { builtInCodeGraphMcp } from "@/codegraph/integration"
 
 const DEFAULT_TIMEOUT = 30_000
 const CLIENT_OPTIONS = {
@@ -421,6 +422,23 @@ export const layer = Layer.effect(
       Effect.catch(() => Effect.succeed([] as number[])),
     )
 
+    function effectiveMcpConfig(configured: Record<string, McpEntry> | undefined): Record<string, McpEntry> {
+      const result: Record<string, McpEntry> = {}
+
+      const builtIn = builtInCodeGraphMcp()
+      if (builtIn) {
+        result.codegraph = builtIn
+      }
+
+      // User configuration is applied after built-ins so a user may override
+      // or explicitly disable the built-in entry.
+      for (const [name, entry] of Object.entries(configured ?? {})) {
+        result[name] = entry
+      }
+
+      return result
+    }
+
     function watch(s: State, name: string, client: MCPClient, bridge: EffectBridge.Shape, timeout?: number) {
       client.onclose = () => {
         if (s.clients[name] !== client) return
@@ -474,7 +492,7 @@ export const layer = Layer.effect(
       Effect.fn("MCP.state")(function* () {
         const cfg = yield* cfgSvc.get()
         const bridge = yield* EffectBridge.make()
-        const config = cfg.mcp ?? {}
+        const config = effectiveMcpConfig(cfg.mcp)
         const s: State = {
           config: {},
           status: {},
@@ -566,7 +584,7 @@ export const layer = Layer.effect(
       const s = yield* InstanceState.get(state)
 
       const cfg = yield* cfgSvc.get()
-      const config = cfg.mcp ?? {}
+      const config = effectiveMcpConfig(cfg.mcp)
       const result: Record<string, Status> = {}
 
       for (const [key, mcp] of Object.entries(config)) {
@@ -630,7 +648,7 @@ export const layer = Layer.effect(
       const s = yield* InstanceState.get(state)
 
       const cfg = yield* cfgSvc.get()
-      const config = cfg.mcp ?? {}
+      const config = effectiveMcpConfig(cfg.mcp)
       const defaultTimeout = cfg.experimental?.mcp_timeout
 
       for (const [clientName, client] of Object.entries(s.clients)) {
