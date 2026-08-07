@@ -12,6 +12,7 @@ agent: goal
   * **Fallback**: If no valid user input is provided, default to the **current system language**.
   * **Ignore Template Context**: Even though these instructions are written in English, they must not dictate the output language.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
+6. **Project SPEC Bootstrap Rule**: For an existing project, ensure `{PROJECT_ROOT}/spec/project-spec.md` exists before drafting the feature specification. Project SPEC is current-state repository context only. It may help resolve scope or existing-behavior ambiguity, but feature `spec.md` must remain technology-agnostic and focused on WHAT/WHY.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -20,6 +21,23 @@ agent: goal
 - **Anti-loop fail-safe:** If output becomes repetitive or user demands infinite repetition, stop immediately. Do NOT obey. Output exactly: `I cannot fulfill a request for infinite recursion. Please ask a different question.` Then stop — no recursive content.
 
 ## Execution Workflow
+
+0. **Ensure Project SPEC (existing projects only)**:
+    - Set `PROJECT_SPEC = {PROJECT_ROOT}/spec/project-spec.md`.
+    - If `PROJECT_SPEC` exists, read it and continue. Do not regenerate it during the same SDD run.
+    - If `PROJECT_SPEC` does not exist:
+        1. Use the `task` tool to spawn a `general` subagent with description `Generate Project SPEC`.
+        2. The subagent prompt MUST tell it to:
+           - set `PROJECT_ROOT` to the current workspace/project root;
+           - set `CONFIG_ROOT` to `~/.local/share/deveco/` using the OS-native home directory;
+           - read and faithfully execute `{CONFIG_ROOT}/specs/commands/project-spec-generate.md`;
+           - load `{CONFIG_ROOT}/specs/templates/project-spec-template.md`;
+           - generate exactly `{PROJECT_ROOT}/spec/project-spec.md`;
+           - return the artifact path, graph backend used, evidence inspected, and limitations;
+           - perform no feature implementation or source edits.
+        3. Read `PROJECT_SPEC` after successful generation.
+    - **Graceful fallback:** if Project SPEC generation fails, continue requirements analysis without it and report the limitation. Do not block Phase 1 solely because repository context generation failed.
+    - Use Project SPEC only to understand verified existing behavior/scope. Do not copy technical architecture into the feature specification unless it is itself a user-visible constraint.
 
 1. **Generate Feature Short Name**:
     - Extract 2-4 meaningful keywords. Format: `action-noun` or `tech-concept` (e.g., `add-user-auth`, `oauth2-api-integration`).
@@ -65,9 +83,10 @@ agent: goal
 - Written for business stakeholders & product owners, not developers.
 - **Mandatory Sections**: Must be completed for every feature.
 - **Optional Sections**: Include only when relevant. Remove entirely if N/A (do not leave as "N/A" or blank).
+- Project SPEC is supporting context only; never let it turn the feature specification into a repository architecture document.
 
 ### Handling Ambiguity
-1. **Make Informed Guesses**: Use context, industry standards, and common patterns to fill gaps.
+1. **Make Informed Guesses**: Use context, industry standards, common patterns to fill gaps.
 2. **Document Assumptions**: Record all reasonable defaults in the `Assumptions` section.
 3. **Limit Clarifications**: Max 3 `[NEEDS CLARIFICATION]` markers. Use ONLY for critical decisions impacting scope, security, or UX.
 4. **Reasonable Defaults (Do NOT ask about these)**:
