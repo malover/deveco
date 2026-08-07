@@ -63,6 +63,11 @@ export function builtInCodeGraphMcp(): ConfigMCPV1.Info | undefined {
 
   const executable = resolveCodeGraphExecutable()
 
+  // Expose the exact executable to DevEco child shells/subagents. Project SPEC
+  // generation uses this to bootstrap/sync the opened repository's CodeGraph
+  // index without relying on a global `codegraph` installation or bunx.
+  process.env.DEVECO_CODEGRAPH_EXECUTABLE = executable
+
   // A .cmd shim must be launched through cmd.exe on Windows.
   if (process.platform === "win32" && executable.endsWith(".cmd")) {
     return {
@@ -91,10 +96,10 @@ export function builtInCodeGraphMcp(): ConfigMCPV1.Info | undefined {
 export const CODEGRAPH_INSTRUCTIONS = `
 ## CodeGraph
 
-In repositories indexed by CodeGraph (a \`.codegraph/\` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
+When a repository has a \`.codegraph/\` directory, reach for CodeGraph BEFORE grep/find or broad file reading when you need to understand or locate code:
 
 - **MCP tool** (when available): \`codegraph_explore\` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
-- **Shell** (always works): \`codegraph explore "<symbol names or question>"\` prints the same output.
+- **Shell**: DevEco exposes the bundled executable through \`DEVECO_CODEGRAPH_EXECUTABLE\`. Project SPEC generation may use it to initialize/index/sync the current workspace before graph exploration.
 
-If there is no \`.codegraph/\` directory, skip CodeGraph entirely — indexing is the user's decision.
+For ordinary ad-hoc exploration, if there is no \`.codegraph/\` directory, do not create one unless the active workflow explicitly requires graph bootstrap. Project SPEC Step 0 explicitly requires that bootstrap when CodeGraph is available.
 `.trim()
