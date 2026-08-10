@@ -1,0 +1,45 @@
+# Configuration for document-project skill.
+# Edit this file to customize the skill's behavior for your project.
+
+# ── Runtime Configuration ──
+[config]
+# Where generated documentation is written (relative to project root).
+project_knowledge = "{project-root}/docs"
+
+# Language for agent messages during the workflow.
+communication_language = "English"
+
+# Language for all generated document content.
+document_output_language = "English"
+
+# Your name (used for greetings). Leave empty to be prompted.
+user_name = ""
+
+# ── Workflow Customization ──
+[workflow]
+
+# Steps to run before the standard activation (config load, greet).
+activation_steps_prepend = []
+
+# Steps to run after greet but before the workflow begins.
+activation_steps_append = []
+
+# Persistent facts the workflow keeps in mind for the whole run
+# (standards, compliance constraints, stylistic guardrails).
+# Each entry is either:
+#   - a literal sentence, e.g. "All functions must have JSDoc comments."
+#   - a file reference prefixed with `file:`, e.g. "file:{project-root}/docs/standards.md"
+#     (glob patterns are supported; the file's contents are loaded and treated as facts).
+persistent_facts = [
+  "file:{project-root}/**/project-context.md",
+]
+
+# Executed when the workflow reaches its terminal stage, after
+# the main output has been delivered. Leave empty for no post-completion behavior.
+on_complete = """After documentation is generated, report whether the knowledge graph and diagrams may be stale:
+
+1. CODETOGRAPH REFRESH: If docs/codetograph.json exists, recommend that the user explicitly run `/codetograph` to refresh codetograph.json and codetograph_tree.md. Never invoke it automatically.
+
+2. DIAGRAMS PRESERVATION: The docs/diagrams/ directory contains codetograph-generated .mmd sequence diagram files organized by category (god-*, entry-*, data-*, nav-*, component-*, path-*, state-*). The number is driven by what codetograph discovers — typically 15-30 diagrams. INDEX.md catalogs all diagrams with descriptions. These are linked from architecture.md. Keep them in sync — if architecture.md is regenerated, regenerate the diagrams as well via codetograph `trace_calls`/`reverse_trace_calls`/`find_path`.
+
+If codetograph is not available, report the missing tool but do not block completion — the documentation is still valid."""

@@ -36,6 +36,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { McpCatalog } from "./catalog"
 import { builtInHomeGraphMcp } from "@/homegraph/integration"
+import { builtInCodeToGraphMcp } from "@/codetograph/integration"
 
 const DEFAULT_TIMEOUT = 30_000
 const CLIENT_OPTIONS = {
@@ -397,6 +398,7 @@ export const layer = Layer.effect(
       }),
     )
     const cfgSvc = yield* Config.Service
+    const fsys = yield* FSUtil.Service
 
     const descendants = Effect.fnUntraced(
       function* (pid: number) {
@@ -422,12 +424,19 @@ export const layer = Layer.effect(
       Effect.catch(() => Effect.succeed([] as number[])),
     )
 
-    function effectiveMcpConfig(configured: Record<string, McpEntry> | undefined): Record<string, McpEntry> {
+    const effectiveMcpConfig = Effect.fn("MCP.effectiveConfig")(function* (
+      configured: Record<string, McpEntry> | undefined,
+    ) {
       const result: Record<string, McpEntry> = {}
 
       const builtIn = builtInHomeGraphMcp()
       if (builtIn) {
         result.homegraph = builtIn
+      }
+
+      const codetograph = yield* builtInCodeToGraphMcp(fsys)
+      if (codetograph) {
+        result.codetograph = codetograph
       }
 
       // User configuration is applied after built-ins so a user may override
@@ -437,7 +446,7 @@ export const layer = Layer.effect(
       }
 
       return result
-    }
+    })
 
     function watch(s: State, name: string, client: MCPClient, bridge: EffectBridge.Shape, timeout?: number) {
       client.onclose = () => {
@@ -492,7 +501,7 @@ export const layer = Layer.effect(
       Effect.fn("MCP.state")(function* () {
         const cfg = yield* cfgSvc.get()
         const bridge = yield* EffectBridge.make()
-        const config = effectiveMcpConfig(cfg.mcp)
+        const config = yield* effectiveMcpConfig(cfg.mcp)
         const s: State = {
           config: {},
           status: {},
@@ -584,7 +593,7 @@ export const layer = Layer.effect(
       const s = yield* InstanceState.get(state)
 
       const cfg = yield* cfgSvc.get()
-      const config = effectiveMcpConfig(cfg.mcp)
+      const config = yield* effectiveMcpConfig(cfg.mcp)
       const result: Record<string, Status> = {}
 
       for (const [key, mcp] of Object.entries(config)) {
@@ -648,7 +657,7 @@ export const layer = Layer.effect(
       const s = yield* InstanceState.get(state)
 
       const cfg = yield* cfgSvc.get()
-      const config = effectiveMcpConfig(cfg.mcp)
+      const config = yield* effectiveMcpConfig(cfg.mcp)
       const defaultTimeout = cfg.experimental?.mcp_timeout
 
       for (const [clientName, client] of Object.entries(s.clients)) {
@@ -966,6 +975,12 @@ export const defaultLayer = layer.pipe(
   Layer.provide(FSUtil.defaultLayer),
 )
 
-export const node = LayerNode.make(layer, [CrossSpawnSpawner.node, McpAuth.node, EventV2Bridge.node, Config.node])
+export const node = LayerNode.make(layer, [
+  CrossSpawnSpawner.node,
+  McpAuth.node,
+  EventV2Bridge.node,
+  Config.node,
+  FSUtil.node,
+])
 
 export * as MCP from "."

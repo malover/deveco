@@ -19,7 +19,7 @@
   <img src="https://raw.gitcode.com/openharmony-sig/deveco-code/raw/develop/assets/readme/readme-screenshot.png" alt="DevEco Code" width="600">
 </p>
 
-***
+---
 
 ## Quick Start
 
@@ -51,11 +51,11 @@ DevEco Code extends the open-source project [OpenCode](https://opencode.ai), kee
 
 DevEco Code is distributed via npm for the following platforms:
 
-| Platform | Architecture | Notes |
-| --- | --- | --- |
-| Windows | x64 | Windows 11 |
-| macOS | arm64 (Apple Silicon) | M-series chips |
-| macOS | x64 (Intel) | Intel Mac |
+| Platform | Architecture          | Notes          |
+| -------- | --------------------- | -------------- |
+| Windows  | x64                   | Windows 11     |
+| macOS    | arm64 (Apple Silicon) | M-series chips |
+| macOS    | x64 (Intel)           | Intel Mac      |
 
 > Linux is not supported. HarmonyOS builds, emulators, and on-device debugging require [DevEco Studio](https://developer.huawei.com/consumer/en/deveco-studio/), which is currently available for Windows and macOS only.
 
@@ -164,16 +164,16 @@ You can also configure models in `deveco.jsonc`:
           "tool_call": true,
           "limit": {
             "context": 200000,
-            "output": 8192
-          }
-        }
+            "output": 8192,
+          },
+        },
       },
       "options": {
         "baseURL": "https://api.openbitfun.com/v1",
-        "apiKey": "{env:DEVECO_API_KEY}"
-      }
-    }
-  }
+        "apiKey": "{env:DEVECO_API_KEY}",
+      },
+    },
+  },
 }
 ```
 
@@ -234,15 +234,15 @@ DevEco Code provides the following Agent modes for HarmonyOS development (press 
 
 DevEco Code integrates common HarmonyOS development tools:
 
-| Tool | Description |
-| --- | --- |
-| `build_project` | Build the project and export build artifacts |
-| `start_app` | Run the application on an emulator or physical device |
-| `hdc_log` | Collect/clear device logs; list connected emulators |
-| `verify_ui` | Execute UI operations to verify features |
-| `arkts_check` | ArkTS static syntax checking |
-| `arkts_knowledge_search` | HarmonyOS knowledge search |
-| `switch_cwd` | Switch the build project path |
+| Tool                     | Description                                           |
+| ------------------------ | ----------------------------------------------------- |
+| `build_project`          | Build the project and export build artifacts          |
+| `start_app`              | Run the application on an emulator or physical device |
+| `hdc_log`                | Collect/clear device logs; list connected emulators   |
+| `verify_ui`              | Execute UI operations to verify features              |
+| `arkts_check`            | ArkTS static syntax checking                          |
+| `arkts_knowledge_search` | HarmonyOS knowledge search                            |
+| `switch_cwd`             | Switch the build project path                         |
 
 Common scenarios include creating a HarmonyOS project from scratch, incremental page development, fixing build errors, and on-device debugging.
 
@@ -260,6 +260,13 @@ npx skills add vercel-labs/agent-skills
 
 You can also place Skills in `~/.config/deveco/skills`.
 
+DevEco Code includes these manually invoked slash commands:
+
+- `/codetograph` explicitly generates `docs/codetograph.json` and the structural report for the current project.
+- `/document-project` explicitly runs the brownfield documentation workflow. If no graph exists, it asks whether to continue and never generates one implicitly.
+
+The built-in CodeToGraph MCP uses Python 3.10+ and reads `docs/codetograph.json` after you generate it. It never scans or indexes a project automatically. Set `DEVECO_CODETOGRAPH_ENABLED=0` to disable it or `DEVECO_CODETOGRAPH_PYTHON` to select the Python executable.
+
 ### MCP
 
 Configure MCP in `~/.config/deveco/deveco.jsonc`:
@@ -271,9 +278,9 @@ Configure MCP in `~/.config/deveco/deveco.jsonc`:
     "playwright": {
       "type": "local",
       "command": ["npx", "@playwright/mcp@latest"],
-      "enabled": true
-    }
-  }
+      "enabled": true,
+    },
+  },
 }
 ```
 
@@ -287,9 +294,7 @@ Then configure the plugin entry in `deveco.jsonc`:
 
 ```jsonc
 {
-  "plugin": [
-    "node_modules/oh-my-opencode/dist/index.js"
-  ]
+  "plugin": ["node_modules/oh-my-opencode/dist/index.js"],
 }
 ```
 

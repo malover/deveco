@@ -45,3 +45,7 @@ specs/
 .agents/skills/gitcode-pr/mcp_server/.venv/
 .agents/skills/gitcode-pr/mcp_server/.env
 .agents/skills/gitcode-pr/mcp_server/__pycache__/
+packages/opencode/resources/mcp/codetograph/**/__pycache__/
+packages/opencode/resources/mcp/codetograph/**/*.py[cod]
+packages/opencode/resources/mcp/codetograph/build/
+packages/opencode/resources/mcp/codetograph/src/*.egg-info/

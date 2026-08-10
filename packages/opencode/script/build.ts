@@ -76,10 +76,34 @@ if (fs.existsSync(defaultSkillsDir)) {
         }
       }
     })(skillPath)
+    if (entry.name === "codetograph") {
+      const result = await Bun.build({
+        entrypoints: [path.join(skillPath, "scripts", "codetograph.ts")],
+        target: "bun",
+      })
+      if (!result.success || !result.outputs[0]) throw new Error("Failed to bundle the CodeToGraph skill runner")
+      files["scripts/codetograph.bundle.js"] = await result.outputs[0].text()
+    }
     defaultSkillsData[entry.name] = files
   }
 }
 console.log(`Loaded ${Object.keys(defaultSkillsData).length} default skills`)
+
+// Load the dependency-free Python CodeToGraph MCP runtime.
+const codeToGraphMcpDir = path.join(dir, "resources/mcp/codetograph")
+const codeToGraphMcpData: Record<string, string> = {}
+if (fs.existsSync(codeToGraphMcpDir)) {
+  await (async function recurse(directory: string) {
+    for (const entry of await fs.promises.readdir(directory, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) continue
+      const full = path.join(directory, entry.name)
+      if (entry.isDirectory()) await recurse(full)
+      if (entry.isFile() && entry.name !== ".DS_Store") {
+        codeToGraphMcpData[path.relative(codeToGraphMcpDir, full).replaceAll("\\", "/")] = await Bun.file(full).text()
+      }
+    }
+  })(codeToGraphMcpDir)
+}
 
 // Load default spec resources
 //
@@ -238,8 +262,8 @@ const mcpCacheDir = path.join(cacheDir, "mcp-bridge")
 const RG_VERSION = "15.1.0"
 const rgArchiveMap: Record<string, { archive: string; binary: string }> = {
   "darwin-arm64": { archive: `ripgrep-${RG_VERSION}-aarch64-apple-darwin.tar.gz`, binary: "rg" },
-  "darwin-x64":   { archive: `ripgrep-${RG_VERSION}-x86_64-apple-darwin.tar.gz`, binary: "rg" },
-  "win32-x64":    { archive: `ripgrep-${RG_VERSION}-x86_64-pc-windows-msvc.zip`, binary: "rg.exe" },
+  "darwin-x64": { archive: `ripgrep-${RG_VERSION}-x86_64-apple-darwin.tar.gz`, binary: "rg" },
+  "win32-x64": { archive: `ripgrep-${RG_VERSION}-x86_64-pc-windows-msvc.zip`, binary: "rg.exe" },
 }
 
 const binaries: Record<string, string> = {}
@@ -249,7 +273,7 @@ function resolveUiVerificationScript() {
     return path.join(path.dirname(pkgJson), "dist", "uiVerification.mjs")
   } catch {
     console.error(`  ERROR: ui-verification-mcp dist/uiVerification.mjs not found. Run "bun install" first.`)
-    process.exit(1);
+    process.exit(1)
   }
 }
 
@@ -257,7 +281,7 @@ async function copyUiVerificationRuntime(name: string) {
   const vendorDir = path.join(dir, "dist", name, "vendor", "ui-verification-mcp")
   await fs.promises.mkdir(vendorDir, { recursive: true })
   await fs.promises.copyFile(resolveUiVerificationScript(), path.join(vendorDir, "uiVerification.mjs"))
-  console.log("  Bundled ui-verification-mcp");
+  console.log("  Bundled ui-verification-mcp")
 }
 if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
@@ -318,6 +342,7 @@ for (const item of targets) {
       DEVECO_CHANNEL: `'${Script.channel}'`,
       DEVECO_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
       DEVECO_DEFAULT_SKILLS: JSON.stringify(defaultSkillsData),
+      DEVECO_CODETOGRAPH_MCP: JSON.stringify(codeToGraphMcpData),
       DEVECO_DEFAULT_SPEC_RESOURCES: JSON.stringify(defaultSpecData),
       DEVECO_SKIP_AGREEMENT: skipAgreementFlag ? "true" : "false",
       ...(item.os === "linux" ? { "process.env.OPENTUI_LIBC": JSON.stringify(item.abi ?? "glibc") } : {}),
@@ -344,7 +369,9 @@ for (const item of targets) {
   const mcpCache = path.join(mcpCacheDir, mcpKey)
   const cachedNode = path.join(mcpCache, "napi_bridge.node")
   if (!fs.existsSync(cachedNode)) {
-    console.error(`  ERROR: mcp-bridge cache not found for ${mcpKey}. Run "bun install" first to download vendored binaries.`)
+    console.error(
+      `  ERROR: mcp-bridge cache not found for ${mcpKey}. Run "bun install" first to download vendored binaries.`,
+    )
     process.exit(1)
   }
   {
@@ -363,7 +390,9 @@ for (const item of targets) {
   if (rgInfo) {
     const cachePath = path.join(rgCacheDir, rgKey, rgInfo.binary)
     if (!fs.existsSync(cachePath)) {
-      console.error(`  ERROR: ripgrep cache not found for ${rgKey}. Run "bun install" first to download vendored binaries.`)
+      console.error(
+        `  ERROR: ripgrep cache not found for ${rgKey}. Run "bun install" first to download vendored binaries.`,
+      )
       process.exit(1)
     }
     {
@@ -381,15 +410,9 @@ for (const item of targets) {
 
   await $`rm -rf ./dist/${name}/bin/tui`
 
-  await fs.promises.copyFile(
-    path.join(dir, "README.md"),
-    path.join(dir, "dist", name, "bin", "README.md"),
-  )
+  await fs.promises.copyFile(path.join(dir, "README.md"), path.join(dir, "dist", name, "bin", "README.md"))
 
-  await fs.promises.copyFile(
-    path.join(dir, "..", "..", "CHANGELOG.md"),
-    path.join(dir, "dist", name, "CHANGELOG.md"),
-  )
+  await fs.promises.copyFile(path.join(dir, "..", "..", "CHANGELOG.md"), path.join(dir, "dist", name, "CHANGELOG.md"))
 
   await Bun.file(`dist/${name}/package.json`).write(
     JSON.stringify(
@@ -399,12 +422,7 @@ for (const item of targets) {
         preferUnplugged: true,
         os: [item.os],
         cpu: [item.arch],
-        files: [
-          "bin/**/*",
-          "vendor/**/*",
-          "CHANGELOG.md",
-          "README.md",
-        ],
+        files: ["bin/**/*", "vendor/**/*", "CHANGELOG.md", "README.md"],
         ...(item.abi ? { libc: [item.abi] } : {}),
       },
       null,

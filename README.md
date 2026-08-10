@@ -19,7 +19,7 @@
   <img src="https://raw.gitcode.com/openharmony-sig/deveco-code/raw/develop/assets/readme/readme-screenshot.png" alt="DevEco Code" width="600">
 </p>
 
-***
+---
 
 ## 快速开始
 
@@ -51,11 +51,11 @@ DevEco Code 基于开源项目 OpenCode 扩展开发，保留了 OpenCode 的终
 
 DevEco Code 当前通过 npm 提供以下平台安装包：
 
-| 平台 | 架构 | 说明 |
-| --- | --- | --- |
-| Windows | x64 | Windows 11 |
-| macOS | arm64（Apple Silicon） | M 系列芯片 |
-| macOS | x64（Intel） | Intel 芯片 Mac |
+| 平台    | 架构                   | 说明           |
+| ------- | ---------------------- | -------------- |
+| Windows | x64                    | Windows 11     |
+| macOS   | arm64（Apple Silicon） | M 系列芯片     |
+| macOS   | x64（Intel）           | Intel 芯片 Mac |
 
 > 暂不支持 Linux。HarmonyOS 编译构建、模拟器与真机调试依赖 [DevEco Studio](https://developer.huawei.com/consumer/cn/deveco-studio/)，且目前仅提供 Windows 与 macOS 版本。
 
@@ -164,16 +164,16 @@ deveco auth logout
           "tool_call": true,
           "limit": {
             "context": 200000,
-            "output": 8192
-          }
-        }
+            "output": 8192,
+          },
+        },
       },
       "options": {
         "baseURL": "https://api.openbitfun.com/v1",
-        "apiKey": "{env:DEVECO_API_KEY}"
-      }
-    }
-  }
+        "apiKey": "{env:DEVECO_API_KEY}",
+      },
+    },
+  },
 }
 ```
 
@@ -234,15 +234,15 @@ DevEco Code 面向 HarmonyOS 开发提供以下 Agent 配置（按 `Tab` 键切�
 
 DevEco Code 集成了常用 HarmonyOS 开发工具能力：
 
-| 工具                       | 说明                   |
-| ------------------------ | -------------------- |
-| `build_project`          | 执行编译构建并导出构建产物        |
+| 工具                     | 说明                             |
+| ------------------------ | -------------------------------- |
+| `build_project`          | 执行编译构建并导出构建产物       |
 | `start_app`              | 在模拟器或真机上运行应用         |
-| `hdc_log`                | 收集/清理设备日志/查看连接模拟器    |
-| `verify_ui`              | 执行 UI 操作验证功能是否正确        |
-| `arkts_check`            | ArkTS 静态语法检查         |
-| `arkts_knowledge_search` | HarmonyOS 知识搜索 |
-| `switch_cwd`             | 切换构建项目路径             |
+| `hdc_log`                | 收集/清理设备日志/查看连接模拟器 |
+| `verify_ui`              | 执行 UI 操作验证功能是否正确     |
+| `arkts_check`            | ArkTS 静态语法检查               |
+| `arkts_knowledge_search` | HarmonyOS 知识搜索               |
+| `switch_cwd`             | 切换构建项目路径                 |
 
 常见场景包括：从零到一创建 HarmonyOS 工程、增量开发页面、修复编译报错、真机调试。
 
@@ -260,6 +260,13 @@ npx skills add vercel-labs/agent-skills
 
 也可以把 Skill 放到 `~/.config/deveco/skills` 目录。
 
+DevEco Code 内置以下手动斜杠命令：
+
+- `/codetograph`：显式生成当前项目的 `docs/codetograph.json` 和结构报告。
+- `/document-project`：显式运行棕地项目文档工作流；缺少图谱时会询问是否继续，不会自动生成图谱。
+
+内置 CodeToGraph MCP 使用 Python 3.10+，并在图谱生成后自动读取 `docs/codetograph.json`。它不会自动扫描或索引项目。可通过 `DEVECO_CODETOGRAPH_ENABLED=0` 禁用，或通过 `DEVECO_CODETOGRAPH_PYTHON` 指定 Python 可执行文件。
+
 ### MCP
 
 可在 `~/.config/deveco/deveco.jsonc` 中配置 MCP：
@@ -271,9 +278,9 @@ npx skills add vercel-labs/agent-skills
     "playwright": {
       "type": "local",
       "command": ["npx", "@playwright/mcp@latest"],
-      "enabled": true
-    }
-  }
+      "enabled": true,
+    },
+  },
 }
 ```
 
@@ -287,9 +294,7 @@ npm install -g oh-my-opencode
 
 ```jsonc
 {
-  "plugin": [
-    "node_modules/oh-my-opencode/dist/index.js"
-  ]
+  "plugin": ["node_modules/oh-my-opencode/dist/index.js"],
 }
 ```
 

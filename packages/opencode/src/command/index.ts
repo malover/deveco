@@ -1,6 +1,7 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { InstanceState } from "@/effect/instance-state"
 import { EffectBridge } from "@/effect/bridge"
+import path from "path"
 import type { InstanceContext } from "@/project/instance-context"
 import { SessionID, MessageID } from "@/session/schema"
 import { Effect, Layer, Context, Schema } from "effect"
@@ -50,6 +51,16 @@ export function hints(template: string) {
   }
   if (template.includes("$ARGUMENTS")) result.push("$ARGUMENTS")
   return result
+}
+
+export function skillTemplate(item: Pick<Skill.Info, "content" | "location">) {
+  const root = path.dirname(item.location)
+  return [
+    item.content.replaceAll("{skill-root}", root).trim(),
+    "",
+    `Base directory for this skill: ${root}`,
+    "Resolve all remaining relative skill paths from this directory.",
+  ].join("\n")
 }
 
 export const Default = {
@@ -159,7 +170,7 @@ export const layer = Layer.effect(
           description: item.description,
           source: "skill",
           get template() {
-            return item.content
+            return skillTemplate(item)
           },
           hints: [],
         }

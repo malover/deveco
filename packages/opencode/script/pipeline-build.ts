@@ -107,10 +107,27 @@ if (fs.existsSync(defaultSkillsDir)) {
       const rel = path.relative(skillPath, file).replaceAll("\\", "/")
       files[rel] = await Bun.file(file).text()
     }
+    if (entry.name === "codetograph") {
+      const result = await Bun.build({
+        entrypoints: [path.join(skillPath, "scripts", "codetograph.ts")],
+        target: "bun",
+      })
+      if (!result.success || !result.outputs[0]) throw new Error("Failed to bundle the CodeToGraph skill runner")
+      files["scripts/codetograph.bundle.js"] = await result.outputs[0].text()
+    }
     defaultSkillsData[entry.name] = files
   }
 }
 console.log(`Loaded ${Object.keys(defaultSkillsData).length} default skills`)
+
+// Load the dependency-free Python CodeToGraph MCP runtime.
+const codeToGraphMcpDir = path.join(dir, "resources/mcp/codetograph")
+const codeToGraphMcpData: Record<string, string> = {}
+if (fs.existsSync(codeToGraphMcpDir)) {
+  for (const file of await walk(codeToGraphMcpDir)) {
+    codeToGraphMcpData[path.relative(codeToGraphMcpDir, file).replaceAll("\\", "/")] = await Bun.file(file).text()
+  }
+}
 
 // Load default spec resources from resources/spec/
 console.log("\n[2.5/5] Loading default spec resources...")
@@ -198,8 +215,8 @@ const supportedPlatforms = new Set(["darwin-arm64", "darwin-x64", "win32-x64"])
 
 const rgArchiveMap: Record<string, { archive: string; binary: string }> = {
   "darwin-arm64": { archive: `ripgrep-${RG_VERSION}-aarch64-apple-darwin.tar.gz`, binary: "rg" },
-  "darwin-x64":   { archive: `ripgrep-${RG_VERSION}-x86_64-apple-darwin.tar.gz`, binary: "rg" },
-  "win32-x64":    { archive: `ripgrep-${RG_VERSION}-x86_64-pc-windows-msvc.zip`, binary: "rg.exe" },
+  "darwin-x64": { archive: `ripgrep-${RG_VERSION}-x86_64-apple-darwin.tar.gz`, binary: "rg" },
+  "win32-x64": { archive: `ripgrep-${RG_VERSION}-x86_64-pc-windows-msvc.zip`, binary: "rg.exe" },
 }
 
 if (!skipInstall) {
@@ -208,7 +225,8 @@ if (!skipInstall) {
 
   // Download ripgrep for each needed platform
   const neededPlatforms = new Set(targets.map((t) => `${t.os}-${t.arch}`))
-  const rgBase = process.env.RIPGREP_MIRROR_BASE || `https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}`
+  const rgBase =
+    process.env.RIPGREP_MIRROR_BASE || `https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}`
 
   for (const platform of neededPlatforms) {
     if (!supportedPlatforms.has(platform)) continue
@@ -281,7 +299,7 @@ function resolveUiVerificationScript() {
     return path.join(path.dirname(pkgJson), "dist", "uiVerification.mjs")
   } catch {
     console.error(`  ERROR: ui-verification-mcp dist/uiVerification.mjs not found. Run "bun install" first.`)
-    process.exit(1);
+    process.exit(1)
   }
 }
 
@@ -289,17 +307,11 @@ async function copyUiVerificationRuntime(name: string) {
   const vendorDir = path.join(dir, "dist", name, "vendor", "ui-verification-mcp")
   await fs.promises.mkdir(vendorDir, { recursive: true })
   await fs.promises.copyFile(resolveUiVerificationScript(), path.join(vendorDir, "uiVerification.mjs"))
-  console.log("    Bundled ui-verification-mcp");
+  console.log("    Bundled ui-verification-mcp")
 }
 
 for (const item of targets) {
-  const name = [
-    pkg.name,
-    item.os === "win32" ? "windows" : item.os,
-    item.arch,
-  ]
-    .filter(Boolean)
-    .join("-")
+  const name = [pkg.name, item.os === "win32" ? "windows" : item.os, item.arch].filter(Boolean).join("-")
   console.log(`  building ${name}`)
   await $`mkdir -p dist/${name}/bin`
 
@@ -335,6 +347,7 @@ for (const item of targets) {
       DEVECO_VERSION: `'${Script.version}'`,
       DEVECO_MIGRATIONS: JSON.stringify(migrations),
       DEVECO_DEFAULT_SKILLS: JSON.stringify(defaultSkillsData),
+      DEVECO_CODETOGRAPH_MCP: JSON.stringify(codeToGraphMcpData),
       DEVECO_DEFAULT_SPEC_RESOURCES: JSON.stringify(defaultSpecData),
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
       DEVECO_WORKER_PATH: workerPath,
@@ -389,15 +402,9 @@ for (const item of targets) {
 
   await $`rm -rf ./dist/${name}/bin/tui`
 
-  await fs.promises.copyFile(
-    path.join(dir, "README.md"),
-    path.join(dir, "dist", name, "bin", "README.md"),
-  )
+  await fs.promises.copyFile(path.join(dir, "README.md"), path.join(dir, "dist", name, "bin", "README.md"))
 
-  await fs.promises.copyFile(
-    path.join(dir, "..", "..", "CHANGELOG.md"),
-    path.join(dir, "dist", name, "CHANGELOG.md"),
-  )
+  await fs.promises.copyFile(path.join(dir, "..", "..", "CHANGELOG.md"), path.join(dir, "dist", name, "CHANGELOG.md"))
 
   await Bun.file(`dist/${name}/package.json`).write(
     JSON.stringify(
@@ -406,11 +413,7 @@ for (const item of targets) {
         version: Script.version,
         os: [item.os],
         cpu: [item.arch],
-        files: [
-          "bin/**/*",
-          "vendor/**/*",
-          "CHANGELOG.md",
-        ],
+        files: ["bin/**/*", "vendor/**/*", "CHANGELOG.md"],
       },
       null,
       2,
