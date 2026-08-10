@@ -10,6 +10,14 @@
 - **Toolchain**: [DevEco/Hvigor/build system and relevant versions when verified]
 - **Repository shape**: [single app / multi-module / monorepo]
 
+## Graph Analysis
+
+- **Backend**: [homegraph/codegraph/none]
+- **Index action**: [reused/initialized/synced/rebuilt/unavailable]
+- **Graph queries**: [successful repository-specific query count]
+- **Direct source reads**: [approximate count]
+- **Limitations**: [only when applicable]
+
 ## Project Structure
 
 ```text
@@ -63,6 +71,33 @@ Do not invent an ideal architecture. Record the architecture that exists in sour
 - **Persistence**: <preferences/database/files/other storage that is actually configured or used>
 - **Data models**: <important shared/domain entities>
 - **Synchronization/lifecycle rules**: <only when established by source>
+
+## Feature Change Guidance
+
+Describe a small number of recurring change archetypes that are clearly supported by the existing repository structure. This is not guidance for the user's current requested feature and must not propose new architecture.
+
+For each archetype, provide the likely existing modification path and repository conventions an implementation agent should preserve.
+
+### <Change Archetype>
+
+`<entry/config/UI>` → `<presenter/viewmodel/model>` → `<state/persistence/service>` → `<affected runtime component>`
+
+- **Start here**: <existing file/symbol or module that owns this kind of change>
+- **Likely propagation**: <verified current-state path through existing modules>
+- **Preserve**: <existing conventions/contracts/state ownership/dependency direction>
+- **Avoid**: <existing architectural boundary that should not be bypassed, only when evidence supports it>
+
+Prefer 3-6 high-value archetypes such as adding a setting, changing layout behavior, adding a feature module capability, modifying persistence, or changing an app lifecycle flow when those archetypes are supported by the repository.
+
+## Modification Risk Map
+
+Classify the most change-sensitive current areas by practical implementation risk. Base risk on graph evidence, fan-in/fan-out, shared state ownership, lifecycle position, persistence ownership, and cross-module reach.
+
+| Risk | Area / Symbol | Potential Blast Radius | Evidence | Safer Change Strategy |
+|---|---|---|---|---|
+| High/Medium/Low | `<path or symbol>` | <modules/flows/state affected> | <callers/callees/dependencies/ownership evidence> | <how to minimize impact using existing repository patterns> |
+
+Keep this distinct from `Change-Sensitive Areas`: the risk map must prioritize and classify areas, while `Change-Sensitive Areas` records detailed evidence about broad-impact symbols.
 
 ## Build and Configuration
 
