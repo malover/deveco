@@ -21,6 +21,10 @@ Generate or refresh `{PROJECT_ROOT}/spec/project-spec.md` as a factual descripti
 10. **No duplicate top-level sections.** Every `##` heading defined by the Project SPEC template MUST appear at most once in the final artifact. Merge repeated material into the canonical section instead of duplicating headings or content. In particular, `State and Data`, `Change-Sensitive Areas`, `Feature Change Guidance`, and `Modification Risk Map` must each appear exactly once when populated.
 11. **Repository guidance, not requested-feature design.** `Feature Change Guidance` may describe recurring change archetypes supported by the existing codebase, but MUST NOT tailor itself to the current feature request or invent future components. It should answer “how this repository normally changes safely,” not “how to implement this user request.”
 12. **Risk must be evidenced.** `Modification Risk Map` classifications must be grounded in graph callers/callees, shared state, lifecycle position, persistence ownership, or cross-module reach. Do not assign High/Medium/Low labels from intuition alone.
+13. **Runtime ordering must be proven.** Do not construct a runtime sequence by stitching together independently observed lifecycle methods. A `Key Runtime Flow` sequence must be supported by a graph path/caller-callee relationship and/or direct source showing the actual invocation/order. If only partial order is known, document only the verified subsequence and move the unresolved part to `Uncertain or Inferred Information`.
+14. **Important claims need provenance.** Module dependency claims, runtime flows, shared contracts, state/persistence ownership, change guidance, and risk classifications must include concise evidence references in the generated artifact. Prefer graph path/query plus directly verified source files.
+15. **Change guidance must be graph-derived and conditional.** For every `Feature Change Guidance` archetype, use graph evidence to establish the propagation path before writing guidance. State when the archetype applies; do not imply every new feature/module must follow a pattern that only applies to configuration-driven or preloaded features.
+16. **Used documentation must be listed.** Every documentation file that materially influenced the Project SPEC, including multilingual `README*`, `AGENTS.md`, `CLAUDE.md`, or architecture docs, must appear in `Existing Documentation`.
 
 ## Inputs
 
@@ -43,6 +47,8 @@ Inspect high-value metadata/documentation when they exist, including appropriate
 - native build configuration such as `CMakeLists.txt` when relevant
 
 Documentation may be multilingual, including Chinese HarmonyOS/OpenHarmony READMEs. Extract and normalize its architectural meaning regardless of source language; preserve exact identifiers, commands, paths, API names, and version numbers. Do not omit relevant documentation merely because it is not in the user's language.
+
+Track which documentation files materially contribute facts. All such files MUST later be listed in `Existing Documentation`.
 
 This pre-graph step is metadata/documentation only. Do NOT broadly read application source files or glob source trees yet unless needed to locate a metadata/config file. Prefer executable configuration over prose when they conflict.
 
@@ -105,20 +111,28 @@ For CodeGraph, perform several focused queries rather than one vague query. At m
 - at least one query aimed at recurring change paths (for example settings, layout/configuration, persistence, lifecycle, or feature-module changes when present)
 - at least one query aimed at ranking broad-impact symbols for the Modification Risk Map
 
+For every candidate runtime flow, use graph output to establish actual caller/callee ordering. If one query returns only related symbols without a connected path, issue a narrower follow-up query before claiming an ordered sequence.
+
+For every candidate `Feature Change Guidance` archetype, require a graph-backed propagation path or a directly verified sequence through multiple files. Do not generate a guidance archetype solely because matching filenames/classes exist.
+
 Only after graph queries should you use targeted `glob`, `grep`, and direct reads to fill gaps or verify claims.
 
-If neither backend can be made usable, fall back to targeted repository exploration and record the exact reason under `Uncertain or Inferred Information`.
+If neither backend can be made usable, fall back to targeted repository exploration and record the exact reason under `Uncertain or Inferred Information`. In this fallback mode, mark graph-dependent guidance/risk claims with lower confidence and do not fabricate graph metrics.
 
 ### 4. Verify representative source
 
 Directly read only the source needed to confirm critical graph-derived claims, especially:
 
-- application/ability startup
+- application/ability startup and the exact lifecycle/call order used in runtime-flow diagrams
 - shared interfaces or services with broad impact
 - state/persistence ownership
 - one or more important cross-module flows
 - representative files needed to validate each `Feature Change Guidance` archetype
 - representative high-risk symbols needed to validate the `Modification Risk Map`
+
+For a runtime flow, directly verify at least the entry point plus one or more files that establish the next call/transition. Do not claim `A → B → C` merely because A, B, and C are all relevant to startup.
+
+For change guidance, verify the entry symbol and at least one downstream transition. If the full propagation path remains uncertain, shorten the guidance to the verified path and record the gap.
 
 Do not dump broad source-file contents into context when graph evidence already answers the question. Aim for a bounded verification set; exceed roughly 10-15 source files only when graph evidence is insufficient or repository complexity clearly requires more.
 
@@ -139,9 +153,20 @@ Before writing, perform a **top-level heading normalization pass**:
 
 For `Project Structure`, include a compact tree of meaningful source/configuration boundaries. Do not include caches, generated build output, package-manager dependency trees, or exhaustive leaf files.
 
-For `Module Semantics`, use source-tree/module boundaries actually present in the repository. Do not impose an architecture that is absent from source.
+For `Module Semantics`, use source-tree/module boundaries actually present in the repository. Do not impose an architecture that is absent from source. Include concise evidence for dependency/responsibility claims.
 
-For `Key Runtime Flows` and `Change-Sensitive Areas`, prefer graph-backed evidence over guesses from filenames.
+For `Key Runtime Flows`:
+
+- Order is authoritative only when graph/source evidence establishes it.
+- Include `Evidence` and `Confidence` for each flow.
+- `High` confidence requires a connected graph path and/or direct source proving the sequence.
+- `Medium` may be used for a mostly verified flow with one clearly identified gap.
+- `Low` flows should normally be omitted from the main flow list and recorded under `Uncertain or Inferred Information` instead.
+- Never reverse lifecycle order merely to make the narrative read naturally.
+
+For `Key Interfaces and Shared Contracts`, include evidence such as caller/callee counts, consuming modules, or direct source references where available.
+
+For `State and Data`, include evidence for persistence/state ownership rather than relying on class names alone.
 
 For `Build and Configuration`, rely primarily on direct configuration inspection rather than graph output.
 
@@ -149,9 +174,11 @@ For `Feature Change Guidance`:
 
 - Provide 3-6 recurring change archetypes only when the repository supports them with evidence.
 - Prefer archetypes that materially help future implementation agents, such as: adding/changing a setting, modifying layout behavior, changing persistence, adding capability to an existing feature module, changing lifecycle/startup behavior, adding a shared event/contract, or extending a product-specific variant.
-- For each archetype show the existing path through repository layers/modules using actual symbols or files where verified.
-- Include `Start here`, `Likely propagation`, `Preserve`, and `Avoid` guidance.
+- Derive each propagation route from actual graph paths and then verify key source files.
+- Include `Start here`, `Verified propagation`, `Preserve`, `Avoid`, `Evidence`, and `Applicability`.
+- `Applicability` MUST state conditions. Example: a PreLoader/LayoutConfig path applies only to features participating in that configuration lifecycle; do not present it as the universal way to add modules.
 - `Avoid` must identify an evidenced architectural boundary or anti-pattern to avoid, not generic advice.
+- If graph/source evidence only verifies part of a route, show only that verified route and state the limitation.
 - Do not mention or design the user's current requested feature.
 
 For `Modification Risk Map`:
@@ -163,6 +190,14 @@ For `Modification Risk Map`:
 - Low risk should be used only for genuinely isolated implementation areas when useful for contrast.
 - For every row include `Potential Blast Radius`, `Evidence`, and a `Safer Change Strategy` that works with the repository's current patterns rather than proposing a new architecture.
 - Keep this section distinct from `Change-Sensitive Areas`: the risk map is prioritized decision support; `Change-Sensitive Areas` is the evidence-oriented inventory.
+
+For `Existing Documentation`:
+
+- Include every documentation source materially used as evidence, especially `README*`, `AGENTS.md`, `CLAUDE.md`, and architecture/developer docs.
+- Multilingual documentation is listed by its repository path; the Project SPEC itself may normalize/translate its meaning.
+- Do not list ordinary source/config files here unless they are themselves documentation. Config/source evidence belongs in the relevant sections instead.
+
+For `Uncertain or Inferred Information`, explicitly capture unresolved runtime order, ambiguous persistence behavior, uncertain module relationships, or incomplete change-propagation paths.
 
 Add a short `Graph Analysis` section near the top of the generated Project SPEC containing:
 
@@ -182,7 +217,15 @@ Create the `spec/` directory if required, then write the completed artifact to e
 
 Use the normal `write` tool for initial creation and `edit`/`write` as appropriate for updates. This file is repository-level and is intentionally not validated by the feature-level `spec_write` schema.
 
-After writing, read back the top-level headings and verify there are no duplicate `##` sections. If duplicates are present, fix the artifact before reporting completion.
+After writing, read back the artifact and validate:
+
+1. no duplicate `##` sections exist;
+2. every `Key Runtime Flow` has `Evidence` and `Confidence`;
+3. every `Feature Change Guidance` archetype has `Evidence` and `Applicability`;
+4. materially used documentation files are present in `Existing Documentation`;
+5. unresolved ordering/propagation claims are not presented as facts and appear in `Uncertain or Inferred Information` when relevant.
+
+Fix the artifact before reporting completion if any validation fails.
 
 ## Completion report
 
@@ -195,8 +238,10 @@ Return to the parent agent with:
 - successful graph-query count
 - approximate direct source-read count
 - whether duplicate-heading validation passed
+- number of verified runtime flows generated
 - number of Feature Change Guidance archetypes generated
 - number of Modification Risk Map entries generated
+- whether documentation provenance validation passed
 - major evidence sources inspected
 - any important analysis limitations
 
