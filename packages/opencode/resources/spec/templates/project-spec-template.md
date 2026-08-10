@@ -12,11 +12,12 @@
 
 ## Graph Analysis
 
-- **Pipeline**: `project_spec_collect` → compact `project-spec-evidence-v1` → `project-spec` writer
-- **Backend**: [homegraph/targeted]
-- **Index action**: [reused/initialized/synced/rebuilt/unavailable]
-- **Graph queries**: [successful repository-specific query count]
-- **Direct source reads**: [approximate count]
+- **Backend**: persistent HomeGraph MCP
+- **Status**: [healthy/degraded/unavailable]
+- **Revision**: [current verifiable HomeGraph revision, otherwise unavailable]
+- **HomeGraph calls**: [total exact queries]
+- **Targeted explore calls**: [normally zero or a small number]
+- **Direct documentation/config reads**: [approximate count]
 - **Limitations**: [only when applicable]
 
 ## Project Structure
@@ -161,13 +162,7 @@ Record uncertainty explicitly rather than turning an inference into a fact. Runt
 | <topic> | <what was observed> | <high/medium/low and what would confirm it> |
 
 ## Generation Metadata
-Analysis Metrics:
-
-- Evidence handoff: project-spec-evidence-v1
-- Collector calls:
-- HomeGraph queries:
-- Direct source reads:
-- Glob/Grep operations:
-- Collection rounds:
-- Generation duration:
-- Evidence size:
+- **Generated at**: [timestamp]
+- **Repository commit**: [when verifiable]
+- **HomeGraph revision**: [when exposed]
+- **Generator**: `project_spec_write-v2`

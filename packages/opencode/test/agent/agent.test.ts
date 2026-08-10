@@ -1,9 +1,9 @@
-import { afterEach, expect } from "bun:test"
+import { afterEach, expect, test } from "bun:test"
 import { Cause, Effect, Exit, Layer } from "effect"
 import path from "path"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
-import { Agent } from "../../src/agent/agent"
+import { Agent, projectSpecMode } from "../../src/agent/agent"
 import { Auth } from "../../src/auth"
 import { Config } from "../../src/config/config"
 import { RuntimeFlags } from "../../src/effect/runtime-flags"
@@ -47,6 +47,12 @@ const expectDefaultAgentError = Effect.fn("AgentTest.expectDefaultAgentError")(f
 
 afterEach(async () => {
   await disposeAllInstances()
+})
+
+test("selects direct Project SPEC generation by default with an isolated fallback", () => {
+  expect(projectSpecMode({})).toBe("v2-direct")
+  expect(projectSpecMode({ DEVECO_PROJECT_SPEC_ISOLATED: "1" })).toBe("legacy-isolated")
+  expect(projectSpecMode({ DEVECO_PROJECT_SPEC_V2: "0" })).toBe("legacy-isolated")
 })
 
 it.instance("returns default native agents when no config", () =>
@@ -138,9 +144,19 @@ it.instance("project-spec writer isolates deterministic collection from writing"
     expect(evalPerm(writer, "read")).toBe("allow")
     expect(evalPerm(writer, "bash")).toBe("deny")
     expect(evalPerm(writer, "project_spec_collect")).toBe("allow")
+    expect(evalPerm(writer, "project_spec_write")).toBe("deny")
     expect(Permission.evaluate("task", "general", writer.permission).action).toBe("deny")
     expect(Permission.evaluate("edit", "spec/project-spec.md", writer.permission).action).toBe("allow")
     expect(Permission.evaluate("edit", "src/index.ts", writer.permission).action).toBe("deny")
+  }),
+)
+
+it.instance("goal owns direct Project SPEC generation tools", () =>
+  Effect.gen(function* () {
+    const goal = yield* load((svc) => svc.get("goal"))
+
+    expect(evalPerm(goal, "project_spec_write")).toBe("allow")
+    expect(evalPerm(goal, "project_spec_collect")).toBe("deny")
   }),
 )
 

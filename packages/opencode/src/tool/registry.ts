@@ -62,6 +62,7 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { DebugExitTool } from "./debug-exit"
 import { SessionDebugState } from "@/session/debug-state"
 import { ProjectSpecCollectTool } from "./project-spec-collect"
+import { ProjectSpecWriteTool } from "./project-spec-write"
 
 export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }) {
   return providerID === ProviderV2.ID.opencode || flags.exa || flags.parallel
@@ -124,6 +125,7 @@ export const layer = Layer.effect(
     const arktscheck = yield* ArktsCheckTool
     const debugexit = yield* DebugExitTool
     const projectspeccollect = yield* ProjectSpecCollectTool
+    const projectspecwrite = yield* ProjectSpecWriteTool
     const verifyui = yield* VerifyUiTool
     const getuilog = yield* GetUiVerificationLogTool
     const saveuiscreenshot = yield* SaveUiScreenshotTool
@@ -251,6 +253,7 @@ export const layer = Layer.effect(
           save_ui_screenshot: Tool.init(saveuiscreenshot),
           debugexit: Tool.init(debugexit),
           project_spec_collect: Tool.init(projectspeccollect),
+          project_spec_write: Tool.init(projectspecwrite),
         })
 
         return {
@@ -272,6 +275,7 @@ export const layer = Layer.effect(
             tool.patch,
             tool.spec_write,
             tool.project_spec_collect,
+            tool.project_spec_write,
             ...(flags.experimentalLspTool ? [tool.lsp] : []),
             ...(flags.client === "cli" ? [tool.plan, tool.planwrite, tool.planenter] : []),
             // HarmonyOS tools

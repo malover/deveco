@@ -33,19 +33,7 @@ agent: goal
 2. **Ensure & Load Project SPEC** (existing projects only):
     - Check whether `PROJECT_SPEC` exists.
     - If it exists, read it before broad repository exploration.
-    - If it does not exist:
-        1. Use the `task` tool to spawn the `project-spec` subagent with description `Generate Project SPEC`.
-        2. The subagent prompt MUST tell it to:
-           - set `PROJECT_ROOT` to the current workspace/project root;
-           - set `CONFIG_ROOT` to `~/.local/share/deveco/` using the OS-native home directory;
-           - read and faithfully execute `{CONFIG_ROOT}/specs/commands/project-spec-generate.md`;
-           - call `project_spec_collect` once for the bounded `project-spec-evidence-v1` handoff, with at most one precise follow-up;
-           - do not spawn an explorer Task or call repository-analysis tools directly;
-           - load `{CONFIG_ROOT}/specs/templates/project-spec-template.md`;
-           - generate exactly `{PROJECT_ROOT}/spec/project-spec.md`;
-           - return the artifact path, graph backend used, evidence inspected, and limitations;
-           - perform no feature implementation or source edits.
-        3. After the subagent returns, read `PROJECT_SPEC` if it was successfully generated.
+    - If it does not exist, execute `{CONFIG_ROOT}/specs/commands/project-spec-generate.md` directly: use the persistent HomeGraph MCP tools for exact evidence and call `project_spec_write` once. Do not spawn a Project SPEC Task unless the process explicitly selects `legacy-isolated` mode.
     - **Graceful fallback:** If Project SPEC generation fails or graph tooling is unavailable, record the limitation in `## Research & Decisions` and continue planning using targeted repository/config/source exploration. Do not terminate Phase 2 solely because Project SPEC could not be generated.
     - For feature-specific design decisions, verify any Project SPEC statement that is uncertain, stale-looking, or directly determines implementation correctness.
 
@@ -80,6 +68,7 @@ agent: goal
 2. **Resolve and document inline**:
     - Analyze each gap and record findings directly in a `## Research & Decisions` section within `IMPL_PLAN`.
     - Prefer targeted graph/source/config verification for gaps rather than broad repository reads.
+    - When Commit4Spec is available, call `homegraph_spec_match` with the actual feature requirement to find relevant historical implementation patterns, then verify every adopted pattern against current `homegraph_node`/caller/callee evidence. Historical evidence never overrides the current graph.
     - Format each entry strictly as:
         - **Decision**: [chosen approach]
         - **Rationale**: [reasoning]

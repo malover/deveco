@@ -3,16 +3,22 @@ import fs from "node:fs"
 import type { ConfigMCPV1 } from "@opencode-ai/core/v1/config/mcp"
 
 export function isHomeGraphEnabled(): boolean {
-  return process.env.DEVECO_HOMEGRAPH_ENABLED !== "0"
+  return process.env.DEVECO_HOMEGRAPH_ENABLED !== "0" && findHomeGraphExecutable() !== undefined
 }
 
 function repositoryRoot(): string {
   return path.resolve(import.meta.dir, "../../../..")
 }
 
-export function resolveHomeGraphExecutable(): string {
+export function selectHomeGraphExecutable(candidates: readonly (string | undefined | null)[]) {
+  return candidates
+    .filter((candidate): candidate is string => Boolean(candidate))
+    .find((candidate) => fs.existsSync(candidate))
+}
+
+export function findHomeGraphExecutable(): string | undefined {
   const root = repositoryRoot()
-  const candidates = [
+  return selectHomeGraphExecutable([
     process.env.DEVECO_HOMEGRAPH_EXECUTABLE,
     ...(process.platform === "win32"
       ? [
@@ -21,12 +27,15 @@ export function resolveHomeGraphExecutable(): string {
         ]
       : [path.join(root, "node_modules", ".bin", "homegraph")]),
     Bun.which("homegraph"),
-  ].filter((candidate): candidate is string => Boolean(candidate))
-  const executable = candidates.find((candidate) => fs.existsSync(candidate))
+  ])
+}
+
+export function resolveHomeGraphExecutable(): string {
+  const executable = findHomeGraphExecutable()
 
   if (!executable) {
     throw new Error(
-      `HomeGraph executable not found. Set DEVECO_HOMEGRAPH_EXECUTABLE or install the homegraph CLI. Checked:\n${candidates.map((candidate) => `- ${candidate}`).join("\n")}`,
+      "HomeGraph executable not found. Run bun install or set DEVECO_HOMEGRAPH_EXECUTABLE to the HomeGraph CLI.",
     )
   }
   return executable
@@ -35,7 +44,8 @@ export function resolveHomeGraphExecutable(): string {
 export function builtInHomeGraphMcp(): ConfigMCPV1.Info | undefined {
   if (!isHomeGraphEnabled()) return undefined
 
-  const executable = resolveHomeGraphExecutable()
+  const executable = findHomeGraphExecutable()
+  if (!executable) return undefined
   process.env.DEVECO_HOMEGRAPH_EXECUTABLE = executable
 
   return {
@@ -49,10 +59,11 @@ export function builtInHomeGraphMcp(): ConfigMCPV1.Info | undefined {
 export const HOMEGRAPH_INSTRUCTIONS = `
 ## HomeGraph
 
-DevEco bootstraps a missing HomeGraph index before starting the built-in MCP server. When HomeGraph is connected, use it before grep/find or broad file reading for code discovery:
+DevEco validates, syncs, and recovers the HomeGraph index before starting the built-in persistent MCP server. When HomeGraph is connected, use it before grep/find or broad file reading for code discovery:
 
-- **MCP tool**: \`homegraph_explore\` returns relevant symbols, current source, call paths, and impact evidence. Use \`homegraph_node\` for a named symbol or file and \`homegraph_impact\` before risky changes.
-- **Shell**: DevEco exposes the bundled executable through \`DEVECO_HOMEGRAPH_EXECUTABLE\` for explicit status, sync, rebuild, and Project SPEC collection.
+- **General coding**: use \`homegraph_explore\` for a targeted path, \`homegraph_node\` for one known symbol/file, and \`homegraph_impact\` before changing shared symbols.
+- **Goal / Project SPEC**: the Goal agent additionally receives status, files, search, callers, callees, and Commit4Spec tools for evidence-directed Step 0 traversal.
+- **History**: Commit4Spec provides supporting history only; current graph/source evidence always wins.
 
 HomeGraph stores repository-local data under \`.homegraph/\` and supports ArkTS/HarmonyOS projects.
 `.trim()

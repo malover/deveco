@@ -93,6 +93,11 @@ export class Service extends Context.Service<Service, Interface>()("@opencode/Ag
 
 export const use = serviceUse(Service)
 
+export function projectSpecMode(env: Record<string, string | undefined> = process.env) {
+  if (env.DEVECO_PROJECT_SPEC_ISOLATED === "1" || env.DEVECO_PROJECT_SPEC_V2 === "0") return "legacy-isolated" as const
+  return "v2-direct" as const
+}
+
 export const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -137,6 +142,7 @@ export const layer = Layer.effect(
           debug_exit: "deny",
           spec_write: "deny",
           project_spec_collect: "deny",
+          project_spec_write: "deny",
           repo_overview: "deny",
           check_ets_files: "deny",
           verify_ui: "deny",
@@ -210,13 +216,14 @@ export const layer = Layer.effect(
                 websearch: "allow",
                 todowrite: "allow",
                 spec_write: "allow",
+                project_spec_write: "allow",
                 task: "allow",
               }),
               user,
             ),
             mode: "primary",
             native: true,
-            prompt: PROMPT_GOAL,
+            prompt: PROMPT_GOAL.replaceAll("{PROJECT_SPEC_MODE}", projectSpecMode()),
             color: "info",
           },
           "spec-implementation": {
@@ -261,7 +268,7 @@ export const layer = Layer.effect(
           },
           "project-spec": {
             name: "project-spec",
-            description: "Generate a Project SPEC from a compact evidence bundle",
+            description: "Legacy isolated Project SPEC fallback for A/B comparison",
             options: {},
             permission: Permission.merge(
               defaults,
