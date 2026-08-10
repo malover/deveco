@@ -18,6 +18,8 @@ import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_GOAL from "./prompt/goal.txt"
+import PROMPT_PROJECT_SPEC from "./prompt/project-spec.txt"
+import PROMPT_PROJECT_SPEC_EXPLORER from "./prompt/project-spec-explorer.txt"
 import PROMPT_SPEC_VERIFY from "./prompt/spec-verify.txt"
 import PROMPT_SPEC_IMPLEMENTATION from "./prompt/spec-implementation.txt"
 import { Permission } from "@/permission"
@@ -256,6 +258,57 @@ export const layer = Layer.effect(
             hidden: true,
             temperature: 0.2,
             prompt: PROMPT_SPEC_VERIFY,
+          },
+          "project-spec": {
+            name: "project-spec",
+            description: "Generate a Project SPEC from a compact evidence bundle",
+            options: {},
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                "*": "deny",
+                read: "allow",
+                edit: {
+                  "*": "deny",
+                  "spec/project-spec.md": "allow",
+                  "**/spec/project-spec.md": "allow",
+                },
+                spec_write: "allow",
+                task: {
+                  "*": "deny",
+                  "project-spec-explorer": "allow",
+                },
+                external_directory: readonlyExternalDirectory,
+              }),
+              user,
+            ),
+            mode: "subagent",
+            native: true,
+            hidden: true,
+            prompt: PROMPT_PROJECT_SPEC,
+          },
+          "project-spec-explorer": {
+            name: "project-spec-explorer",
+            description: "Collect bounded repository evidence for Project SPEC generation",
+            options: {},
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                edit: "deny",
+                spec_write: "deny",
+                task: "deny",
+                todowrite: "deny",
+                question: "deny",
+                webfetch: "deny",
+                websearch: "deny",
+                external_directory: readonlyExternalDirectory,
+              }),
+              user,
+            ),
+            mode: "subagent",
+            native: true,
+            hidden: true,
+            prompt: PROMPT_PROJECT_SPEC_EXPLORER,
           },
           plan: {
             name: "plan",

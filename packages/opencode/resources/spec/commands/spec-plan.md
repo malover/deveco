@@ -34,11 +34,13 @@ agent: goal
     - Check whether `PROJECT_SPEC` exists.
     - If it exists, read it before broad repository exploration.
     - If it does not exist:
-        1. Use the `task` tool to spawn a `general` subagent with description `Generate Project SPEC`.
+        1. Use the `task` tool to spawn the `project-spec` subagent with description `Generate Project SPEC`.
         2. The subagent prompt MUST tell it to:
            - set `PROJECT_ROOT` to the current workspace/project root;
            - set `CONFIG_ROOT` to `~/.local/share/deveco/` using the OS-native home directory;
            - read and faithfully execute `{CONFIG_ROOT}/specs/commands/project-spec-generate.md`;
+           - spawn one foreground `project-spec-explorer` Task and pass it the command's bounded `project-spec-evidence-v1` handoff contract;
+           - keep all graph calls, repository reads, raw tool output, and intermediate reasoning inside the explorer session;
            - load `{CONFIG_ROOT}/specs/templates/project-spec-template.md`;
            - generate exactly `{PROJECT_ROOT}/spec/project-spec.md`;
            - return the artifact path, graph backend used, evidence inspected, and limitations;
