@@ -39,6 +39,7 @@ import { LocationServiceMap } from "@opencode-ai/core/location-layer"
 import { PluginBoot } from "@opencode-ai/core/plugin/boot"
 import { Reference } from "@opencode-ai/core/reference"
 import { Location } from "@opencode-ai/core/location"
+import { projectSpecGoalPrompt } from "./project-spec-mode"
 
 export const Info = Schema.Struct({
   name: Schema.String,
@@ -92,11 +93,6 @@ type State = Omit<Interface, "generate">
 export class Service extends Context.Service<Service, Interface>()("@opencode/Agent") {}
 
 export const use = serviceUse(Service)
-
-export function projectSpecMode(env: Record<string, string | undefined> = process.env) {
-  if (env.DEVECO_PROJECT_SPEC_ISOLATED === "1" || env.DEVECO_PROJECT_SPEC_V2 === "0") return "legacy-isolated" as const
-  return "v2-direct" as const
-}
 
 export const layer = Layer.effect(
   Service,
@@ -223,7 +219,7 @@ export const layer = Layer.effect(
             ),
             mode: "primary",
             native: true,
-            prompt: PROMPT_GOAL.replaceAll("{PROJECT_SPEC_MODE}", projectSpecMode()),
+            prompt: projectSpecGoalPrompt(PROMPT_GOAL),
             color: "info",
           },
           "spec-implementation": {

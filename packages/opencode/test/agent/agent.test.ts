@@ -1,9 +1,9 @@
-import { afterEach, expect, test } from "bun:test"
+import { afterEach, expect } from "bun:test"
 import { Cause, Effect, Exit, Layer } from "effect"
 import path from "path"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
-import { Agent, projectSpecMode } from "../../src/agent/agent"
+import { Agent } from "../../src/agent/agent"
 import { Auth } from "../../src/auth"
 import { Config } from "../../src/config/config"
 import { RuntimeFlags } from "../../src/effect/runtime-flags"
@@ -47,12 +47,6 @@ const expectDefaultAgentError = Effect.fn("AgentTest.expectDefaultAgentError")(f
 
 afterEach(async () => {
   await disposeAllInstances()
-})
-
-test("selects direct Project SPEC generation by default with an isolated fallback", () => {
-  expect(projectSpecMode({})).toBe("v2-direct")
-  expect(projectSpecMode({ DEVECO_PROJECT_SPEC_ISOLATED: "1" })).toBe("legacy-isolated")
-  expect(projectSpecMode({ DEVECO_PROJECT_SPEC_V2: "0" })).toBe("legacy-isolated")
 })
 
 it.instance("returns default native agents when no config", () =>
