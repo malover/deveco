@@ -25,7 +25,7 @@ tool:
    `schema = "project-spec-evidence-v1"` and at most 15,000 characters.
 5. Write the Project SPEC from that compact bundle.
 
-Do not spawn an explorer Task. Do not call CodeGraph, HomeGraph, Bash, Glob,
+Do not spawn an explorer Task. Do not call HomeGraph, Bash, Glob,
 Grep, List, web tools, or repository source/config reads yourself. The
 collector owns graph bootstrap/sync, five focused graph queries, one bounded
 metadata scan, at most twelve targeted reads, deduplication, and semantic

@@ -45,6 +45,6 @@ export function extractProjectSpecPaths(input: string) {
       (item) =>
         !item
           .split("/")
-          .some((part) => ["node_modules", ".git", ".codegraph", "build", "dist", "generated"].includes(part)),
+          .some((part) => ["node_modules", ".git", ".homegraph", "build", "dist", "generated"].includes(part)),
     )
 }

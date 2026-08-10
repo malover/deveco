@@ -13,7 +13,7 @@
 ## Graph Analysis
 
 - **Pipeline**: `project_spec_collect` → compact `project-spec-evidence-v1` → `project-spec` writer
-- **Backend**: [homegraph/codegraph/targeted]
+- **Backend**: [homegraph/targeted]
 - **Index action**: [reused/initialized/synced/rebuilt/unavailable]
 - **Graph queries**: [successful repository-specific query count]
 - **Direct source reads**: [approximate count]
@@ -165,7 +165,7 @@ Analysis Metrics:
 
 - Evidence handoff: project-spec-evidence-v1
 - Collector calls:
-- CodeGraph queries:
+- HomeGraph queries:
 - Direct source reads:
 - Glob/Grep operations:
 - Collection rounds:

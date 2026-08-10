@@ -3,7 +3,7 @@ import { Effect, Schema, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { InstanceState } from "@/effect/instance-state"
-import { resolveCodeGraphExecutable } from "@/codegraph/integration"
+import { resolveHomeGraphExecutable } from "@/homegraph/integration"
 import * as Tool from "./tool"
 import DESCRIPTION from "./project-spec-collect.txt"
 import { compactProjectSpecEvidence, extractProjectSpecPaths } from "./project-spec-evidence"
@@ -29,7 +29,7 @@ const Parameters = Schema.Struct({
 
 type EvidenceItem = { focus?: string; path?: string; evidence: string }
 type Backend = {
-  name: "codegraph" | "targeted"
+  name: "homegraph" | "targeted"
   indexAction: "reused" | "initialized" | "synced" | "rebuilt" | "unavailable"
   queries: number
   limitations: string[]
@@ -127,7 +127,7 @@ export const ProjectSpecCollectTool = Tool.define(
           )
           if (abort.aborted) return yield* Effect.fail(new Error("Project SPEC evidence collection was cancelled"))
           if (exitCode !== 0) {
-            return yield* Effect.fail(new Error(stderr.trim() || stdout.trim() || `CodeGraph exited with ${exitCode}`))
+            return yield* Effect.fail(new Error(stderr.trim() || stdout.trim() || `HomeGraph exited with ${exitCode}`))
           }
           return stdout
         }),
@@ -163,34 +163,34 @@ export const ProjectSpecCollectTool = Tool.define(
 
           yield* Effect.try({
             try: () => {
-              executable = resolveCodeGraphExecutable()
+              executable = resolveHomeGraphExecutable()
             },
             catch: (error) => error,
           }).pipe(
             Effect.catch((error) =>
               Effect.sync(() =>
-                limitations.push(`CodeGraph unavailable: ${error instanceof Error ? error.message : String(error)}`),
+                limitations.push(`HomeGraph unavailable: ${error instanceof Error ? error.message : String(error)}`),
               ),
             ),
           )
 
           if (executable) {
-            const indexDir = path.join(root, ".codegraph")
+            const indexDir = path.join(root, ".homegraph")
             const hasIndex = yield* fs.existsSafe(indexDir)
             const bootstrap = hasIndex
-              ? run(root, executable, ["status", "--json", root], ctx.abort).pipe(
-                  Effect.flatMap(() => run(root, executable!, ["sync", "--quiet", root], ctx.abort)),
+              ? run(root, executable, ["status", root], ctx.abort).pipe(
+                  Effect.flatMap(() => run(root, executable!, ["sync", root], ctx.abort)),
                   Effect.as("synced" as const),
                   Effect.catch(() =>
-                    run(root, executable!, ["index", "--quiet", root], ctx.abort).pipe(Effect.as("rebuilt" as const)),
+                    run(root, executable!, ["index", "--force", root], ctx.abort).pipe(Effect.as("rebuilt" as const)),
                   ),
                 )
-              : run(root, executable, ["init", root], ctx.abort).pipe(Effect.as("initialized" as const))
+              : run(root, executable, ["init", "-i", root], ctx.abort).pipe(Effect.as("initialized" as const))
             indexAction = yield* bootstrap.pipe(
               Effect.catch((error) =>
                 Effect.sync(() => {
                   limitations.push(
-                    `CodeGraph bootstrap failed: ${error instanceof Error ? error.message : String(error)}`,
+                    `HomeGraph bootstrap failed: ${error instanceof Error ? error.message : String(error)}`,
                   )
                   return "unavailable" as const
                 }),
@@ -203,7 +203,7 @@ export const ProjectSpecCollectTool = Tool.define(
             const results = yield* Effect.forEach(
               queries,
               (query) =>
-                run(root, executable!, ["explore", "--path", root, "--max-files", "8", query], ctx.abort).pipe(
+                run(root, executable!, ["explore", query], ctx.abort).pipe(
                   Effect.map((output) => ({ focus: query, evidence: compactProjectSpecEvidence(output, 1_400) })),
                   Effect.catch((error) => {
                     limitations.push(`Graph query failed: ${error instanceof Error ? error.message : String(error)}`)
@@ -226,7 +226,7 @@ export const ProjectSpecCollectTool = Tool.define(
               (candidate) =>
                 !candidate
                   .split("/")
-                  .some((part) => ["node_modules", ".git", ".codegraph", "build", "dist"].includes(part)),
+                  .some((part) => ["node_modules", ".git", ".homegraph", "build", "dist"].includes(part)),
             )
             .toSorted((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b))
             .slice(0, 6)
@@ -261,7 +261,7 @@ export const ProjectSpecCollectTool = Tool.define(
             schema: "project-spec-evidence-v1",
             mode: gaps.length ? "follow-up" : "initial",
             backend: {
-              name: graphEvidence.length ? ("codegraph" as const) : ("targeted" as const),
+              name: graphEvidence.length ? ("homegraph" as const) : ("targeted" as const),
               indexAction,
               queries: graphEvidence.length,
               limitations,

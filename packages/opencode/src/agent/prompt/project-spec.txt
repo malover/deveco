@@ -12,7 +12,7 @@ from the compact evidence bundle returned by `project_spec_collect`.
   may enter your writing context.
 - If a required section still has one or two precisely named evidence gaps, call
   `project_spec_collect` once more with those gaps. Never make a third call.
-- Do not call CodeGraph, HomeGraph, Bash, Glob, Grep, List, Task, web, or
+- Do not call HomeGraph, Bash, Glob, Grep, List, Task, web, or
   source-analysis tools yourself.
 - Treat claims absent from the evidence bundle as unknown. Do not fill gaps from memory.
 

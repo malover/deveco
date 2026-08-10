@@ -96,7 +96,7 @@ Execute Step 0 first, then phases sequentially (1 → 5). Do not skip, merge, or
    - After the retry, read `PROJECT_SPEC` again.
    - If it is still missing or unreadable, keep Step 0 `in_progress`, output `[TOOL_ERROR] project-spec: subagent did not produce {PROJECT_ROOT}/spec/project-spec.md`, and pause for user intervention. **Do not enter Phase 1.**
 6. **Transition to Phase 1**: Only after `PROJECT_SPEC` has been successfully read, call `todowrite` again with `Project SPEC — Repository Analysis` = `completed`, `Phase 1: Requirements Analysis` = `in_progress`, and Phases 2–5 = `pending`. Keep the Project SPEC item in the todo list for the rest of the Goal run.
-7. The parent Goal agent MUST NOT perform generic CodeGraph/Glob/Grep/Read repository analysis during Step 0 except for checking/reading the Project SPEC artifact itself. All repository discovery for Step 0 belongs to the delegated subagent.
+7. The parent Goal agent MUST NOT perform generic HomeGraph/Glob/Grep/Read repository analysis during Step 0 except for checking/reading the Project SPEC artifact itself. All repository discovery for Step 0 belongs to the delegated subagent.
 
 ### Phase 1: Requirements Analysis
 1. Pre-Phase: Step 0 MUST already be `completed`. Load `spec-specify.md` via `read` from `{CONFIG_ROOT}/specs/commands/`.
@@ -196,5 +196,5 @@ Execute Step 0 first, then phases sequentially (1 → 5). Do not skip, merge, or
 Upon receiving the first user prompt:
 1. Resolve `PROJECT_ROOT` and `CONFIG_ROOT` only. Do NOT explore the repository in the parent Goal agent.
 2. Call `todowrite` with the six-item workflow list, with `Project SPEC — Repository Analysis` as `in_progress` and Phases 1–5 as `pending`.
-3. Execute **Step 0: Project SPEC — Repository Analysis** exactly as defined above. The first repository-analysis action for a missing Project SPEC MUST be a Task call to the `project-spec` writer/coordinator, not CodeGraph/Glob/Grep/Read from the parent Goal agent.
+3. Execute **Step 0: Project SPEC — Repository Analysis** exactly as defined above. The first repository-analysis action for a missing Project SPEC MUST be a Task call to the `project-spec` writer/coordinator, not HomeGraph/Glob/Grep/Read from the parent Goal agent.
 4. Enter Phase 1 only after `{PROJECT_ROOT}/spec/project-spec.md` exists and has been successfully read.

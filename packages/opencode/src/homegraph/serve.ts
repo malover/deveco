@@ -1,15 +1,14 @@
 import fs from "node:fs"
 import path from "node:path"
-import { resolveCodeGraphExecutable } from "./integration"
+import { resolveHomeGraphExecutable } from "./integration"
 
 const projectRoot = process.cwd()
-const executable = resolveCodeGraphExecutable()
+const executable = resolveHomeGraphExecutable()
 
 function command(args: string[]) {
   if (process.platform === "win32" && executable.endsWith(".cmd")) {
     return ["cmd.exe", "/d", "/s", "/c", executable, ...args]
   }
-
   return [executable, ...args]
 }
 
@@ -21,34 +20,28 @@ async function run(args: string[]) {
     stderr: "pipe",
     env: process.env,
   })
-
   const [exitCode, stdout, stderr] = await Promise.all([
     processHandle.exited,
     new Response(processHandle.stdout).text(),
     new Response(processHandle.stderr).text(),
   ])
-
   if (exitCode !== 0) {
-    const detail = stderr.trim() || stdout.trim() || `exit code ${exitCode}`
-    throw new Error(`CodeGraph ${args.join(" ")} failed: ${detail}`)
+    throw new Error(
+      `HomeGraph ${args.join(" ")} failed: ${stderr.trim() || stdout.trim() || `exit code ${exitCode}`}`,
+    )
   }
 }
 
 async function bootstrap() {
-  const codegraphDir = path.join(projectRoot, ".codegraph")
-  if (fs.existsSync(codegraphDir)) return
+  const indexDir = path.join(projectRoot, ".homegraph")
+  if (fs.existsSync(indexDir)) return
 
-  await run(["init"])
-  await run(["index"])
-
-  if (!fs.existsSync(codegraphDir)) {
-    throw new Error(`CodeGraph bootstrap completed without creating ${codegraphDir}`)
-  }
+  await run(["init", "-i", projectRoot])
+  if (!fs.existsSync(indexDir)) throw new Error(`HomeGraph bootstrap completed without creating ${indexDir}`)
 }
 
 async function serve() {
   await bootstrap()
-
   const processHandle = Bun.spawn(command(["serve", "--mcp"]), {
     cwd: projectRoot,
     stdin: "inherit",
@@ -56,9 +49,7 @@ async function serve() {
     stderr: "inherit",
     env: process.env,
   })
-
-  const exitCode = await processHandle.exited
-  process.exit(exitCode)
+  process.exit(await processHandle.exited)
 }
 
 serve().catch((error) => {

@@ -35,7 +35,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { McpCatalog } from "./catalog"
-import { builtInCodeGraphMcp } from "@/codegraph/integration"
+import { builtInHomeGraphMcp } from "@/homegraph/integration"
 
 const DEFAULT_TIMEOUT = 30_000
 const CLIENT_OPTIONS = {
@@ -425,9 +425,9 @@ export const layer = Layer.effect(
     function effectiveMcpConfig(configured: Record<string, McpEntry> | undefined): Record<string, McpEntry> {
       const result: Record<string, McpEntry> = {}
 
-      const builtIn = builtInCodeGraphMcp()
+      const builtIn = builtInHomeGraphMcp()
       if (builtIn) {
-        result.codegraph = builtIn
+        result.homegraph = builtIn
       }
 
       // User configuration is applied after built-ins so a user may override
