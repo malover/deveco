@@ -13,7 +13,7 @@ import { withTransientReadRetry } from "@/util/effect-http-client"
 import { Global } from "@opencode-ai/core/global"
 import type { MessageV2 } from "./message-v2"
 import type { MessageID } from "./schema"
-import { CODEGRAPH_INSTRUCTIONS, isCodeGraphEnabled } from "@/codegraph/integration"
+import { HOMEGRAPH_INSTRUCTIONS, isHomeGraphEnabled } from "@/homegraph/integration"
 
 function extract(messages: SessionV1.WithParts[]) {
   const paths = new Set<string>()
@@ -166,7 +166,7 @@ export const layer: Layer.Layer<
       return [
         ...Array.from(paths).flatMap((item, i) => (files[i] ? [`Instructions from: ${item}\n${files[i]}`] : [])),
         ...urls.flatMap((item, i) => (remote[i] ? [`Instructions from: ${item}\n${remote[i]}`] : [])),
-        ...(isCodeGraphEnabled() ? [`Built-in CodeGraph instructions\n${CODEGRAPH_INSTRUCTIONS}`] : []),
+        ...(isHomeGraphEnabled() ? [`Built-in HomeGraph instructions\n${HOMEGRAPH_INSTRUCTIONS}`] : []),
       ]
     })
 

@@ -20,6 +20,7 @@ import { PartID } from "./schema"
 import { EffectBridge } from "@/effect/bridge"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
+import { homeGraphToolAllowed } from "@/homegraph/tool-surface"
 
 export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
   agent: Agent.Info
@@ -126,7 +127,9 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
     })
   }
 
-  for (const [key, item] of Object.entries(yield* mcp.tools())) {
+  for (const [key, item] of Object.entries(yield* mcp.tools()).filter(([key]) =>
+    homeGraphToolAllowed(input.agent.name, key),
+  )) {
     const execute = item.execute
     if (!execute) continue
 

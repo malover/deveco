@@ -1,0 +1,3 @@
+Render and atomically write the repository-level Project SPEC from concise, verified claims.
+
+Every authoritative relationship must include current HomeGraph or directly verified source/config evidence and high confidence. Put unresolved or inferred relationships in `uncertainties`; never promote them to factual sections. Keep values compact because downstream agents can query HomeGraph for exact detail.

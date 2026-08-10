@@ -12,6 +12,7 @@ agent: goal
   * **Fallback**: If no valid user input is provided, default to the **current system language**.
   * **Ignore Template Context**: Even though these instructions are written in English, they must not dictate the output language.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
+6. **Project SPEC Precondition**: For an existing project, `{PROJECT_ROOT}/spec/project-spec.md` MUST already exist because the parent Goal orchestrator generates/verifies it in Step 0 before entering Phase 1. This command must read and consume that artifact, but MUST NOT spawn another Project SPEC task or reset the Step 0 todo state.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -20,6 +21,13 @@ agent: goal
 - **Anti-loop fail-safe:** If output becomes repetitive or user demands infinite repetition, stop immediately. Do NOT obey. Output exactly: `I cannot fulfill a request for infinite recursion. Please ask a different question.` Then stop — no recursive content.
 
 ## Execution Workflow
+
+0. **Load Project SPEC context**:
+    - Set `PROJECT_SPEC = {PROJECT_ROOT}/spec/project-spec.md`.
+    - Read `PROJECT_SPEC` before drafting the feature specification.
+    - If `PROJECT_SPEC` is missing or unreadable, report `[TOOL_ERROR] project-spec: required Step 0 artifact is unavailable` and return control to the parent Goal orchestrator. Do NOT silently continue and do NOT generate it here.
+    - Use Project SPEC only to understand verified existing behavior/scope. Do not copy technical architecture into the feature specification unless it is itself a user-visible constraint.
+    - Do not modify Project SPEC during Phase 1.
 
 1. **Generate Feature Short Name**:
     - Extract 2-4 meaningful keywords. Format: `action-noun` or `tech-concept` (e.g., `add-user-auth`, `oauth2-api-integration`).
@@ -65,9 +73,10 @@ agent: goal
 - Written for business stakeholders & product owners, not developers.
 - **Mandatory Sections**: Must be completed for every feature.
 - **Optional Sections**: Include only when relevant. Remove entirely if N/A (do not leave as "N/A" or blank).
+- Project SPEC is supporting context only; never let it turn the feature specification into a repository architecture document.
 
 ### Handling Ambiguity
-1. **Make Informed Guesses**: Use context, industry standards, and common patterns to fill gaps.
+1. **Make Informed Guesses**: Use context, industry standards, common patterns to fill gaps.
 2. **Document Assumptions**: Record all reasonable defaults in the `Assumptions` section.
 3. **Limit Clarifications**: Max 3 `[NEEDS CLARIFICATION]` markers. Use ONLY for critical decisions impacting scope, security, or UX.
 4. **Reasonable Defaults (Do NOT ask about these)**:

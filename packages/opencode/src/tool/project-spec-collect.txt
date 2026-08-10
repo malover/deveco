@@ -1,0 +1,3 @@
+Collect a compact, bounded repository evidence bundle for Project SPEC generation.
+
+Call once without `gaps` for the normal architecture, runtime, state, contracts, and risk pass. Call at most once more with one or two precisely named evidence gaps only when the first bundle cannot support a required Project SPEC section. The tool owns HomeGraph bootstrap/sync, query limits, targeted reads, deduplication, and the output size cap.

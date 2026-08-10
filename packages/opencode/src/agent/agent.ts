@@ -18,6 +18,7 @@ import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_GOAL from "./prompt/goal.txt"
+import PROMPT_PROJECT_SPEC from "./prompt/project-spec.txt"
 import PROMPT_SPEC_VERIFY from "./prompt/spec-verify.txt"
 import PROMPT_SPEC_IMPLEMENTATION from "./prompt/spec-implementation.txt"
 import { Permission } from "@/permission"
@@ -38,6 +39,7 @@ import { LocationServiceMap } from "@opencode-ai/core/location-layer"
 import { PluginBoot } from "@opencode-ai/core/plugin/boot"
 import { Reference } from "@opencode-ai/core/reference"
 import { Location } from "@opencode-ai/core/location"
+import { projectSpecGoalPrompt } from "./project-spec-mode"
 
 export const Info = Schema.Struct({
   name: Schema.String,
@@ -135,6 +137,8 @@ export const layer = Layer.effect(
           plan_exit: "deny",
           debug_exit: "deny",
           spec_write: "deny",
+          project_spec_collect: "deny",
+          project_spec_write: "deny",
           repo_overview: "deny",
           check_ets_files: "deny",
           verify_ui: "deny",
@@ -208,13 +212,14 @@ export const layer = Layer.effect(
                 websearch: "allow",
                 todowrite: "allow",
                 spec_write: "allow",
+                project_spec_write: "allow",
                 task: "allow",
               }),
               user,
             ),
             mode: "primary",
             native: true,
-            prompt: PROMPT_GOAL,
+            prompt: projectSpecGoalPrompt(PROMPT_GOAL),
             color: "info",
           },
           "spec-implementation": {
@@ -256,6 +261,33 @@ export const layer = Layer.effect(
             hidden: true,
             temperature: 0.2,
             prompt: PROMPT_SPEC_VERIFY,
+          },
+          "project-spec": {
+            name: "project-spec",
+            description: "Legacy isolated Project SPEC fallback for A/B comparison",
+            options: {},
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                "*": "deny",
+                read: "allow",
+                edit: {
+                  "*": "deny",
+                  "spec/project-spec.md": "allow",
+                  "**/spec/project-spec.md": "allow",
+                },
+                spec_write: "allow",
+                project_spec_collect: "allow",
+                task: "deny",
+                external_directory: readonlyExternalDirectory,
+              }),
+              user,
+            ),
+            mode: "subagent",
+            native: true,
+            hidden: true,
+            steps: 5,
+            prompt: PROMPT_PROJECT_SPEC,
           },
           plan: {
             name: "plan",

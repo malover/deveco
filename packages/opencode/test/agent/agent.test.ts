@@ -57,6 +57,8 @@ it.instance("returns default native agents when no config", () =>
     expect(names).toContain("plan")
     expect(names).toContain("general")
     expect(names).toContain("explore")
+    expect(names).toContain("project-spec")
+    expect(names).not.toContain("project-spec-explorer")
     expect(names).toContain("compaction")
     expect(names).toContain("title")
     expect(names).toContain("summary")
@@ -126,6 +128,32 @@ it.instance("spec-implementation agent is a native subagent with correct permiss
   }),
 )
 
+it.instance("project-spec writer isolates deterministic collection from writing", () =>
+  Effect.gen(function* () {
+    const writer = yield* load((svc) => svc.get("project-spec"))
+
+    expect(writer?.mode).toBe("subagent")
+    expect(writer?.hidden).toBe(true)
+    expect(writer?.steps).toBe(5)
+    expect(evalPerm(writer, "read")).toBe("allow")
+    expect(evalPerm(writer, "bash")).toBe("deny")
+    expect(evalPerm(writer, "project_spec_collect")).toBe("allow")
+    expect(evalPerm(writer, "project_spec_write")).toBe("deny")
+    expect(Permission.evaluate("task", "general", writer.permission).action).toBe("deny")
+    expect(Permission.evaluate("edit", "spec/project-spec.md", writer.permission).action).toBe("allow")
+    expect(Permission.evaluate("edit", "src/index.ts", writer.permission).action).toBe("deny")
+  }),
+)
+
+it.instance("goal owns direct Project SPEC generation tools", () =>
+  Effect.gen(function* () {
+    const goal = yield* load((svc) => svc.get("goal"))
+
+    expect(evalPerm(goal, "project_spec_write")).toBe("allow")
+    expect(evalPerm(goal, "project_spec_collect")).toBe("deny")
+  }),
+)
+
 // The plan agent's edit permission is "deny" for wildcards, and the
 // external_directory allow is scoped to Global.Path.data/plans/* which on Windows
 // resolves to an absolute path under LOCALAPPDATA/deveco/plans/*. A relative
@@ -141,7 +169,11 @@ it.instance("plan agent denies edits except data/plans/*", () =>
     // path like C:\Users\...\AppData\Local\deveco\plans. Check the allow rule
     // exists in the permission list (exact path varies by platform).
     const plansAllow = plan!.permission.some(
-      (r) => r.permission === "external_directory" && r.action === "allow" && typeof r.pattern === "string" && r.pattern.includes("plans"),
+      (r) =>
+        r.permission === "external_directory" &&
+        r.action === "allow" &&
+        typeof r.pattern === "string" &&
+        r.pattern.includes("plans"),
     )
     expect(plansAllow).toBe(true)
   }),
