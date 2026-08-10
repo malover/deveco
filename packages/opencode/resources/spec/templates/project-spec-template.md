@@ -12,7 +12,7 @@
 
 ## Graph Analysis
 
-- **Pipeline**: `project-spec-explorer` → compact `project-spec-evidence-v1` → `project-spec` writer
+- **Pipeline**: `project_spec_collect` → compact `project-spec-evidence-v1` → `project-spec` writer
 - **Backend**: [homegraph/codegraph/targeted]
 - **Index action**: [reused/initialized/synced/rebuilt/unavailable]
 - **Graph queries**: [successful repository-specific query count]
@@ -164,9 +164,10 @@ Record uncertainty explicitly rather than turning an inference into a fact. Runt
 Analysis Metrics:
 
 - Evidence handoff: project-spec-evidence-v1
+- Collector calls:
 - CodeGraph queries:
 - Direct source reads:
 - Glob/Grep operations:
-- Exploration rounds:
+- Collection rounds:
 - Generation duration:
 - Evidence size:

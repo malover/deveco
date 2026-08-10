@@ -58,7 +58,7 @@ it.instance("returns default native agents when no config", () =>
     expect(names).toContain("general")
     expect(names).toContain("explore")
     expect(names).toContain("project-spec")
-    expect(names).toContain("project-spec-explorer")
+    expect(names).not.toContain("project-spec-explorer")
     expect(names).toContain("compaction")
     expect(names).toContain("title")
     expect(names).toContain("summary")
@@ -128,28 +128,19 @@ it.instance("spec-implementation agent is a native subagent with correct permiss
   }),
 )
 
-it.instance("project-spec agents isolate exploration from writing", () =>
+it.instance("project-spec writer isolates deterministic collection from writing", () =>
   Effect.gen(function* () {
-    const [writer, explorer] = yield* load((svc) =>
-      Effect.all([svc.get("project-spec"), svc.get("project-spec-explorer")]),
-    )
+    const writer = yield* load((svc) => svc.get("project-spec"))
 
     expect(writer?.mode).toBe("subagent")
     expect(writer?.hidden).toBe(true)
+    expect(writer?.steps).toBe(5)
     expect(evalPerm(writer, "read")).toBe("allow")
     expect(evalPerm(writer, "bash")).toBe("deny")
-    expect(Permission.evaluate("task", "project-spec-explorer", writer.permission).action).toBe("allow")
+    expect(evalPerm(writer, "project_spec_collect")).toBe("allow")
     expect(Permission.evaluate("task", "general", writer.permission).action).toBe("deny")
     expect(Permission.evaluate("edit", "spec/project-spec.md", writer.permission).action).toBe("allow")
     expect(Permission.evaluate("edit", "src/index.ts", writer.permission).action).toBe("deny")
-
-    expect(explorer?.mode).toBe("subagent")
-    expect(explorer?.hidden).toBe(true)
-    expect(evalPerm(explorer, "read")).toBe("allow")
-    expect(evalPerm(explorer, "bash")).toBe("allow")
-    expect(evalPerm(explorer, "edit")).toBe("deny")
-    expect(evalPerm(explorer, "task")).toBe("deny")
-    expect(evalPerm(explorer, "spec_write")).toBe("deny")
   }),
 )
 

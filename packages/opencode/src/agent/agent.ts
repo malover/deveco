@@ -19,7 +19,6 @@ import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_GOAL from "./prompt/goal.txt"
 import PROMPT_PROJECT_SPEC from "./prompt/project-spec.txt"
-import PROMPT_PROJECT_SPEC_EXPLORER from "./prompt/project-spec-explorer.txt"
 import PROMPT_SPEC_VERIFY from "./prompt/spec-verify.txt"
 import PROMPT_SPEC_IMPLEMENTATION from "./prompt/spec-implementation.txt"
 import { Permission } from "@/permission"
@@ -137,6 +136,7 @@ export const layer = Layer.effect(
           plan_exit: "deny",
           debug_exit: "deny",
           spec_write: "deny",
+          project_spec_collect: "deny",
           repo_overview: "deny",
           check_ets_files: "deny",
           verify_ui: "deny",
@@ -274,33 +274,8 @@ export const layer = Layer.effect(
                   "**/spec/project-spec.md": "allow",
                 },
                 spec_write: "allow",
-                task: {
-                  "*": "deny",
-                  "project-spec-explorer": "allow",
-                },
-                external_directory: readonlyExternalDirectory,
-              }),
-              user,
-            ),
-            mode: "subagent",
-            native: true,
-            hidden: true,
-            prompt: PROMPT_PROJECT_SPEC,
-          },
-          "project-spec-explorer": {
-            name: "project-spec-explorer",
-            description: "Collect bounded repository evidence for Project SPEC generation",
-            options: {},
-            permission: Permission.merge(
-              defaults,
-              Permission.fromConfig({
-                edit: "deny",
-                spec_write: "deny",
+                project_spec_collect: "allow",
                 task: "deny",
-                todowrite: "deny",
-                question: "deny",
-                webfetch: "deny",
-                websearch: "deny",
                 external_directory: readonlyExternalDirectory,
               }),
               user,
@@ -308,7 +283,8 @@ export const layer = Layer.effect(
             mode: "subagent",
             native: true,
             hidden: true,
-            prompt: PROMPT_PROJECT_SPEC_EXPLORER,
+            steps: 5,
+            prompt: PROMPT_PROJECT_SPEC,
           },
           plan: {
             name: "plan",

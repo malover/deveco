@@ -93,6 +93,7 @@ export const TaskTool = Tool.define(
       params: Schema.Schema.Type<typeof Parameters>,
       ctx: Tool.Context,
     ) {
+      const taskStartedAt = Date.now()
       const cfg = yield* config.get()
       const runInBackground = params.background === true
       if (runInBackground && !flags.experimentalBackgroundSubagents) {
@@ -142,6 +143,7 @@ export const TaskTool = Tool.define(
           action: "deny" as const,
         })) ?? []),
       ]
+      const sessionCreateStartedAt = Date.now()
       const nextSession =
         session ??
         (yield* sessions.create({
@@ -159,6 +161,20 @@ export const TaskTool = Tool.define(
             ),
           ],
         }))
+      const timing = {
+        sessionCreateMs: session ? 0 : Date.now() - sessionCreateStartedAt,
+        resolvePromptMs: 0,
+        promptMs: 0,
+        totalMs: 0,
+      }
+      yield* Effect.logInfo("subagent session ready", {
+        service: "task",
+        agent: next.name,
+        parentSessionID: ctx.sessionID,
+        childSessionID: nextSession.id,
+        resumed: session !== undefined,
+        sessionCreateMs: timing.sessionCreateMs,
+      })
 
       const msg = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }).pipe(
         Effect.provideService(Database.Service, database),
@@ -175,6 +191,7 @@ export const TaskTool = Tool.define(
         parentSessionId: ctx.sessionID,
         sessionId: nextSession.id,
         model,
+        timing,
         ...(runInBackground ? { background: true } : {}),
       }
 
@@ -187,7 +204,10 @@ export const TaskTool = Tool.define(
       if (!ops) return yield* Effect.fail(new Error("TaskTool requires promptOps in ctx.extra"))
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
+        const resolveStartedAt = Date.now()
         const parts = yield* ops.resolvePromptParts(params.prompt)
+        timing.resolvePromptMs = Date.now() - resolveStartedAt
+        const promptStartedAt = Date.now()
         const result = yield* ops.prompt({
           messageID: MessageID.ascending(),
           sessionID: nextSession.id,
@@ -198,6 +218,15 @@ export const TaskTool = Tool.define(
           variant: next.model ? undefined : variant,
           agent: next.name,
           parts,
+        })
+        timing.promptMs = Date.now() - promptStartedAt
+        timing.totalMs = Date.now() - taskStartedAt
+        yield* Effect.logInfo("subagent prompt completed", {
+          service: "task",
+          agent: next.name,
+          parentSessionID: ctx.sessionID,
+          childSessionID: nextSession.id,
+          ...timing,
         })
         return result.parts.findLast((item) => item.type === "text")?.text ?? ""
       })

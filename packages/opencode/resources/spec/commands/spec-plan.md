@@ -39,8 +39,8 @@ agent: goal
            - set `PROJECT_ROOT` to the current workspace/project root;
            - set `CONFIG_ROOT` to `~/.local/share/deveco/` using the OS-native home directory;
            - read and faithfully execute `{CONFIG_ROOT}/specs/commands/project-spec-generate.md`;
-           - spawn one foreground `project-spec-explorer` Task and pass it the command's bounded `project-spec-evidence-v1` handoff contract;
-           - keep all graph calls, repository reads, raw tool output, and intermediate reasoning inside the explorer session;
+           - call `project_spec_collect` once for the bounded `project-spec-evidence-v1` handoff, with at most one precise follow-up;
+           - do not spawn an explorer Task or call repository-analysis tools directly;
            - load `{CONFIG_ROOT}/specs/templates/project-spec-template.md`;
            - generate exactly `{PROJECT_ROOT}/spec/project-spec.md`;
            - return the artifact path, graph backend used, evidence inspected, and limitations;
