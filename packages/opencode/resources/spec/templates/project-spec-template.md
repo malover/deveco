@@ -160,11 +160,6 @@ Record uncertainty explicitly rather than turning an inference into a fact. Runt
 | <topic> | <what was observed> | <high/medium/low and what would confirm it> |
 
 ## Generation Metadata
-
-Backend:
-
--
-
 Analysis Metrics:
 
 - CodeGraph queries:
