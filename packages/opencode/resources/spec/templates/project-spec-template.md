@@ -28,27 +28,31 @@ Include only directories that materially affect implementation. Omit generated o
 
 ## Module Semantics
 
-| Module Path | Responsibility | Key Dependencies |
-|---|---|---|
-| `<relative/path>` | <what this module owns> | <important internal/external dependencies> |
+| Module Path | Responsibility | Key Dependencies | Evidence |
+|---|---|---|---|
+| `<relative/path>` | <what this module owns> | <important internal/external dependencies> | <graph query and/or directly verified files> |
 
 ## Runtime Entry Points
 
-| Entry Point | Path | Responsibility |
-|---|---|---|
-| <ability/page/service/native entry> | `<relative/path>` | <how runtime enters this part of the system> |
+| Entry Point | Path | Responsibility | Evidence |
+|---|---|---|---|
+| <ability/page/service/native entry> | `<relative/path>` | <how runtime enters this part of the system> | <manifest/source/graph evidence> |
 
 ## Key Runtime Flows
 
-For each high-value flow, describe the observed path through the current implementation.
+For each high-value flow, describe the observed path through the current implementation. Runtime ordering must be verified, not assembled from independent facts.
 
 ### <Flow Name>
 
-`<entry>` → `<component/service>` → `<dependency/storage/native boundary>`
+`<verified entry>` → `<verified next step>` → `<verified dependency/storage/native boundary>`
 
 - **Trigger**: <what starts the flow>
 - **State/data movement**: <important state or payload transitions>
 - **Side effects**: <storage/network/system/native actions>
+- **Evidence**: <graph path/callers/callees and directly verified source files>
+- **Confidence**: <high/medium/low; low/medium must explain what remains unverified>
+
+If call order cannot be established from graph/source evidence, do not invent a sequence. Record the partial flow and move the unresolved ordering to `Uncertain or Inferred Information`.
 
 ## Architecture and Dependency Boundaries
 
@@ -61,9 +65,9 @@ Do not invent an ideal architecture. Record the architecture that exists in sour
 
 ## Key Interfaces and Shared Contracts
 
-| Contract / Symbol | Path | Consumers / Role |
-|---|---|---|
-| `<interface/type/api>` | `<relative/path>` | <why changes here have downstream impact> |
+| Contract / Symbol | Path | Consumers / Role | Evidence |
+|---|---|---|---|
+| `<interface/type/api>` | `<relative/path>` | <why changes here have downstream impact> | <callers/callees/modules/direct source evidence> |
 
 ## State and Data
 
@@ -71,23 +75,26 @@ Do not invent an ideal architecture. Record the architecture that exists in sour
 - **Persistence**: <preferences/database/files/other storage that is actually configured or used>
 - **Data models**: <important shared/domain entities>
 - **Synchronization/lifecycle rules**: <only when established by source>
+- **Evidence**: <graph/source/config files supporting the above claims>
 
 ## Feature Change Guidance
 
 Describe a small number of recurring change archetypes that are clearly supported by the existing repository structure. This is not guidance for the user's current requested feature and must not propose new architecture.
 
-For each archetype, provide the likely existing modification path and repository conventions an implementation agent should preserve.
+For each archetype, derive the route from actual graph paths and then verify the key source files. Do not infer a generic repository pattern from filenames alone.
 
 ### <Change Archetype>
 
-`<entry/config/UI>` → `<presenter/viewmodel/model>` → `<state/persistence/service>` → `<affected runtime component>`
+`<verified entry/config/UI>` → `<verified presenter/viewmodel/model>` → `<verified state/persistence/service>` → `<verified affected runtime component>`
 
 - **Start here**: <existing file/symbol or module that owns this kind of change>
-- **Likely propagation**: <verified current-state path through existing modules>
+- **Verified propagation**: <graph-backed current-state path through existing modules>
 - **Preserve**: <existing conventions/contracts/state ownership/dependency direction>
 - **Avoid**: <existing architectural boundary that should not be bypassed, only when evidence supports it>
+- **Evidence**: <graph path/query plus directly verified files>
+- **Applicability**: <conditions under which this guidance applies; avoid implying every feature follows the same pattern>
 
-Prefer 3-6 high-value archetypes such as adding a setting, changing layout behavior, adding a feature module capability, modifying persistence, or changing an app lifecycle flow when those archetypes are supported by the repository.
+Prefer 3-6 high-value archetypes such as adding a setting, changing layout behavior, modifying persistence, extending an existing feature module, changing lifecycle/startup behavior, or extending a product-specific variant when those archetypes are supported by the repository.
 
 ## Modification Risk Map
 
@@ -138,13 +145,15 @@ Only include recurring, repository-specific patterns that an implementation agen
 
 ## Existing Documentation
 
+List every documentation source that materially influenced the generated Project SPEC, including multilingual README files. Do not omit a used document merely because its content was normalized or translated during reasoning.
+
 | Path | Relevance |
 |---|---|
 | `<relative/path>` | <what useful project knowledge it contains> |
 
 ## Uncertain or Inferred Information
 
-Record uncertainty explicitly rather than turning an inference into a fact.
+Record uncertainty explicitly rather than turning an inference into a fact. Runtime ordering, cross-module propagation, or persistence behavior that was not directly verified belongs here.
 
 | Topic | Current Evidence | Confidence / Needed Verification |
 |---|---|---|
