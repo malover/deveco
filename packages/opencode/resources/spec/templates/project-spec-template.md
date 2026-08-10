@@ -28,14 +28,14 @@ Include only directories that materially affect implementation. Omit generated o
 
 ## Module Semantics
 
-| Module Path | Responsibility | Key Dependencies | Evidence |
-|---|---|---|---|
+| Module Path       | Responsibility          | Key Dependencies                           | Evidence                                     |
+| ----------------- | ----------------------- | ------------------------------------------ | -------------------------------------------- |
 | `<relative/path>` | <what this module owns> | <important internal/external dependencies> | <graph query and/or directly verified files> |
 
 ## Runtime Entry Points
 
-| Entry Point | Path | Responsibility | Evidence |
-|---|---|---|---|
+| Entry Point                         | Path              | Responsibility                               | Evidence                         |
+| ----------------------------------- | ----------------- | -------------------------------------------- | -------------------------------- |
 | <ability/page/service/native entry> | `<relative/path>` | <how runtime enters this part of the system> | <manifest/source/graph evidence> |
 
 ## Key Runtime Flows
@@ -65,8 +65,8 @@ Do not invent an ideal architecture. Record the architecture that exists in sour
 
 ## Key Interfaces and Shared Contracts
 
-| Contract / Symbol | Path | Consumers / Role | Evidence |
-|---|---|---|---|
+| Contract / Symbol      | Path              | Consumers / Role                          | Evidence                                         |
+| ---------------------- | ----------------- | ----------------------------------------- | ------------------------------------------------ |
 | `<interface/type/api>` | `<relative/path>` | <why changes here have downstream impact> | <callers/callees/modules/direct source evidence> |
 
 ## State and Data
@@ -100,8 +100,8 @@ Prefer 3-6 high-value archetypes such as adding a setting, changing layout behav
 
 Classify the most change-sensitive current areas by practical implementation risk. Base risk on graph evidence, fan-in/fan-out, shared state ownership, lifecycle position, persistence ownership, and cross-module reach.
 
-| Risk | Area / Symbol | Potential Blast Radius | Evidence | Safer Change Strategy |
-|---|---|---|---|---|
+| Risk            | Area / Symbol      | Potential Blast Radius         | Evidence                                          | Safer Change Strategy                                       |
+| --------------- | ------------------ | ------------------------------ | ------------------------------------------------- | ----------------------------------------------------------- |
 | High/Medium/Low | `<path or symbol>` | <modules/flows/state affected> | <callers/callees/dependencies/ownership evidence> | <how to minimize impact using existing repository patterns> |
 
 Keep this distinct from `Change-Sensitive Areas`: the risk map must prioritize and classify areas, while `Change-Sensitive Areas` records detailed evidence about broad-impact symbols.
@@ -129,8 +129,8 @@ Record information that code-graph analysis does not reliably capture by directl
 
 List areas where a small modification can affect a broad portion of the application. Prefer graph-backed evidence such as high fan-in/fan-out symbols, shared contracts, and cross-module call paths.
 
-| Area / Symbol | Why Sensitive | Evidence |
-|---|---|---|
+| Area / Symbol      | Why Sensitive   | Evidence                         |
+| ------------------ | --------------- | -------------------------------- |
 | `<path or symbol>` | <impact reason> | <callers/modules/contract usage> |
 
 ## Implementation Conventions
@@ -147,14 +147,29 @@ Only include recurring, repository-specific patterns that an implementation agen
 
 List every documentation source that materially influenced the generated Project SPEC, including multilingual README files. Do not omit a used document merely because its content was normalized or translated during reasoning.
 
-| Path | Relevance |
-|---|---|
+| Path              | Relevance                                   |
+| ----------------- | ------------------------------------------- |
 | `<relative/path>` | <what useful project knowledge it contains> |
 
 ## Uncertain or Inferred Information
 
 Record uncertainty explicitly rather than turning an inference into a fact. Runtime ordering, cross-module propagation, or persistence behavior that was not directly verified belongs here.
 
-| Topic | Current Evidence | Confidence / Needed Verification |
-|---|---|---|
+| Topic   | Current Evidence    | Confidence / Needed Verification            |
+| ------- | ------------------- | ------------------------------------------- |
 | <topic> | <what was observed> | <high/medium/low and what would confirm it> |
+
+## Generation Metadata
+
+Backend:
+
+-
+
+Analysis Metrics:
+
+- CodeGraph queries:
+- Direct source reads:
+- Glob/Grep operations:
+- Exploration rounds:
+- Generation duration:
+- Evidence size:

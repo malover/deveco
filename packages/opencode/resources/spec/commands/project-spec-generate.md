@@ -7,6 +7,80 @@ agent: general
 
 Generate or refresh `{PROJECT_ROOT}/spec/project-spec.md` as a factual description of the CURRENT repository. The Project SPEC exists to improve downstream SDD planning and implementation success on large codebases. It is not a feature specification and must not contain proposed architecture for the user's requested change.
 
+## Exploration Budget (Mandatory)
+
+Project SPEC generation must use bounded repository exploration.
+
+Limits:
+
+- Maximum CodeGraph queries: 5
+- Maximum direct source reads: 12
+- Maximum glob/grep operations: 5
+- Maximum exploration rounds: 3
+
+After reaching any limit:
+
+1. Stop repository exploration.
+2. Summarize available evidence.
+3. Generate the Project SPEC.
+
+Do not continue exploration because additional files may be useful.
+
+Prefer better evidence selection over unlimited repository traversal.
+
+## Required Analysis Order
+
+Repository analysis MUST follow this order.
+
+Do not perform broad source exploration before completing the current stage.
+
+### Stage 1: Architecture
+
+Use CodeGraph first when available.
+
+Identify:
+
+- modules
+- dependency direction
+- entry points
+- subsystem boundaries
+
+### Stage 2: Runtime Lifecycle
+
+Identify:
+
+- startup sequence
+- initialization order
+- lifecycle owners
+- important runtime flows
+
+Runtime ordering claims require:
+
+- CodeGraph caller/callee evidence, or
+- direct source verification.
+
+### Stage 3: State and Data Ownership
+
+Identify:
+
+- persistent storage
+- shared state managers
+- configuration ownership
+- cross-module contracts
+
+### Stage 4: Change Impact
+
+Identify:
+
+- high fan-out symbols
+- central services
+- risky modification points
+- feature propagation paths
+
+### Stage 5: Ambiguity Resolution
+
+Only investigate additional files if existing evidence contains contradictions or uncertainty.
+
 ## Strict rules
 
 1. **Current state only.** Describe what exists now. Do not design the requested feature, migration, refactor, or idealized architecture.
@@ -25,6 +99,42 @@ Generate or refresh `{PROJECT_ROOT}/spec/project-spec.md` as a factual descripti
 14. **Important claims need provenance.** Module dependency claims, runtime flows, shared contracts, state/persistence ownership, change guidance, and risk classifications must include concise evidence references in the generated artifact. Prefer graph path/query plus directly verified source files.
 15. **Change guidance must be graph-derived and conditional.** For every `Feature Change Guidance` archetype, use graph evidence to establish the propagation path before writing guidance. State when the archetype applies; do not imply every new feature/module must follow a pattern that only applies to configuration-driven or preloaded features.
 16. **Used documentation must be listed.** Every documentation file that materially influenced the Project SPEC, including multilingual `README*`, `AGENTS.md`, `CLAUDE.md`, or architecture docs, must appear in `Existing Documentation`.
+
+## Tool Output Handling
+
+Do not pass large raw repository outputs directly into the final generation context.
+
+After each CodeGraph exploration step:
+
+1. Extract only:
+   - relevant files
+   - relevant symbols
+   - callers/callees
+   - dependency relationships
+   - confidence
+
+2. Discard:
+   - unrelated file contents
+   - repeated tool output
+   - duplicate symbol information
+   - large source sections not required for conclusions
+
+When a source file is required:
+
+- read only the relevant range
+- avoid full-file reads unless the file is central to architecture
+
+## Mandatory Evidence Boundary
+
+The final Project SPEC writer must not see raw exploration history.
+
+Only provide:
+
+- evidence summary
+- selected source excerpts
+- verified relationships
+
+The exploration agent and writing agent must be separated logically.
 
 ## Inputs
 
@@ -134,6 +244,16 @@ For a runtime flow, directly verify at least the entry point plus one or more fi
 
 For change guidance, verify the entry symbol and at least one downstream transition. If the full propagation path remains uncertain, shorten the guidance to the verified path and record the gap.
 
+## Generation Efficiency Rules
+
+During repository analysis:
+
+- Prefer one CodeGraph query returning multiple related symbols over many small queries.
+- Prefer representative source reads over reading entire directories.
+- Do not read implementation files only because they are referenced by exports.
+- Do not enumerate every module when dependency relationships are already known.
+- Stop exploration once the evidence required by the template is available.
+
 Do not dump broad source-file contents into context when graph evidence already answers the question. Aim for a bounded verification set; exceed roughly 10-15 source files only when graph evidence is insufficient or repository complexity clearly requires more.
 
 ### 5. Synthesize
@@ -209,6 +329,42 @@ Add a short `Graph Analysis` section near the top of the generated Project SPEC 
 
 Do not report `Backend: codegraph` unless at least one repository-specific CodeGraph query succeeded after bootstrap/sync.
 
+## Evidence Compression Step
+
+Before generating project-spec.md, create an internal compact evidence summary.
+
+The final document generation should use this summary instead of the complete exploration history.
+
+The evidence summary must contain:
+
+```yaml
+backend:
+  codegraph|direct
+
+modules:
+  - name
+    responsibility
+    dependencies
+
+flows:
+  - name
+    verified_path
+    evidence
+
+contracts:
+  - symbol
+    role
+    callers
+
+risks:
+  - symbol
+    severity
+    reason
+
+uncertainties:
+  - claim
+    reason
+
 ### 6. Write artifact
 
 Create the `spec/` directory if required, then write the completed artifact to exactly:
@@ -246,3 +402,4 @@ Return to the parent agent with:
 - any important analysis limitations
 
 Do not start feature planning or implementation.
+```
