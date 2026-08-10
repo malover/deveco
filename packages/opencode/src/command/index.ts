@@ -12,6 +12,7 @@ import { EventV2 } from "@opencode-ai/core/event"
 import PROMPT_DEBUG from "./template/debug.txt"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
+import { ManualSkillCommand } from "./manual"
 
 type State = {
   commands: Record<string, Info>
@@ -53,9 +54,16 @@ export function hints(template: string) {
   return result
 }
 
-export function skillTemplate(item: Pick<Skill.Info, "content" | "location">) {
+export function skillTemplate(item: Pick<Skill.Info, "name" | "content" | "location">) {
   const root = path.dirname(item.location)
   return [
+    ...(ManualSkillCommand.matches(item.name)
+      ? [
+          `The user explicitly invoked /${item.name}. Execute this workflow now against the current worktree.`,
+          "Do not merely describe the workflow or ask for confirmation unless a required input is genuinely missing.",
+          "",
+        ]
+      : []),
     item.content.replaceAll("{skill-root}", root).trim(),
     "",
     `Base directory for this skill: ${root}`,
