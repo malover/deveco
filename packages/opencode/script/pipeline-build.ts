@@ -120,15 +120,6 @@ if (fs.existsSync(defaultSkillsDir)) {
 }
 console.log(`Loaded ${Object.keys(defaultSkillsData).length} default skills`)
 
-// Load the dependency-free Python CodeToGraph MCP runtime.
-const codeToGraphMcpDir = path.join(dir, "resources/mcp/codetograph")
-const codeToGraphMcpData: Record<string, string> = {}
-if (fs.existsSync(codeToGraphMcpDir)) {
-  for (const file of await walk(codeToGraphMcpDir)) {
-    codeToGraphMcpData[path.relative(codeToGraphMcpDir, file).replaceAll("\\", "/")] = await Bun.file(file).text()
-  }
-}
-
 // Load default spec resources from resources/spec/
 console.log("\n[2.5/5] Loading default spec resources...")
 const defaultSpecDir = path.join(dir, "resources/spec")
@@ -347,7 +338,6 @@ for (const item of targets) {
       DEVECO_VERSION: `'${Script.version}'`,
       DEVECO_MIGRATIONS: JSON.stringify(migrations),
       DEVECO_DEFAULT_SKILLS: JSON.stringify(defaultSkillsData),
-      DEVECO_CODETOGRAPH_MCP: JSON.stringify(codeToGraphMcpData),
       DEVECO_DEFAULT_SPEC_RESOURCES: JSON.stringify(defaultSpecData),
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
       DEVECO_WORKER_PATH: workerPath,

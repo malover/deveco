@@ -31,6 +31,15 @@ import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
 import { checkOnStartup as crashCheckOnStartup, cleanupOnExit as crashCleanupOnExit } from "./cli/crash-detect"
 
+if (process.env.DEVECO_CODETOGRAPH_MCP_MODE === "1") {
+  const { CodeToGraphServer } = await import("./codetograph/server")
+  await CodeToGraphServer.serve(
+    process.env.DEVECO_CODETOGRAPH_GRAPH || "docs/codetograph.json",
+    process.env.DEVECO_CODETOGRAPH_DIAGRAMS || "docs/diagrams",
+  )
+  process.exit(0)
+}
+
 const args = hideBin(process.argv)
 
 function show(out: string) {

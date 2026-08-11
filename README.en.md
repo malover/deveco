@@ -265,7 +265,7 @@ DevEco Code includes these manually invoked slash commands:
 - `/codetograph` explicitly generates `docs/codetograph.json` and the structural report for the current project.
 - `/document-project` explicitly runs the brownfield documentation workflow. If no graph exists, it asks whether to continue and never generates one implicitly.
 
-The built-in CodeToGraph MCP uses Python 3.10+ and reads `docs/codetograph.json` after you generate it. It never scans or indexes a project automatically. Set `DEVECO_CODETOGRAPH_ENABLED=0` to disable it or `DEVECO_CODETOGRAPH_PYTHON` to select the Python executable.
+The built-in CodeToGraph MCP runs inside the packaged TypeScript/Bun application and reads `docs/codetograph.json` after you generate it. It never scans or indexes a project automatically. Set `DEVECO_CODETOGRAPH_ENABLED=0` to disable it.
 
 ### MCP
 
