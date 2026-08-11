@@ -251,8 +251,10 @@ Verifies: files analyzed == total files, 0 missing, entity/edge counts match.
 
 ## Full Pipeline
 
+Run this command immediately when the user invokes `/codetograph`. Wait for it to finish and report the generated paths.
+
 ```bash
-bun run "{skill-root}/scripts/codetograph.bundle.js" --project <dir> [--output <dir>]
+{deveco-command} --project <dir> [--output <dir>]
 ```
 
 Runs all phases: discovery → extraction → graph → analysis → export → audit.

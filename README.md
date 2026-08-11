@@ -265,7 +265,9 @@ DevEco Code 内置以下手动斜杠命令：
 - `/codetograph`：显式生成当前项目的 `docs/codetograph.json` 和结构报告。
 - `/document-project`：显式运行棕地项目文档工作流；缺少图谱时会询问是否继续，不会自动生成图谱。
 
-内置 CodeToGraph MCP 直接运行在打包后的 TypeScript/Bun 应用中，并在图谱生成后读取 `docs/codetograph.json`。它不会自动扫描或索引项目。可通过 `DEVECO_CODETOGRAPH_ENABLED=0` 禁用。
+内置 CodeToGraph MCP 在图谱生成后读取 `docs/codetograph.json`，不会自动扫描项目。TypeScript 后端为默认选项。启动 DevEco Code 前设置 `DEVECO_CODETOGRAPH_RUNTIME=python` 可使用保留的 Python 后端，设置 `DEVECO_CODETOGRAPH_RUNTIME=typescript` 可显式选择 TypeScript。`DEVECO_CODETOGRAPH_PYTHON` 可指定 Python 可执行文件，`DEVECO_CODETOGRAPH_ENABLED=0` 可禁用两个后端。
+
+`/codetograph` 始终使用 TypeScript 生成图谱；运行时设置只切换读取该图谱的 MCP 后端。
 
 ### MCP
 

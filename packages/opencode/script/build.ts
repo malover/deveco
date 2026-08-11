@@ -89,6 +89,23 @@ if (fs.existsSync(defaultSkillsDir)) {
 }
 console.log(`Loaded ${Object.keys(defaultSkillsData).length} default skills`)
 
+// Retain the Python MCP as an opt-in compatibility backend.
+const codeToGraphPythonDir = path.join(dir, "resources/mcp/codetograph")
+const codeToGraphPythonData: Record<string, string> = {}
+if (fs.existsSync(codeToGraphPythonDir)) {
+  await (async function recurse(directory: string) {
+    for (const entry of await fs.promises.readdir(directory, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) continue
+      const full = path.join(directory, entry.name)
+      if (entry.isDirectory()) await recurse(full)
+      if (entry.isFile() && entry.name !== ".DS_Store") {
+        codeToGraphPythonData[path.relative(codeToGraphPythonDir, full).replaceAll("\\", "/")] =
+          await Bun.file(full).text()
+      }
+    }
+  })(codeToGraphPythonDir)
+}
+
 // Load default spec resources
 //
 // Mirrors the loader in src/spec/defaults.ts: the top level of resources/spec/
@@ -326,6 +343,7 @@ for (const item of targets) {
       DEVECO_CHANNEL: `'${Script.channel}'`,
       DEVECO_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
       DEVECO_DEFAULT_SKILLS: JSON.stringify(defaultSkillsData),
+      DEVECO_CODETOGRAPH_PYTHON: JSON.stringify(codeToGraphPythonData),
       DEVECO_DEFAULT_SPEC_RESOURCES: JSON.stringify(defaultSpecData),
       DEVECO_SKIP_AGREEMENT: skipAgreementFlag ? "true" : "false",
       ...(item.os === "linux" ? { "process.env.OPENTUI_LIBC": JSON.stringify(item.abi ?? "glibc") } : {}),

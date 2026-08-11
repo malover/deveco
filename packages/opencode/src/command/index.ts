@@ -1,7 +1,6 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { InstanceState } from "@/effect/instance-state"
 import { EffectBridge } from "@/effect/bridge"
-import path from "path"
 import type { InstanceContext } from "@/project/instance-context"
 import { SessionID, MessageID } from "@/session/schema"
 import { Effect, Layer, Context, Schema } from "effect"
@@ -13,6 +12,7 @@ import PROMPT_DEBUG from "./template/debug.txt"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import { ManualSkillCommand } from "./manual"
+import { SkillCommandTemplate } from "./skill-template"
 
 type State = {
   commands: Record<string, Info>
@@ -55,20 +55,7 @@ export function hints(template: string) {
 }
 
 export function skillTemplate(item: Pick<Skill.Info, "name" | "content" | "location">) {
-  const root = path.dirname(item.location)
-  return [
-    ...(ManualSkillCommand.matches(item.name)
-      ? [
-          `The user explicitly invoked /${item.name}. Execute this workflow now against the current worktree.`,
-          "Do not merely describe the workflow or ask for confirmation unless a required input is genuinely missing.",
-          "",
-        ]
-      : []),
-    item.content.replaceAll("{skill-root}", root).trim(),
-    "",
-    `Base directory for this skill: ${root}`,
-    "Resolve all remaining relative skill paths from this directory.",
-  ].join("\n")
+  return SkillCommandTemplate.render(item)
 }
 
 export const Default = {
@@ -176,7 +163,7 @@ export const layer = Layer.effect(
         commands[item.name] = {
           name: item.name,
           description: item.description,
-          source: "skill",
+          source: ManualSkillCommand.source(item.name),
           get template() {
             return skillTemplate(item)
           },

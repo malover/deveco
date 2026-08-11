@@ -28,7 +28,6 @@ import { realignEditorPromptParts, resolveEditorSlashValue } from "./prompt.edit
 import { FOOTER_MENU_ROWS, createFooterMenuState, type RunFooterMenuItem } from "./footer.menu"
 import type { RunFooterTheme } from "./theme"
 import type { FooterState, RunAgent, RunCommand, RunPrompt, RunPromptPart, RunResource, RunTuiConfig } from "./types"
-import { ManualSkillCommand } from "@/command/manual"
 
 const AUTOCOMPLETE_ROWS = FOOTER_MENU_ROWS
 const AUTOCOMPLETE_BOTTOM_ROWS = 1
@@ -439,7 +438,7 @@ export function createPromptState(input: PromptInput): PromptState {
           ]
         : []),
       ...(input.commands() ?? [])
-        .filter((item) => (item.source !== "skill" || ManualSkillCommand.matches(item.name)) && !hidden.has(item.name))
+        .filter((item) => item.source !== "skill" && !hidden.has(item.name))
         .map(
           (item) =>
             ({

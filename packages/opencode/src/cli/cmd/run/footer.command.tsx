@@ -6,7 +6,6 @@ import { createEffect, createMemo, createSignal, type Accessor } from "solid-js"
 import { RunFooterMenu, createFooterMenuState, type RunFooterMenuItem } from "./footer.menu"
 import type { RunFooterTheme } from "./theme"
 import type { FooterQueuedPrompt, FooterSubagentTab, RunCommand, RunInput, RunProvider } from "./types"
-import { ManualSkillCommand } from "@/command/manual"
 
 type PanelEntry = RunFooterMenuItem & {
   category: string
@@ -442,9 +441,7 @@ export function RunCommandMenuBody(props: {
         : []),
     ]
     const commands = (props.commands() ?? [])
-      .filter(
-        (item) => (item.source !== "skill" || ManualSkillCommand.matches(item.name)) && !builtins.includes(item.name),
-      )
+      .filter((item) => item.source !== "skill" && !builtins.includes(item.name))
       .map(
         (item) =>
           ({

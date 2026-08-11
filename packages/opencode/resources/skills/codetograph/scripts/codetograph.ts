@@ -229,17 +229,19 @@ function findWasmInProject(ext: string): string | null {
   return null
 }
 
-const args = process.argv.slice(2)
-const projectArg = args.find(a => a.startsWith("--project="))?.split("=")[1]
-  || args[args.indexOf("--project") + 1]
-  || process.cwd()
-const outputArg = args.find(a => a.startsWith("--output="))?.split("=")[1]
-  || args[args.indexOf("--output") + 1]
-  || "docs"
+export async function run(args = process.argv.slice(2)) {
+  const projectArg = args.find(a => a.startsWith("--project="))?.split("=")[1]
+    || args[args.indexOf("--project") + 1]
+    || process.cwd()
+  const outputArg = args.find(a => a.startsWith("--output="))?.split("=")[1]
+    || args[args.indexOf("--output") + 1]
+    || "docs"
+  await runPhases(projectArg, outputArg, projectArg.split(sep).pop() || "project")
+}
 
-const projectName = projectArg.split(sep).pop() || "project"
-
-runPhases(projectArg, outputArg, projectName).catch(e => {
-  console.error("Fatal error:", e)
-  process.exit(1)
-})
+if (import.meta.main) {
+  await run().catch(error => {
+    console.error("Fatal error:", error)
+    process.exit(1)
+  })
+}

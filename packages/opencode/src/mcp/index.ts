@@ -434,7 +434,7 @@ export const layer = Layer.effect(
         result.homegraph = builtIn
       }
 
-      const codetograph = yield* builtInCodeToGraphMcp()
+      const codetograph = yield* builtInCodeToGraphMcp(fsys)
       if (codetograph) {
         result.codetograph = codetograph
       }

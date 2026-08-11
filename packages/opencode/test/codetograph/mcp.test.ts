@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { CodeToGraphRuntime } from "../../src/codetograph/runtime"
 
 const roots: string[] = []
 const entrypoint = path.resolve(import.meta.dir, "server.fixture.ts")
@@ -20,6 +21,21 @@ afterEach(async () => {
 })
 
 describe("CodeToGraph TypeScript MCP", () => {
+  test("selects the MCP backend explicitly and builds stable internal commands", () => {
+    const previous = process.env.DEVECO_CODETOGRAPH_RUNTIME
+    try {
+      delete process.env.DEVECO_CODETOGRAPH_RUNTIME
+      expect(CodeToGraphRuntime.selected()).toBe("typescript")
+      process.env.DEVECO_CODETOGRAPH_RUNTIME = "python"
+      expect(CodeToGraphRuntime.selected()).toBe("python")
+      expect(CodeToGraphRuntime.selfCommand("mcp").at(-1)).toBe("--internal-codetograph-mcp")
+      expect(CodeToGraphRuntime.selfCommand("generate").at(-1)).toBe("--internal-codetograph-generate")
+    } finally {
+      if (previous === undefined) delete process.env.DEVECO_CODETOGRAPH_RUNTIME
+      else process.env.DEVECO_CODETOGRAPH_RUNTIME = previous
+    }
+  })
+
   test("serves the same tools and payloads as the retained Python implementation", async () => {
     const root = await fixture()
     const calls = [
