@@ -26,6 +26,8 @@ Use values already resolved by SKILL.md from `config.toml`:
 - `resume_mode` = `false`
 - `autonomous` = `false` (requires user input at key decision points)
 
+When invoked by `goal-step0`, the parent workflow supplies these values and they override the defaults above. In that mode, skip all questions, greetings, baseline explanations, project-root prompts, and duplicate HomeGraph status checks.
+
 ---
 
 ## EXECUTION

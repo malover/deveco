@@ -12,7 +12,7 @@ agent: goal
   * **Fallback**: If no valid user input is provided, default to the **current system language**.
   * **Ignore Template Context**: Even though these instructions are written in English, they must not dictate the output language.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
-6. **Project SPEC Context Rule**: For existing projects, `{PROJECT_ROOT}/spec/project-spec.md` is the preferred repository-level current-state context. Before broad source exploration, ensure it exists using the workflow below and read it. Treat Project SPEC as derived context, not absolute truth: verify feature-critical or uncertain claims against graph/source/config evidence before relying on them in `plan.md`.
+6. **Project SPEC Context Rule**: For existing projects, `{PROJECT_ROOT}/docs/project-spec.md` is the required repository-level current-state context produced by Goal Step 0. Read it before broad source exploration. Treat Project SPEC as derived context, not absolute truth: verify feature-critical or uncertain claims against graph/source/config evidence before relying on them in `plan.md`.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -28,13 +28,13 @@ agent: goal
     - Resolve artifact paths:
         - `FEATURE_SPEC` = `Confirmed_Feature_Dir/spec.md`
         - `IMPL_PLAN` = `Confirmed_Feature_Dir/plan.md`
-        - `PROJECT_SPEC` = `{PROJECT_ROOT}/spec/project-spec.md`
+        - `PROJECT_SPEC` = `{PROJECT_ROOT}/docs/project-spec.md`
 
 2. **Ensure & Load Project SPEC** (existing projects only):
     - Check whether `PROJECT_SPEC` exists.
     - If it exists, read it before broad repository exploration.
-    - If it does not exist, execute `{CONFIG_ROOT}/specs/commands/project-spec-generate.md` directly: use the persistent HomeGraph MCP tools for exact evidence and call `project_spec_write` once. Do not spawn a Project SPEC Task unless the process explicitly selects `legacy-isolated` mode.
-    - **Graceful fallback:** If Project SPEC generation fails or graph tooling is unavailable, record the limitation in `## Research & Decisions` and continue planning using targeted repository/config/source exploration. Do not terminate Phase 2 solely because Project SPEC could not be generated.
+    - When invoked by the Goal workflow, if it does not exist, report `[TOOL_ERROR] project-spec: required Step 0 artifact is unavailable` and return control to Goal. Do not regenerate it in Phase 2.
+    - Only a standalone/manual invocation outside Goal may run `{CONFIG_ROOT}/specs/commands/project-spec-generate.md` as a compatibility fallback. Record any fallback limitation in `## Research & Decisions`.
     - For feature-specific design decisions, verify any Project SPEC statement that is uncertain, stale-looking, or directly determines implementation correctness.
 
 3. **Check Existing Document** (if `IMPL_PLAN` already exists):

@@ -6,6 +6,10 @@ import * as Tool from "./tool"
 import DESCRIPTION from "./project-spec-write.txt"
 import { ProjectSpecParameters, renderProjectSpec, type ProjectSpecInput } from "./project-spec-document"
 
+export function projectSpecTarget(directory: string) {
+  return path.join(directory, "docs", "project-spec.md")
+}
+
 export const ProjectSpecWriteTool = Tool.define(
   "project_spec_write",
   Effect.gen(function* () {
@@ -17,10 +21,10 @@ export const ProjectSpecWriteTool = Tool.define(
       execute: (params: ProjectSpecInput, ctx: Tool.Context) =>
         Effect.gen(function* () {
           const instance = yield* InstanceState.context
-          const target = path.join(instance.directory, "spec", "project-spec.md")
+          const target = projectSpecTarget(instance.directory)
           const temporary = path.join(
             instance.directory,
-            "spec",
+            "docs",
             `.project-spec.${ctx.sessionID}.${ctx.callID ?? "write"}.tmp`.replace(/[^a-zA-Z0-9._-]/g, "_"),
           )
           const existed = yield* fs.existsSafe(target)

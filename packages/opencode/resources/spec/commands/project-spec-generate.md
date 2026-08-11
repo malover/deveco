@@ -5,7 +5,7 @@ description: Generate compact, evidence-backed repository context with persisten
 
 # Project SPEC Generation
 
-Generate `{PROJECT_ROOT}/spec/project-spec.md` as a factual expert briefing about the current repository. HomeGraph remains the detailed knowledge base for downstream follow-up queries; Project SPEC must stay compact and must not describe or design the user's requested feature.
+Generate `{PROJECT_ROOT}/docs/project-spec.md` as a factual expert briefing about the current repository. HomeGraph remains the detailed knowledge base for downstream follow-up queries; Project SPEC must stay compact and must not describe or design the user's requested feature.
 
 ## Correctness Invariant
 
@@ -52,7 +52,7 @@ Summarize large consumer sets with counts and representative examples. Exact det
 
 ## Legacy Isolated Fallback
 
-When process mode is `legacy-isolated` (`DEVECO_PROJECT_SPEC_ISOLATED=1` or `DEVECO_PROJECT_SPEC_V2=0`), the Goal agent may spawn the hidden `project-spec` subagent. That subagent calls `project_spec_collect` once, may make one precise follow-up, and writes only `spec/project-spec.md`. This fallback exists for A/B comparison and rollback; it is not the normal path.
+When process mode is `legacy-isolated` (`DEVECO_PROJECT_SPEC_ISOLATED=1` or `DEVECO_PROJECT_SPEC_V2=0`), the Goal agent may spawn the hidden `project-spec` subagent. That subagent calls `project_spec_collect` once, may make one precise follow-up, and writes only `docs/project-spec.md`. This fallback exists for A/B comparison and rollback; it is not the normal path.
 
 ## Completion
 

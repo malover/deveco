@@ -15,6 +15,18 @@ document_output_language = "English"
 # Your name (used for greetings). Leave empty to be prompted.
 user_name = ""
 
+# ── Goal Step 0 ──
+[goal_step0]
+project_spec = "{project-root}/docs/project-spec.md"
+scan_report = "{project-root}/docs/project-scan-report.json"
+required_outputs = [
+  "{project-root}/docs/project-spec.md",
+  "{project-root}/docs/index.md",
+  "{project-root}/docs/project-scan-report.json",
+]
+scan_level = "deep"
+reuse_only_when_revision_matches = true
+
 # ── Workflow Customization ──
 [workflow]
 

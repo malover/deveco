@@ -18,6 +18,15 @@ description: 'Document brownfield projects for AI context. Use when the user say
 
 ## On Activation
 
+### Invocation Context
+
+Set `invocation_mode` from the caller; default to `manual`.
+
+- `manual`: follow the activation and interactive router below.
+- `goal-step0`: do not greet, ask resume/scan questions, or call `homegraph_status` here. The Goal orchestrator has selected a deterministic run. Load `config.toml`, then read and follow `./workflows/goal-step0-workflow.md` immediately.
+
+The `goal-step0` path owns repository documentation only. It may write under `{project-root}/docs/` and must never create, delete, rebuild, refresh, migrate, or switch the persistent `{project-root}/.homegraph/` index.
+
 ### Step 1: Load Workflow Config
 
 Read and load `{skill-root}/config.toml`. All configuration is self-contained in this file:

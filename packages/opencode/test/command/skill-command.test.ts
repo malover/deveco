@@ -23,9 +23,11 @@ describe("skill slash commands", () => {
   test("only exposes explicitly manual skills as direct slash commands", () => {
     expect(ManualSkillCommand.matches("codetograph")).toBe(true)
     expect(ManualSkillCommand.matches("document-project")).toBe(true)
+    expect(ManualSkillCommand.matches("document-project2")).toBe(true)
     expect(ManualSkillCommand.matches("another-skill")).toBe(false)
     expect(ManualSkillCommand.source("codetograph")).toBe("command")
     expect(ManualSkillCommand.source("document-project")).toBe("command")
+    expect(ManualSkillCommand.source("document-project2")).toBe("command")
     expect(ManualSkillCommand.source("another-skill")).toBe("skill")
   })
 })

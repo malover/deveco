@@ -12,7 +12,7 @@ agent: goal
   * **Fallback**: If no valid user input is provided, default to the **current system language**.
   * **Ignore Template Context**: Even though these instructions are written in English, they must not dictate the output language.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
-6. **Project SPEC Precondition**: For an existing project, `{PROJECT_ROOT}/spec/project-spec.md` MUST already exist because the parent Goal orchestrator generates/verifies it in Step 0 before entering Phase 1. This command must read and consume that artifact, but MUST NOT spawn another Project SPEC task or reset the Step 0 todo state.
+6. **Project SPEC Precondition**: For an existing project, `{PROJECT_ROOT}/docs/project-spec.md` MUST already exist because the parent Goal orchestrator generates/verifies it in Step 0 before entering Phase 1. This command must read and consume that artifact, but MUST NOT spawn another Project SPEC task or reset the Step 0 todo state.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -23,7 +23,7 @@ agent: goal
 ## Execution Workflow
 
 0. **Load Project SPEC context**:
-    - Set `PROJECT_SPEC = {PROJECT_ROOT}/spec/project-spec.md`.
+    - Set `PROJECT_SPEC = {PROJECT_ROOT}/docs/project-spec.md`.
     - Read `PROJECT_SPEC` before drafting the feature specification.
     - If `PROJECT_SPEC` is missing or unreadable, report `[TOOL_ERROR] project-spec: required Step 0 artifact is unavailable` and return control to the parent Goal orchestrator. Do NOT silently continue and do NOT generate it here.
     - Use Project SPEC only to understand verified existing behavior/scope. Do not copy technical architecture into the feature specification unless it is itself a user-visible constraint.

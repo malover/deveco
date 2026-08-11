@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test"
+import path from "node:path"
 import { renderProjectSpec, validateProjectSpecInput, type ProjectSpecInput } from "@/tool/project-spec-document"
+import { projectSpecTarget } from "@/tool/project-spec-write"
 
 function input(): ProjectSpecInput {
   const claim = {
@@ -77,6 +79,10 @@ function input(): ProjectSpecInput {
 }
 
 describe("project_spec_write", () => {
+  test("uses docs as the canonical repository documentation directory", () => {
+    expect(projectSpecTarget("/workspace/project")).toBe(path.join("/workspace/project", "docs", "project-spec.md"))
+  })
+
   test("renders every canonical section exactly once", () => {
     const output = renderProjectSpec(input(), "2026-08-10T00:00:00.000Z")
     const headings = [

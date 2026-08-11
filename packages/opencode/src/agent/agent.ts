@@ -273,8 +273,8 @@ export const layer = Layer.effect(
                 read: "allow",
                 edit: {
                   "*": "deny",
-                  "spec/project-spec.md": "allow",
-                  "**/spec/project-spec.md": "allow",
+                  "docs/project-spec.md": "allow",
+                  "**/docs/project-spec.md": "allow",
                 },
                 spec_write: "allow",
                 project_spec_collect: "allow",

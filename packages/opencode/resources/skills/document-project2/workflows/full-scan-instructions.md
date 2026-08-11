@@ -6,6 +6,7 @@
 <critical>Handles: initial_scan and full_rescan modes</critical>
 <critical>YOU MUST ALWAYS SPEAK OUTPUT In your Agent communication style with the configured `{communication_language}`</critical>
 <critical>YOU MUST ALWAYS WRITE all artifact and document content in `{document_output_language}`</critical>
+<critical>GOAL OVERRIDE: When invocation_mode == goal-step0, the supplied autonomous runtime values take precedence throughout this file. Skip Step 0.3, all ask blocks, greetings/explanations, resume/archive choices, scan-level selection, and project-root selection. Reuse the HomeGraph status, revisions, workflow_mode, scan_level, and project_root_path supplied by goal-step0-instructions.md.</critical>
 
 <step n="0.3" goal="Ensure HomeGraph knowledge graph is available" if="resume_mode == false">
 <critical>HOMEGRAPH IS THE ONLY GRAPH PROVIDER FOR THIS SKILL. Do not use Python or TypeScript CodeToGraph tools unless the user explicitly asks for a provider comparison.</critical>
@@ -155,6 +156,7 @@ Your choice [1/2/3] (default: 1):
 "scan_level": "{{scan_level}}",
 "project_root": "{{project_root_path}}",
 "project_knowledge": "{{project_knowledge}}",
+"source_revision": {"repository": "{{repository_revision}}", "homegraph": "{{homegraph_revision}}"},
 "knowledge_graph": {"type": "{{knowledge_graph_type}}", "available": {{has_knowledge_graph}}},
 "completed_steps": [],
 "current_step": "step_1",

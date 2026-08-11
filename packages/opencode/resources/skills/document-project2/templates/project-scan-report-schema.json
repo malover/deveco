@@ -49,6 +49,14 @@
       "type": "string",
       "description": "Absolute path to project knowledge folder"
     },
+    "source_revision": {
+      "type": "object",
+      "description": "Exact revisions used for deterministic Goal Step 0 reuse",
+      "properties": {
+        "repository": { "type": "string" },
+        "homegraph": { "type": "string" }
+      }
+    },
     "completed_steps": {
       "type": "array",
       "items": {

@@ -1,4 +1,4 @@
-const names = new Set(["codetograph", "document-project"])
+const names = new Set(["codetograph", "document-project", "document-project2"])
 
 export function matches(name: string) {
   return names.has(name)

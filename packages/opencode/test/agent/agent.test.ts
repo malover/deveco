@@ -140,7 +140,8 @@ it.instance("project-spec writer isolates deterministic collection from writing"
     expect(evalPerm(writer, "project_spec_collect")).toBe("allow")
     expect(evalPerm(writer, "project_spec_write")).toBe("deny")
     expect(Permission.evaluate("task", "general", writer.permission).action).toBe("deny")
-    expect(Permission.evaluate("edit", "spec/project-spec.md", writer.permission).action).toBe("allow")
+    expect(Permission.evaluate("edit", "docs/project-spec.md", writer.permission).action).toBe("allow")
+    expect(Permission.evaluate("edit", "spec/project-spec.md", writer.permission).action).toBe("deny")
     expect(Permission.evaluate("edit", "src/index.ts", writer.permission).action).toBe("deny")
   }),
 )
