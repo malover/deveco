@@ -52,7 +52,6 @@ For each high-value flow, describe the observed path through the current impleme
 - **State/data movement**: <important state or payload transitions>
 - **Side effects**: <storage/network/system/native actions>
 - **Evidence**: <graph path/callers/callees and directly verified source files>
-- **Confidence**: <high/medium/low; low/medium must explain what remains unverified>
 
 If call order cannot be established from graph/source evidence, do not invent a sequence. Record the partial flow and move the unresolved ordering to `Uncertain or Inferred Information`.
 
@@ -157,9 +156,9 @@ List every documentation source that materially influenced the generated Project
 
 Record uncertainty explicitly rather than turning an inference into a fact. Runtime ordering, cross-module propagation, or persistence behavior that was not directly verified belongs here.
 
-| Topic   | Current Evidence    | Confidence / Needed Verification            |
-| ------- | ------------------- | ------------------------------------------- |
-| <topic> | <what was observed> | <high/medium/low and what would confirm it> |
+| Topic   | Current Evidence    | Needed Verification       |
+| ------- | ------------------- | ------------------------- |
+| <topic> | <what was observed> | <what would confirm it>    |
 
 ## Generation Metadata
 - **Generated at**: [timestamp]

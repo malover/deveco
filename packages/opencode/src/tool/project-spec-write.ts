@@ -5,10 +5,9 @@ import { InstanceState } from "@/effect/instance-state"
 import * as Tool from "./tool"
 import DESCRIPTION from "./project-spec-write.txt"
 import { ProjectSpecParameters, renderProjectSpec, type ProjectSpecInput } from "./project-spec-document"
+import { projectSpecTarget } from "./project-spec-path"
 
-export function projectSpecTarget(directory: string) {
-  return path.join(directory, "docs", "project-spec.md")
-}
+export { projectSpecTarget } from "./project-spec-path"
 
 export const ProjectSpecWriteTool = Tool.define(
   "project_spec_write",

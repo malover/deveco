@@ -265,9 +265,9 @@ DevEco Code includes these manually invoked slash commands:
 - `/codetograph` explicitly generates `docs/codetograph.json` and the structural report for the current project.
 - `/document-project` explicitly runs the brownfield documentation workflow. If no graph exists, it asks whether to continue and never generates one implicitly.
 
-Start a development checkout with `bun dev "<project-path>"`. The built-in CodeToGraph integrations initialize `docs/codetograph.json` when first connected. `/mcps` lists `codetograph-ts` and `codetograph-python`; use Space to enable the implementation you want to test and disable the other. TypeScript starts enabled and Python starts disabled. No enable/disable environment variable is required.
+Start a development checkout with `bun dev "<project-path>"`. `/mcps` lists the TypeScript `codetograph` MCP and lets you toggle it with Space, but connecting it does not create a graph. Run `/codetograph` to explicitly create or rebuild `docs/codetograph.json`.
 
-`/codetograph` runs the deterministic TypeScript graph generator immediately and can be used to rebuild the graph explicitly. The retained Python attachment implements the MCP query tools, not a second graph-extraction engine, so both MCP implementations currently initialize the same graph before serving their respective tool implementations.
+HomeGraph MCP startup is also side-effect free. `/init` initializes or refreshes HomeGraph before generating `AGENTS.md`; Goal Step 0 does the same before Project SPEC and `document-project2` generation.
 
 ### MCP
 

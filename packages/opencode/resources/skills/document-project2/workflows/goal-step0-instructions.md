@@ -2,12 +2,13 @@
 
 Run this workflow with one required scan-depth choice, then continue autonomously and return control to Goal only after validation.
 
-## Stage A — HomeGraph status
+## Stage A — HomeGraph initialization and status
 
 1. Resolve `{project-root}` and `{project-root}/docs`.
-2. Call `homegraph_status` exactly once. Verify the reported project/root identity matches `{project-root}` and the index is healthy enough for reliable graph-backed analysis. Record the HomeGraph revision/index identity and repository commit when exposed.
-3. If HomeGraph is unavailable, unhealthy, unindexed, or belongs to another project, return `[TOOL_ERROR] repository-documentation: HomeGraph unavailable`, keep Step 0 incomplete, and stop. Do not use direct-file or CodeToGraph fallback.
-4. Treat `.homegraph/` as read-only shared state. Never initialize, refresh, delete, rebuild, migrate, or switch its provider.
+2. Before any graph query, use the shell to run `homegraph init -i "{project-root}"`. If an index already exists, run `homegraph sync "{project-root}"` instead; if status/sync reports corruption, run `homegraph index --force "{project-root}"`. This is the single Goal Step 0 bootstrap point.
+3. Call `homegraph_status` exactly once. Verify the reported project/root identity matches `{project-root}` and the index is healthy enough for reliable graph-backed analysis. Record the HomeGraph revision/index identity and repository commit when exposed.
+4. If bootstrap or status fails, or the index belongs to another project, return `[TOOL_ERROR] repository-documentation: HomeGraph unavailable`, keep Step 0 incomplete, and stop. Do not use direct-file or CodeToGraph fallback.
+5. After bootstrap, treat `.homegraph/` as read-only shared state for the remainder of Step 0. Never delete, migrate, or switch its provider.
 
 ## Stage A.1 — Scan depth
 
@@ -39,7 +40,8 @@ Default to `[goal_step0].default_scan_level` only if the question tool is reject
    - `project_root_path = {project-root}`
    - `knowledge_graph_type = "homegraph"` and `has_knowledge_graph = true` only when Stage A is healthy
 3. Read and follow `./full-scan-workflow.md` with those supplied values and `../homegraph-analysis.md`. The Goal contract overrides its interactive defaults: skip its HomeGraph status call and every question because scan depth is already selected.
-4. Ensure the final scan report records `source_revision.repository` and `source_revision.homegraph` from Stage A. Do not treat timestamps, file counts, or symbol counts as revision identity.
+4. For Deep or Exhaustive, require the workflow's exact `required_outputs` manifest and completeness loop; do not accept placeholders, optional omissions, or a partially generated set.
+5. Ensure the final scan report records `source_revision.repository` and `source_revision.homegraph` from Stage A. Do not treat timestamps, file counts, or symbol counts as revision identity.
 
 ## Stage D — Validate and return
 
@@ -49,7 +51,7 @@ Require readable, non-empty files at:
 - `docs/index.md`
 - `docs/project-scan-report.json`
 
-Also validate every output listed in the completed scan report. On success, return a compact object with this contract:
+Also validate every output listed in `required_outputs`, require `missing_outputs` to be empty, and require `validation_status.status` to be `passed`. On success, return a compact object with this contract:
 
 ```json
 {

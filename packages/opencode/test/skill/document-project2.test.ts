@@ -47,4 +47,20 @@ describe("document-project2 Goal Step 0 policy", () => {
     expect(instructions).toContain("Do not use direct-file or CodeToGraph fallback")
     expect(instructions).toContain("Do not begin full documentation until Project SPEC")
   })
+
+  test("makes Deep and Exhaustive output completeness deterministic", async () => {
+    const [fullScan, goal, schema] = await Promise.all([
+      read("workflows/full-scan-instructions.md"),
+      read("workflows/goal-step0-instructions.md"),
+      read("templates/project-scan-report-schema.json"),
+    ])
+
+    expect(fullScan).toContain("REQUIRED OUTPUT MANIFEST")
+    expect(fullScan).toContain("DEEP/EXHAUSTIVE COMPLETENESS GATE")
+    expect(fullScan).toContain("generate all of them, not a model-selected subset")
+    expect(goal).toContain("do not accept placeholders")
+    expect(schema).toContain('"required_outputs"')
+    expect(schema).toContain('"missing_outputs"')
+    expect(schema).toContain('"passed"')
+  })
 })

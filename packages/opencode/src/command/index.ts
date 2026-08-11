@@ -13,6 +13,7 @@ import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import { ManualSkillCommand } from "./manual"
 import { SkillCommandTemplate } from "./skill-template"
+import { HomeGraphBootstrap } from "@/homegraph/bootstrap"
 
 type State = {
   commands: Record<string, Info>
@@ -99,7 +100,10 @@ export const layer = Layer.effect(
         description: "guided AGENTS.md setup",
         source: "command",
         get template() {
-          return PROMPT_INITIALIZE.replace("${path}", ctx.worktree)
+          const command = HomeGraphBootstrap.bootstrapCommand(ctx.worktree)
+            .map((argument) => `"${argument.replaceAll('"', '\\"')}"`)
+            .join(" ")
+          return PROMPT_INITIALIZE.replaceAll("${path}", ctx.worktree).replace("${homegraph_init_command}", command)
         },
         hints: hints(PROMPT_INITIALIZE),
       }

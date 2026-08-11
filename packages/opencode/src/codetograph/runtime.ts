@@ -1,10 +1,8 @@
 import path from "node:path"
 
-export type Runtime = "typescript" | "python"
-
-export function serverCommand(runtime: Runtime) {
-  if (development()) return [process.execPath, path.join(import.meta.dir, "entry.ts"), runtime]
-  return [process.execPath, "--internal-codetograph-mcp", runtime]
+export function serverCommand() {
+  if (development()) return [process.execPath, path.join(import.meta.dir, "entry.ts")]
+  return [process.execPath, "--internal-codetograph-mcp"]
 }
 
 export function generateCommand() {
@@ -15,17 +13,6 @@ export function generateCommand() {
     ]
   }
   return [process.execPath, "--internal-codetograph-generate"]
-}
-
-export function pythonCommand() {
-  const configured = process.env.DEVECO_CODETOGRAPH_PYTHON?.trim()
-  if (configured) return [configured]
-  const python3 = Bun.which("python3")
-  if (python3) return [python3]
-  const python = Bun.which("python")
-  if (python) return [python]
-  if (process.platform === "win32") return [Bun.which("py") ?? "py", "-3"]
-  return ["python3"]
 }
 
 function development() {

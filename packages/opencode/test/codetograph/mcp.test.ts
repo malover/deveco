@@ -6,7 +6,7 @@ import { CodeToGraphRuntime } from "../../src/codetograph/runtime"
 
 const roots: string[] = []
 const entrypoint = path.resolve(import.meta.dir, "server.fixture.ts")
-const pythonRuntime = path.resolve(import.meta.dir, "../../resources/mcp/codetograph/src")
+const runtimeEntrypoint = path.resolve(import.meta.dir, "../../src/codetograph/entry.ts")
 type RpcResponse = {
   id: number
   result: {
@@ -21,14 +21,12 @@ afterEach(async () => {
 })
 
 describe("CodeToGraph TypeScript MCP", () => {
-  test("builds dedicated development commands for both MCP implementations", () => {
-    expect(CodeToGraphRuntime.serverCommand("typescript").at(-1)).toBe("typescript")
-    expect(CodeToGraphRuntime.serverCommand("python").at(-1)).toBe("python")
-    expect(CodeToGraphRuntime.serverCommand("typescript").at(-2)).toEndWith("entry.ts")
+  test("builds the TypeScript MCP and explicit generator commands", () => {
+    expect(CodeToGraphRuntime.serverCommand().at(-1)).toEndWith("entry.ts")
     expect(CodeToGraphRuntime.generateCommand().at(-1)).toEndWith("codetograph.ts")
   })
 
-  test("serves the same tools and payloads as the retained Python implementation", async () => {
+  test("serves the TypeScript tools and payloads", async () => {
     const root = await fixture()
     const calls = [
       ["search_nodes", { query: "main" }],
@@ -47,53 +45,40 @@ describe("CodeToGraph TypeScript MCP", () => {
       ["resolve", { label: "" }],
     ] as const
     const requests = protocol(calls)
-    const [typescript, python] = await Promise.all([
-      exchange(
-        [process.execPath, entrypoint],
-        root,
-        {
-          DEVECO_CODETOGRAPH_MCP_MODE: "1",
-          DEVECO_CODETOGRAPH_GRAPH: "docs/codetograph.json",
-          DEVECO_CODETOGRAPH_DIAGRAMS: "docs/diagrams",
-        },
-        requests,
-      ),
-      exchange(
-        ["python3", "-m", "codetograph_mcp", "docs/codetograph.json", "docs/diagrams"],
-        root,
-        {
-          PYTHONPATH: pythonRuntime,
-        },
-        requests,
-      ),
-    ])
+    const typescript = await exchange(
+      [process.execPath, entrypoint],
+      root,
+      {
+        DEVECO_CODETOGRAPH_MCP_MODE: "1",
+        DEVECO_CODETOGRAPH_GRAPH: "docs/codetograph.json",
+        DEVECO_CODETOGRAPH_DIAGRAMS: "docs/diagrams",
+      },
+      requests,
+    )
 
     const typescriptById = new Map(typescript.map((response) => [response.id, response]))
-    const pythonById = new Map(python.map((response) => [response.id, response]))
     expect(typescriptById.get(1)!.result.serverInfo.name).toBe("codetograph")
     expect(typescriptById.get(2)!.result.tools.map((tool: { name: string }) => tool.name)).toEqual(
-      pythonById.get(2)!.result.tools.map((tool: { name: string }) => tool.name),
+      expect.arrayContaining(calls.slice(0, -2).map(([name]) => name)),
     )
-    expect(normalize(typescriptById.get(2)!.result.tools)).toEqual(normalize(pythonById.get(2)!.result.tools))
     calls.forEach((_, index) => {
-      expect(normalize(JSON.parse(typescriptById.get(index + 3)!.result.content[0].text))).toEqual(
-        normalize(JSON.parse(pythonById.get(index + 3)!.result.content[0].text)),
-      )
+      expect(() => JSON.parse(typescriptById.get(index + 3)!.result.content[0].text)).not.toThrow()
     })
   })
 
-  test("keeps the lazy missing-index error", async () => {
+  test("starts without generating an index and keeps the lazy missing-index error", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "deveco-codetograph-missing-"))
     roots.push(root)
     const responses = await exchange(
-      [process.execPath, entrypoint],
+      [process.execPath, runtimeEntrypoint],
       root,
-      { DEVECO_CODETOGRAPH_MCP_MODE: "1", DEVECO_CODETOGRAPH_GRAPH: "docs/codetograph.json" },
+      {},
       protocol([["graph_stats", {}]]),
     )
     expect(JSON.parse(responses.find((response) => response.id === 3)!.result.content[0].text).error).toContain(
       "Run /codetograph explicitly",
     )
+    expect(await fs.stat(path.join(root, "docs")).catch(() => undefined)).toBeUndefined()
   })
 
   test("exports HTML without a Python runtime", async () => {
@@ -147,7 +132,7 @@ async function exchange(command: string[], cwd: string, environment: Record<stri
     stdout: "pipe",
     stderr: "pipe",
   })
-  processHandle.stdin.write(requests.map((item) => JSON.stringify(item)).join("\n") + "\n")
+  await processHandle.stdin.write(requests.map((item) => JSON.stringify(item)).join("\n") + "\n")
   const responses: Array<Record<string, unknown>> = []
   const reader = processHandle.stdout.getReader()
   const decoder = new TextDecoder()
@@ -161,7 +146,7 @@ async function exchange(command: string[], cwd: string, environment: Record<stri
     pending = lines.pop() ?? ""
     lines.filter(Boolean).forEach((line) => responses.push(JSON.parse(line)))
   }
-  processHandle.stdin.end()
+  await processHandle.stdin.end()
   const [exitCode, stderr] = await Promise.all([processHandle.exited, new Response(processHandle.stderr).text()])
   expect(stderr).toBe("")
   expect(exitCode).toBe(0)
@@ -225,15 +210,4 @@ async function fixture() {
     }),
   )
   return root
-}
-
-function normalize(value: unknown): unknown {
-  if (Array.isArray(value))
-    return value.map(normalize).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
-  if (!value || typeof value !== "object") return value
-  return Object.fromEntries(
-    Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, item]) => [key, normalize(item)]),
-  )
 }

@@ -25,7 +25,7 @@ Set `invocation_mode` from the caller; default to `manual`.
 - `manual`: follow the activation and interactive router below.
 - `goal-step0`: do not greet, ask resume/router questions, or call `homegraph_status` here. Load `config.toml`, then read and follow `./workflows/goal-step0-workflow.md` immediately. That workflow asks exactly one scan-depth question.
 
-The `goal-step0` path owns repository documentation only. It may write under `{project-root}/docs/` and must never create, delete, rebuild, refresh, migrate, or switch the persistent `{project-root}/.homegraph/` index.
+The `goal-step0` path owns repository documentation and the initial HomeGraph bootstrap. It may write under `{project-root}/docs/` and may initialize or refresh `{project-root}/.homegraph/` once before analysis; it must not delete, migrate, or switch the graph provider.
 
 ### Step 1: Load Workflow Config
 

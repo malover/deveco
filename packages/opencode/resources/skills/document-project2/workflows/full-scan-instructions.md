@@ -290,6 +290,17 @@ Is this analysis correct? [y/n/edit]
 <action if="user confirms">Store final merged {{project_classification}} in state file</action>
 <action if="user rejects or edits">Ask user to specify corrections, re-run LLM analysis with corrections</action>
 
+<critical>REQUIRED OUTPUT MANIFEST:
+Immediately after the final merged classification, derive and store `required_outputs` before generating documents. This manifest is authoritative; later steps may add outputs but may not silently remove one.
+
+- Always require `project-overview.md`, `source-tree-analysis.md`, one architecture document per part, one component inventory per part, one development guide per part, `index.md`, and `project-scan-report.json`.
+- Require the matching API, data-model, localization, UX-flow, UX-screen-tree, UX-wireframe, UX-interactive-mockup, test-strategy, deployment, asset, hardware, and custom-scan documents whenever the final merged `requires_*`, baseline, or custom-scan instruction says they apply.
+- Require `integration-architecture.md` and `project-parts.json` for multi-part projects.
+- For Deep or Exhaustive with a healthy HomeGraph, require the diagram catalog and every diagram promised by Steps 3.5 and 8.
+- Resolve single-part versus per-part filenames now and store exact repository-relative paths, not document categories or filename patterns.
+
+For Deep and Exhaustive, every manifest entry is mandatory. A missing file is a generation failure, never an acceptable omission or `_To be generated_` placeholder.</critical>
+
 <template-output>project_structure</template-output>
 <template-output>project_parts_metadata</template-output>
 
@@ -316,7 +327,8 @@ Is this analysis correct? [y/n/edit]
     "cached_baseline": {
       "csv_loaded": true,
       "rows_used": ["{{archetypes_used}}"]
-    }
+    },
+    "required_outputs": {{required_outputs}}
   }
 </action>
 
@@ -1334,6 +1346,17 @@ For each item store structure:
 }
 </action>
 
+<critical>DEEP/EXHAUSTIVE COMPLETENESS GATE:
+When `scan_level` is `deep` or `exhaustive`, do not show the review/finalize menu yet. Compare the exact `required_outputs` manifest from Step 1 against readable, non-empty files on disk and also scan the index for incomplete markers.
+
+1. Set `missing_outputs` to every absent, empty, invalid, or marker-backed required file.
+2. Automatically route every item in `missing_outputs` through the matching generation instructions from Steps 3.5–9; generate all of them, not a model-selected subset.
+3. Rebuild `index.md`, remove markers only for files verified on disk, and repeat validation.
+4. Continue until `missing_outputs` is empty. If an item cannot be generated, write the exact path and error to `validation_status.validation_errors`, set validation status to failed, and stop instead of finalizing.
+5. Record `required_outputs`, `generated_outputs`, `missing_outputs`, and `validation_status.status = "passed" | "failed"` in `project-scan-report.json`.
+
+This gate overrides the optional incomplete-document menu below. Deep/Exhaustive completion is valid only with zero missing required outputs.</critical>
+
 <ask>Documentation generation complete!
 
 Summary:
@@ -1535,6 +1558,7 @@ Enter number(s) separated by commas (e.g., "1,3,5"), or type 'all':
 </step>
 
 <step n="12" goal="Finalize and provide next steps" if="workflow_mode != deep_dive">
+<critical>Before finalizing Deep or Exhaustive, reread `project-scan-report.json` and require `validation_status.status == "passed"` plus an empty `missing_outputs` array. If either check fails, return to Step 11; never claim completion.</critical>
 <action>Create final summary report</action>
 <action>Compile verification recap variables:
   - Set {{verification_summary}} to the concrete tests, validations, or scripts you executed (or "none run").

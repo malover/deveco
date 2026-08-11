@@ -1,13 +1,11 @@
 import { Schema } from "effect"
 
-const Confidence = Schema.Literals(["high", "medium", "low"])
 const Risk = Schema.Literals(["High", "Medium", "Low"])
 const Evidence = Schema.Array(Schema.String)
 
 const Claim = Schema.Struct({
   statement: Schema.String,
   evidence: Evidence,
-  confidence: Confidence,
 })
 
 export const ProjectSpecParameters = Schema.Struct({
@@ -37,7 +35,6 @@ export const ProjectSpecParameters = Schema.Struct({
       responsibility: Schema.String,
       dependencies: Schema.Array(Schema.String),
       evidence: Evidence,
-      confidence: Confidence,
     }),
   ),
   entryPoints: Schema.Array(
@@ -46,7 +43,6 @@ export const ProjectSpecParameters = Schema.Struct({
       path: Schema.String,
       responsibility: Schema.String,
       evidence: Evidence,
-      confidence: Confidence,
     }),
   ),
   runtimeFlows: Schema.Array(
@@ -57,7 +53,6 @@ export const ProjectSpecParameters = Schema.Struct({
       stateAndData: Schema.String,
       sideEffects: Schema.String,
       evidence: Evidence,
-      confidence: Confidence,
     }),
   ),
   architectureBoundaries: Schema.Array(Claim),
@@ -67,7 +62,6 @@ export const ProjectSpecParameters = Schema.Struct({
       path: Schema.String,
       role: Schema.String,
       evidence: Evidence,
-      confidence: Confidence,
     }),
   ),
   stateAndData: Schema.Array(Claim),
@@ -80,7 +74,6 @@ export const ProjectSpecParameters = Schema.Struct({
       avoid: Schema.Array(Schema.String),
       applicability: Schema.String,
       evidence: Evidence,
-      confidence: Confidence,
     }),
   ),
   riskMap: Schema.Array(
@@ -90,7 +83,6 @@ export const ProjectSpecParameters = Schema.Struct({
       blastRadius: Schema.String,
       evidence: Evidence,
       saferStrategy: Schema.String,
-      confidence: Confidence,
     }),
   ),
   buildAndConfiguration: Schema.Array(Claim),
@@ -100,7 +92,6 @@ export const ProjectSpecParameters = Schema.Struct({
       area: Schema.String,
       reason: Schema.String,
       evidence: Evidence,
-      confidence: Confidence,
     }),
   ),
   conventions: Schema.Array(Claim),
@@ -115,7 +106,6 @@ export const ProjectSpecParameters = Schema.Struct({
       topic: Schema.String,
       currentEvidence: Schema.String,
       neededVerification: Schema.String,
-      confidence: Schema.Literals(["medium", "low"]),
     }),
   ),
   repositoryCommit: Schema.optional(Schema.String),
@@ -188,9 +178,6 @@ export function validateProjectSpecInput(input: ProjectSpecInput) {
     if (claim.evidence.length === 0 || claim.evidence.some((item) => !item.trim())) {
       errors.push(`authoritative claim ${index + 1} requires non-empty evidence`)
     }
-    if (claim.confidence !== "high") {
-      errors.push(`authoritative claim ${index + 1} must be high confidence; move unresolved claims to uncertainties`)
-    }
     if (claim.evidence.length > 6) errors.push(`authoritative claim ${index + 1} exceeds six evidence references`)
   }
   for (const [index, flow] of input.runtimeFlows.entries()) {
@@ -261,7 +248,7 @@ ${input.entryPoints.map((item) => `| \`${escapeCell(item.symbol)}\` | \`${escape
 
 ## Key Runtime Flows
 
-${input.runtimeFlows.map((flow) => `### ${flow.name}\n\n${flow.steps.map((step) => `\`${step}\``).join(" → ")}\n\n- **Trigger**: ${flow.trigger}\n- **State/data movement**: ${flow.stateAndData}\n- **Side effects**: ${flow.sideEffects}\n- **Evidence**: ${evidence(flow.evidence)}\n- **Confidence**: high`).join("\n\n") || "No complete multi-step runtime flow was statically verified. See uncertainties."}
+${input.runtimeFlows.map((flow) => `### ${flow.name}\n\n${flow.steps.map((step) => `\`${step}\``).join(" → ")}\n\n- **Trigger**: ${flow.trigger}\n- **State/data movement**: ${flow.stateAndData}\n- **Side effects**: ${flow.sideEffects}\n- **Evidence**: ${evidence(flow.evidence)}`).join("\n\n") || "No complete multi-step runtime flow was statically verified. See uncertainties."}
 
 ## Architecture and Dependency Boundaries
 
@@ -313,9 +300,9 @@ ${input.documentation.map((item) => `| \`${escapeCell(item.path)}\` | ${escapeCe
 
 ## Uncertain or Inferred Information
 
-| Topic | Current Evidence | Confidence / Needed Verification |
+| Topic | Current Evidence | Needed Verification |
 | --- | --- | --- |
-${input.uncertainties.map((item) => `| ${escapeCell(item.topic)} | ${escapeCell(item.currentEvidence)} | ${item.confidence}: ${escapeCell(item.neededVerification)} |`).join("\n") || "| None recorded | — | — |"}
+${input.uncertainties.map((item) => `| ${escapeCell(item.topic)} | ${escapeCell(item.currentEvidence)} | ${escapeCell(item.neededVerification)} |`).join("\n") || "| None recorded | — | — |"}
 
 ## Generation Metadata
 

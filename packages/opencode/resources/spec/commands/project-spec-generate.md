@@ -21,7 +21,7 @@ For a runtime chain `A → B → C`, prove both edges independently or obtain on
 
 ## Direct HomeGraph Workflow
 
-1. Call `homegraph_status` once. Reuse an existing artifact only when its repository commit and HomeGraph revision exactly match current verifiable values and the index is healthy. When revision values are unavailable, regenerate rather than infer freshness.
+1. Initialize HomeGraph when the project is unindexed, or sync/recover an existing index, then call `homegraph_status` once. Reuse an existing artifact only when its repository commit and HomeGraph revision exactly match current verifiable values and the index is healthy. When revision values are unavailable, regenerate rather than infer freshness.
 2. Call `homegraph_files` once for a shallow indexed repository shape.
 3. Build a transient checklist for overview, modules, entry points, runtime flows, contracts, state/persistence, risk, reusable change paths, build/config/testing, documentation, and limitations.
 4. Resolve each missing graph-backed fact with the narrowest tool:
@@ -56,4 +56,4 @@ When process mode is `legacy-isolated` (`DEVECO_PROJECT_SPEC_ISOLATED=1` or `DEV
 
 ## Completion
 
-`project_spec_write` owns canonical section ordering, duplicate prevention, evidence/confidence validation, atomic persistence, hashing, and the success result. Do not reread the full artifact only to validate Markdown. Return the artifact path/status/hash, HomeGraph call count, direct-read count, evidence sources, and limitations.
+`project_spec_write` owns canonical section ordering, duplicate prevention, evidence validation, atomic persistence, hashing, and the success result. Do not reread the full artifact only to validate Markdown. Return the artifact path/status/hash, HomeGraph call count, direct-read count, evidence sources, and limitations.

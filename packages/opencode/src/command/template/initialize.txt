@@ -1,5 +1,9 @@
 Create or update `AGENTS.md` for this repository.
 
+Before investigating the repository, initialize or refresh its HomeGraph index with this command. This is an explicit `/init` side effect; MCP startup itself must not create the graph:
+
+!`${homegraph_init_command}`
+
 The goal is a compact instruction file that helps future OpenCode sessions avoid mistakes and ramp up quickly. Every line should answer: "Would an agent likely miss this without help?" If not, leave it out.
 
 User-provided focus or constraints (honor these):

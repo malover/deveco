@@ -34,7 +34,7 @@ from the compact evidence bundle returned by `project_spec_collect`.
 - Complete within five model steps. Read the command, template, and existing
   artifact in one parallel tool round when possible.
 - Follow the loaded template and command requirements.
-- Keep evidence references compact: paths, symbols, relationships, and confidence;
+- Keep evidence references compact: paths, symbols, and relationships;
   never reproduce raw source blocks or tool output.
 - Return only the concise completion report requested by the command after the artifact
   has been written and validated.

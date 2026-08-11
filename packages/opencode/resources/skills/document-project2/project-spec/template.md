@@ -9,4 +9,4 @@
 5. Change guidance, impact/risk hotspots, build, configuration, and testing.
 6. Existing documentation, conventions, sensitive areas, uncertainties, and generation metadata.
 
-Use paths, symbols, relationships, confidence, and compact evidence references. Do not paste raw source or tool output, duplicate sections, or include proposed feature design.
+Use paths, symbols, relationships, and compact evidence references. Do not paste raw source or tool output, duplicate sections, or include proposed feature design.

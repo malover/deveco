@@ -59,7 +59,7 @@ export function builtInHomeGraphMcp(): ConfigMCPV1.Info | undefined {
 export const HOMEGRAPH_INSTRUCTIONS = `
 ## HomeGraph
 
-DevEco validates, syncs, and recovers the HomeGraph index before starting the built-in persistent MCP server. When HomeGraph is connected, use it before grep/find or broad file reading for code discovery:
+DevEco starts the built-in persistent MCP server without creating or refreshing an index. Repository indexing is explicit: \`/init\` owns manual initialization, and Goal Step 0 initializes or refreshes it before Project SPEC generation. When HomeGraph is connected and indexed, use it before grep/find or broad file reading for code discovery:
 
 - **General coding**: use \`homegraph_explore\` for a targeted path, \`homegraph_node\` for one known symbol/file, and \`homegraph_impact\` before changing shared symbols.
 - **Goal / Project SPEC**: the Goal agent additionally receives status, files, search, callers, callees, and Commit4Spec tools for evidence-directed Step 0 traversal.

@@ -1,13 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { renderProjectSpec, validateProjectSpecInput, type ProjectSpecInput } from "@/tool/project-spec-document"
-import { projectSpecTarget } from "@/tool/project-spec-write"
+import { projectSpecTarget } from "@/tool/project-spec-path"
 
 function input(): ProjectSpecInput {
   const claim = {
     statement: "Feature modules depend on common contracts.",
     evidence: ["homegraph_callees:Feature"],
-    confidence: "high" as const,
   }
   return {
     overview: {
@@ -33,7 +32,6 @@ function input(): ProjectSpecInput {
         responsibility: "UI feature",
         dependencies: ["common"],
         evidence: ["homegraph_callees:Feature"],
-        confidence: "high",
       },
     ],
     entryPoints: [
@@ -42,7 +40,6 @@ function input(): ProjectSpecInput {
         path: "entry/MainAbility.ets",
         responsibility: "Starts the app",
         evidence: ["homegraph_node:MainAbility.onCreate"],
-        confidence: "high",
       },
     ],
     runtimeFlows: [
@@ -53,7 +50,6 @@ function input(): ProjectSpecInput {
         stateAndData: "Initial configuration",
         sideEffects: "Creates window",
         evidence: ["homegraph_explore:MainAbility.onCreate -> initLauncher"],
-        confidence: "high",
       },
     ],
     architectureBoundaries: [claim],
@@ -71,7 +67,6 @@ function input(): ProjectSpecInput {
         topic: "Dynamic stage selection",
         currentEvidence: "Stages are registered",
         neededVerification: "Observe runtime selection",
-        confidence: "medium",
       },
     ],
     repositoryCommit: "abc123",
@@ -115,18 +110,15 @@ describe("project_spec_write", () => {
     const source = input()
     const malformed: ProjectSpecInput = {
       ...source,
-      runtimeFlows: source.runtimeFlows.map((flow, index) =>
-        index === 0 ? { ...flow, confidence: "medium", evidence: [] } : flow,
-      ),
+      runtimeFlows: source.runtimeFlows.map((flow, index) => (index === 0 ? { ...flow, evidence: [] } : flow)),
     }
 
     expect(() => validateProjectSpecInput(malformed)).toThrow("requires non-empty evidence")
-    expect(() => validateProjectSpecInput(malformed)).toThrow("must be high confidence")
   })
 
   test("rejects duplicate semantic entries", () => {
     const source = input()
-    const malformed: ProjectSpecInput = { ...source, modules: [...source.modules, source.modules[0]!] }
+    const malformed: ProjectSpecInput = { ...source, modules: [...source.modules, source.modules[0]] }
     expect(() => validateProjectSpecInput(malformed)).toThrow("modules contains duplicate entries")
   })
 })

@@ -34,7 +34,15 @@ import { checkOnStartup as crashCheckOnStartup, cleanupOnExit as crashCleanupOnE
 const mcpIndex = process.argv.indexOf("--internal-codetograph-mcp")
 if (mcpIndex >= 0) {
   const { CodeToGraphEntry } = await import("./codetograph/entry")
-  await CodeToGraphEntry.run(process.argv.slice(mcpIndex + 1))
+  await CodeToGraphEntry.run()
+  process.exit(0)
+}
+
+const homeGraphBootstrapIndex = process.argv.indexOf("--internal-homegraph-bootstrap")
+if (homeGraphBootstrapIndex >= 0) {
+  const { HomeGraphBootstrap } = await import("./homegraph/bootstrap")
+  const action = await HomeGraphBootstrap.bootstrap(process.argv[homeGraphBootstrapIndex + 1])
+  process.stdout.write(`HomeGraph ${action}.\n`)
   process.exit(0)
 }
 

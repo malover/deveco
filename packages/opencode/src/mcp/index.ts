@@ -21,7 +21,6 @@ import { ConfigMCPV1 } from "@opencode-ai/core/v1/config/mcp"
 import { NamedError } from "@opencode-ai/core/util/error"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
 import { withTimeout } from "@/util/timeout"
-import { FSUtil } from "@opencode-ai/core/fs-util"
 import { McpOAuthProvider, OAUTH_CALLBACK_PATH } from "./oauth-provider"
 import { McpOAuthCallback } from "./oauth-callback"
 import { McpAuth } from "./auth"
@@ -398,7 +397,6 @@ export const layer = Layer.effect(
       }),
     )
     const cfgSvc = yield* Config.Service
-    const fsys = yield* FSUtil.Service
 
     const descendants = Effect.fnUntraced(
       function* (pid: number) {
@@ -434,7 +432,7 @@ export const layer = Layer.effect(
         result.homegraph = builtIn
       }
 
-      Object.assign(result, yield* builtInCodeToGraphMcps(fsys))
+      Object.assign(result, yield* builtInCodeToGraphMcps())
 
       // User configuration is applied after built-ins so a user may override
       // or explicitly disable the built-in entry.
@@ -971,15 +969,8 @@ export const defaultLayer = layer.pipe(
   Layer.provide(EventV2Bridge.defaultLayer),
   Layer.provide(Config.defaultLayer),
   Layer.provide(CrossSpawnSpawner.defaultLayer),
-  Layer.provide(FSUtil.defaultLayer),
 )
 
-export const node = LayerNode.make(layer, [
-  CrossSpawnSpawner.node,
-  McpAuth.node,
-  EventV2Bridge.node,
-  Config.node,
-  FSUtil.node,
-])
+export const node = LayerNode.make(layer, [CrossSpawnSpawner.node, McpAuth.node, EventV2Bridge.node, Config.node])
 
 export * as MCP from "."
