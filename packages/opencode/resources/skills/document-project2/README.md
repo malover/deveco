@@ -21,7 +21,7 @@ A Code Genie skill that generates comprehensive AI-readable documentation for br
 | `diagrams/` | HomeGraph-backed Mermaid `.mmd` sequence diagrams synthesized by the skill |
 | `project-scan-report.json` | Resumable state file — resume interrupted scans |
 
-Supports three scan modes: **Quick** (pattern-based, 2–5 min), **Deep** (reads critical directories, 10–30 min), and **Exhaustive** (reads every source file, 30–120 min).
+Supports three scan modes: **Quick** (fast HomeGraph structural analysis), **Deep** (comprehensive graph traversal with selective exact verification), and **Exhaustive** (maximum graph-backed coverage with broader reads for graph/resource/data gaps).
 
 ## Detects 15 Project Archetypes
 
@@ -120,9 +120,9 @@ The skill will:
 
 | Mode | Time | What It Reads | Best For |
 |------|------|---------------|----------|
-| **Quick** | 2–5 min | Config files, manifests, directory structure (no source files) | Quick overview |
-| **Deep** | 10–30 min | Critical directories per project type | Brownfield PRD preparation |
-| **Exhaustive** | 30–120 min | All source files | Complete audit, migration planning |
+| **Quick** | Fast | HomeGraph shape/exploration plus essential config/docs | Quick overview |
+| **Deep** | Comprehensive | HomeGraph across important subsystems plus selective exact source | Brownfield PRD preparation |
+| **Exhaustive** | Maximum coverage | HomeGraph across relevant indexed modules plus broader gap/resource/data reads | Complete audit, migration planning |
 
 ### Resume Interrupted Scans
 

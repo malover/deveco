@@ -23,7 +23,7 @@ description: 'Document brownfield projects for AI context. Use when the user say
 Set `invocation_mode` from the caller; default to `manual`.
 
 - `manual`: follow the activation and interactive router below.
-- `goal-step0`: do not greet, ask resume/scan questions, or call `homegraph_status` here. The Goal orchestrator has selected a deterministic run. Load `config.toml`, then read and follow `./workflows/goal-step0-workflow.md` immediately.
+- `goal-step0`: do not greet, ask resume/router questions, or call `homegraph_status` here. Load `config.toml`, then read and follow `./workflows/goal-step0-workflow.md` immediately. That workflow asks exactly one scan-depth question.
 
 The `goal-step0` path owns repository documentation only. It may write under `{project-root}/docs/` and must never create, delete, rebuild, refresh, migrate, or switch the persistent `{project-root}/.homegraph/` index.
 
@@ -62,7 +62,9 @@ Call `homegraph_status` for `{project-root}` (pass `projectPath` when the MCP se
 - If HomeGraph reports a healthy/indexed project, set `{{knowledge_graph_type}}` = `"homegraph"` and `{{has_knowledge_graph}}` = `true`.
 - If HomeGraph is unavailable or the project is not indexed, report that graph-enhanced analysis is unavailable and continue with normal file scanning unless the user asks to stop. Do not invoke CodeToGraph as a fallback.
 
-HomeGraph tool policy for this skill:
+Read and follow `./homegraph-analysis.md` as the canonical analysis policy for both Project SPEC and full documentation.
+
+HomeGraph tool summary:
 - `homegraph_explore` — **primary exploration tool**. Start here for architectural/subsystem questions and when given symbols or filenames. It can return relevant source, call paths, and impact context in one request; do not mechanically decompose every investigation into search → node → callers/callees when `explore` already answers it.
 - `homegraph_files` — establish the indexed repository/file tree; use glob/language grouping when useful.
 - `homegraph_search` — fast symbol-name discovery when only locations/candidates are needed.
@@ -75,7 +77,7 @@ HomeGraph tool policy for this skill:
 - `homegraph_spec_find` — find Specs associated with a file path; optional when historical/spec context is relevant.
 - `homegraph_spec_trace` — trace a code symbol back to associated Specs; optional when explaining requirement provenance.
 
-Default exploration sequence: `homegraph_status` → `homegraph_files` → `homegraph_explore`. Use `search`, `node`, `callers`, and `callees` selectively to resolve specific gaps or obtain precise evidence. Specialized diff/ArkUI/spec tools are opt-in based on the documentation question, not mandatory scan stages.
+Default exploration sequence: `homegraph_status` → `homegraph_files` → `homegraph_explore`. The shared policy defines Quick/Deep/Exhaustive behavior, direct-read rules, evidence reuse, and semantic stopping criteria. Specialized diff/ArkUI/spec tools are opt-in based on the documentation question, not mandatory scan stages.
 
 HomeGraph does not provide CodeToGraph-style `trace_calls`, `find_path`, or `export_html` tools. When this workflow requests a Mermaid flow/sequence diagram, derive it from HomeGraph caller/callee/explore evidence plus verified source reads, then write the `.mmd` file yourself.
 

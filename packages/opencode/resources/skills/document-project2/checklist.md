@@ -4,9 +4,10 @@
 
 - [ ] Scan level selection offered (quick/deep/exhaustive) for initial_scan and full_rescan modes
 - [ ] Deep-dive mode automatically uses exhaustive scan (no choice given)
-- [ ] Quick scan does NOT read source files (only patterns, configs, manifests)
-- [ ] Deep scan reads files in critical directories per project type
-- [ ] Exhaustive scan reads ALL source files (excluding node_modules, dist, build)
+- [ ] Quick scan is HomeGraph-led and limits direct reads to essential non-graph facts
+- [ ] Deep scan performs comprehensive graph traversal with selective exact source verification
+- [ ] Deep scan does not bulk-read every source file in critical directories
+- [ ] Exhaustive scan maximizes graph-backed coverage and reads broadly only for graph/resource/data gaps
 - [ ] State file (project-scan-report.json) created at workflow start
 - [ ] State file updated after each step completion
 - [ ] State file contains all required fields per schema

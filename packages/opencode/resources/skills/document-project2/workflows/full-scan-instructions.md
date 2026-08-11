@@ -6,7 +6,8 @@
 <critical>Handles: initial_scan and full_rescan modes</critical>
 <critical>YOU MUST ALWAYS SPEAK OUTPUT In your Agent communication style with the configured `{communication_language}`</critical>
 <critical>YOU MUST ALWAYS WRITE all artifact and document content in `{document_output_language}`</critical>
-<critical>GOAL OVERRIDE: When invocation_mode == goal-step0, the supplied autonomous runtime values take precedence throughout this file. Skip Step 0.3, all ask blocks, greetings/explanations, resume/archive choices, scan-level selection, and project-root selection. Reuse the HomeGraph status, revisions, workflow_mode, scan_level, and project_root_path supplied by goal-step0-instructions.md.</critical>
+<critical>Read and follow `../homegraph-analysis.md` as the canonical analysis policy for every scan stage.</critical>
+<critical>GOAL OVERRIDE: When invocation_mode == goal-step0, the supplied autonomous runtime values take precedence throughout this file. Skip Step 0.3 and all ask blocks because goal-step0-instructions.md already asked the single scan-depth question. Reuse its HomeGraph status, revisions, workflow_mode, scan_level, project_root_path, and concise Project SPEC discoveries. For skipped manual decisions: use the supplied initial_scan/full_rescan mode, accept the evidence-backed project classification and CSV baseline, record no extra user/hardware context, generate required conditional documents, and finalize after validation.</critical>
 
 <step n="0.3" goal="Ensure HomeGraph knowledge graph is available" if="resume_mode == false">
 <critical>HOMEGRAPH IS THE ONLY GRAPH PROVIDER FOR THIS SKILL. Do not use Python or TypeScript CodeToGraph tools unless the user explicitly asks for a provider comparison.</critical>
@@ -107,43 +108,40 @@ Your choice [1/2/3]:
 <check if="workflow_mode == initial_scan OR workflow_mode == full_rescan">
   <ask>Choose your scan depth level:
 
-**1. Quick Scan** (2-5 minutes) [DEFAULT]
+**1. Quick Scan** [DEFAULT]
 
-- Pattern-based analysis without reading source files
-- Scans: Config files, package manifests, directory structure
-- Best for: Quick project overview, initial understanding
-- File reading: Minimal (configs, README, package.json, etc.)
+- Fast structural understanding through HomeGraph files/explore/search
+- Node/call-chain expansion only for a few important unresolved relationships
+- Minimal direct reads for manifests, build/config, CI, docs, and unindexed facts
 
-**2. Deep Scan** (10-30 minutes)
+**2. Deep Scan**
 
-- Reads files in critical directories based on project type
-- Scans: All critical paths from documentation requirements
-- Best for: Comprehensive documentation for brownfield PRD
-- File reading: Selective (key files in critical directories)
+- Comprehensive HomeGraph exploration across every important subsystem and documentation category
+- Targeted node/callers/callees/impact expansion
+- Selective exact source verification; never bulk-read every source file in a folder
 
-**3. Exhaustive Scan** (30-120 minutes)
+**3. Exhaustive Scan**
 
-- Reads ALL source files in project
-- Scans: Every source file (excludes node_modules, dist, build)
-- Best for: Complete analysis, migration planning, detailed audit
-- File reading: Complete (all source files)
+- Maximum HomeGraph-backed coverage across relevant indexed modules/files
+- Broader direct reads for graph gaps, resources, config, data, and exact details
+- HomeGraph-led rather than an indiscriminate filesystem crawl
 
 Your choice [1/2/3] (default: 1):
 </ask>
 
   <action if="user selects 1 OR user presses enter">
     <action>Set scan_level = "quick"</action>
-    <action>Display: "Using Quick Scan (pattern-based, no source file reading)"</action>
+    <action>Display: "Using Quick Scan (fast HomeGraph structural analysis with minimal direct reads)"</action>
   </action>
 
   <action if="user selects 2">
     <action>Set scan_level = "deep"</action>
-    <action>Display: "Using Deep Scan (reading critical files per project type)"</action>
+    <action>Display: "Using Deep Scan (comprehensive HomeGraph traversal with selective source verification)"</action>
   </action>
 
   <action if="user selects 3">
     <action>Set scan_level = "exhaustive"</action>
-    <action>Display: "Using Exhaustive Scan (reading all source files)"</action>
+    <action>Display: "Using Exhaustive Scan (maximum HomeGraph-backed coverage with broader gap reads)"</action>
   </action>
 
 <action>Initialize state file: {project_knowledge}/project-scan-report.json</action>
@@ -186,10 +184,9 @@ Your choice [1/2/3] (default: 1):
 <action>Store as {{project_root_path}}</action>
 
 <action>Gather project structure data for LLM analysis:
-  1. Run `ls -la {{project_root_path}}` — top-level directory listing
-  2. Run `find {{project_root_path}} -maxdepth 2 -type f \( -name "package.json" -o -name "go.mod" -o -name "requirements.txt" -o -name "Cargo.toml" -o -name "*.config.*" -o -name "*.toml" -o -name "*.yaml" -o -name "*.yml" -o -name "Makefile" -o -name "Dockerfile" -o -name "docker-compose*" -o -name "*.csproj" -o -name "build.gradle*" -o -name "pom.xml" -o -name "oh-package.json5" -o -name "hvigorfile.ts" \)` — find key config files
-  3. Run `find {{project_root_path}} -maxdepth 3 -type d | head -80` — directory structure (first 80 dirs)
-  4. If HomeGraph is available: use `homegraph_explore` with a project-scoped architecture question to identify up to 5 architectural hotspots
+  1. If HomeGraph is available, call `homegraph_files` for indexed repository shape, languages, modules, and file boundaries.
+  2. Use `homegraph_explore` with project-scoped architecture/subsystem questions to identify all materially important hotspots.
+  3. Supplement with a shallow top-level directory listing and targeted manifest/config discovery for non-symbol facts HomeGraph does not represent.
 </action>
 
 <action>Read key configuration files (up to 5 most informative: package.json, go.mod, requirements.txt, Cargo.toml, etc.)</action>
@@ -413,19 +410,19 @@ Are there any other important documents or key areas I should focus on while ana
 
 <critical>DIAGRAM GENERATION IS DATA-DRIVEN. Prefer a smaller set of accurate diagrams over a large set of speculative ones.</critical>
 
-<action>CATEGORY 1 — ARCHITECTURAL HOTSPOTS: For up to 6 {{project_hotspots}}, inspect with `homegraph_node`, collect important outgoing calls via `homegraph_callees` and important consumers via `homegraph_callers`, then synthesize focused Mermaid diagrams. Save as `hotspot-{label}-flow.mmd` / `hotspot-{label}-callers.mmd` when each view adds value.</action>
+<action>CATEGORY 1 — ARCHITECTURAL HOTSPOTS: For each materially important {{project_hotspots}} item, inspect with `homegraph_node`, collect important outgoing calls via `homegraph_callees` and important consumers via `homegraph_callers`, then synthesize focused Mermaid diagrams. Save as `hotspot-{label}-flow.mmd` / `hotspot-{label}-callers.mmd` when each view adds value.</action>
 
-<action>CATEGORY 2 — ENTRY POINT FLOWS: For up to 5 {{entry_points}}, recursively follow important callees to a bounded depth using `homegraph_callees`; use `homegraph_explore` when the flow crosses modules or is unclear. Verify key transitions against source and write `entry-{label}-trace.mmd`.</action>
+<action>CATEGORY 2 — ENTRY POINT FLOWS: For each documentation-relevant {{entry_points}} item, follow important callees until the flow is sufficiently evidenced using `homegraph_callees`; use `homegraph_explore` when the flow crosses modules or is unclear. Verify key transitions and write `entry-{label}-trace.mmd`.</action>
 
-<action>CATEGORY 3 — DATA/STORAGE FLOWS: Use `homegraph_search` for repository/service/storage/data-access terms. For up to 5 important symbols, use callers/callees to map producers and consumers and synthesize `data-{label}-flow.mmd`.</action>
+<action>CATEGORY 3 — DATA/STORAGE FLOWS: Use `homegraph_search` for repository/service/storage/data-access terms. For each important symbol, use callers/callees to map producers and consumers and synthesize `data-{label}-flow.mmd` when useful.</action>
 
-<action>CATEGORY 4 — NAVIGATION/ROUTING: Search relevant routing/navigation symbols, inspect relationships, and synthesize up to 3 `nav-{label}-flow.mmd` diagrams.</action>
+<action>CATEGORY 4 — NAVIGATION/ROUTING: Search relevant routing/navigation symbols, inspect relationships, and synthesize the supported `nav-{label}-flow.mmd` diagrams needed for documentation.</action>
 
-<action>CATEGORY 5 — SHARED COMPONENT CONSUMERS: Search shared component symbols and use `homegraph_callers` to discover consumers. For up to 5 meaningful shared components, synthesize `component-{label}-consumers.mmd`.</action>
+<action>CATEGORY 5 — SHARED COMPONENT CONSUMERS: Search shared component symbols and use `homegraph_callers` to discover consumers. For each meaningful shared component, synthesize `component-{label}-consumers.mmd` when useful.</action>
 
-<action>CATEGORY 6 — CROSS-MODULE FLOWS: Use `homegraph_explore` with explicit natural-language questions such as "How does <entry> reach <feature/service>?" and corroborate returned paths with node/caller/callee evidence. Create up to 6 `path-{from}-to-{to}.mmd` diagrams only when a supported path is found.</action>
+<action>CATEGORY 6 — CROSS-MODULE FLOWS: Use `homegraph_explore` with explicit natural-language questions such as "How does <entry> reach <feature/service>?" and corroborate returned paths with node/caller/callee evidence. Create `path-{from}-to-{to}.mmd` diagrams when a supported, documentation-relevant path is found.</action>
 
-<action>CATEGORY 7 — STATE MANAGEMENT: Search state/store/ViewModel symbols, use callers/callees to map publishers and subscribers, and synthesize up to 3 state flow diagrams.</action>
+<action>CATEGORY 7 — STATE MANAGEMENT: Search state/store/ViewModel symbols, use callers/callees to map publishers and subscribers, and synthesize the state flow diagrams needed to explain important behavior.</action>
 
 <action>CATEGORY 8 — PORTING/SHARED UTILITIES: Identify shared utilities with meaningful callers across multiple modules using `homegraph_callers` and exploration. For the highest-value utilities, synthesize caller/flow diagrams useful for cross-platform porting.</action>
 
@@ -463,29 +460,26 @@ SPECIALIZED HOMEGRAPH TOOLS:
   <action>STEP 4e: For domain scans below, prefer `homegraph_search` / `homegraph_explore`; use direct file reads for exact implementation details, comments, configuration, schemas, and behavior.</action>
 </check>
 
-<critical>BATCHING STRATEGY FOR DEEP/EXHAUSTIVE SCANS</critical>
+<critical>GRAPH-LED SUBSYSTEM STRATEGY FOR DEEP/EXHAUSTIVE SCANS</critical>
 
 <check if="scan_level == deep OR scan_level == exhaustive">
-  <action>This step requires file reading. Apply batching strategy:</action>
-
-<action>Identify subfolders to process based on: - scan_level == "deep": Use critical_directories from documentation_requirements - scan_level == "exhaustive": Get ALL subfolders recursively (excluding node_modules, .git, dist, build, coverage)
-</action>
-
-<action>For each subfolder to scan: 1. Read all files in subfolder (consider file size - use judgment for files >5000 LOC) 2. Extract required information based on conditional flags below 3. IMMEDIATELY write findings to appropriate output file 4. Validate written document (section-level validation) 5. Update state file with batch completion 6. PURGE detailed findings from context, keep only 1-2 sentence summary 7. Move to next subfolder
-</action>
+  <action>Identify documentation-relevant subsystems from HomeGraph files/explore evidence and the classification's critical_directories.</action>
+  <action>For Deep, investigate every important subsystem with focused `homegraph_explore`, then use node/callers/callees/impact and selective exact reads to close gaps. Never read every source file merely because it is in a critical folder.</action>
+  <action>For Exhaustive, cover all relevant indexed modules/files and subsystem relationships through HomeGraph, then read unindexed, partially represented, resource/config/data, or exact-detail files as needed. Do not perform an indiscriminate filesystem crawl.</action>
+  <action>For each subsystem: collect sufficient graph evidence, selectively verify exact facts, write and validate the relevant documentation, update state, retain a concise summary for reuse, then continue.</action>
 
 <action>Track batches in state file:
 findings.batches_completed: [
-{"path": "{{subfolder_path}}", "files_scanned": {{count}}, "summary": "{{brief_summary}}"}
+{"path": "{{subsystem_or_path}}", "files_scanned": {{selectively_verified_count}}, "summary": "{{brief_summary}}"}
 ]
 </action>
 </check>
 
 <check if="scan_level == quick">
-  <action>Use pattern matching only - do NOT read source files</action>
+  <action>Use fast HomeGraph structural analysis and minimal direct reads as defined by the shared policy.</action>
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use `homegraph_explore` to identify up to 15 project-scoped architectural hotspots. Run `homegraph_search` for "entry", "ViewModel", "Model", "component", "util". Use entity labels and file paths only — no file reading.</action>
-    <action>Use `homegraph_callees` on up to 2 entry points to collect bounded high-level call evidence; synthesize concise Mermaid flow diagrams without deep file analysis.</action>
+    <action>Use `homegraph_explore` to identify project-scoped architectural hotspots. Run `homegraph_search` for "entry", "ViewModel", "Model", "component", "util".</action>
+    <action>Use `homegraph_callees` on important unresolved entry points to collect sufficient high-level call evidence; synthesize concise Mermaid flow diagrams without deep source verification.</action>
     <action>Fall back to glob/grep only for patterns not covered by the graph</action>
   </check>
   <check if="{{has_knowledge_graph}} == false">
@@ -515,7 +509,7 @@ findings.batches_completed: [
 
   <check if="{{has_knowledge_graph}} == true">
     <action>Use `homegraph_search` with query="route OR handler OR controller OR endpoint OR MockRequest OR service" to discover API-related entities. Filter results to {{project_root_path}} paths only.</action>
-    <action>Use `homegraph_explore` on top 5 discovered API entities (node_id from search results) to trace middleware, services, and data models they depend on. Use relation="calls" filter for cleaner output.</action>
+      <action>Use `homegraph_explore` on the discovered API entities that materially affect documentation to trace middleware, services, and data models they depend on.</action>
     <action>Use `homegraph_callees` on each key data-service handler to map request → parse → response chains; synthesize a diagram only from supported edges.</action>
     <action>Use `homegraph_callers` on data-service entities to discover consumers (which ViewModels call MockRequest, which pages use PreferenceManager).</action>
   </check>
@@ -532,9 +526,9 @@ findings.batches_completed: [
   <check if="scan_level == deep OR scan_level == exhaustive">
     <check if="{{has_knowledge_graph}} == true">
       <action>Use `homegraph_node` on each API entity for detailed metadata; supplement with file reads only for entities missing from the graph</action>
-      <action>Use `homegraph_explore` (node_id=top_api_entity, hops=2, max_nodes=30) to see the full surrounding context of the data layer</action>
+      <action>Use focused `homegraph_explore` questions on important API/data entities until the surrounding context is sufficiently evidenced.</action>
     </check>
-    <action>Read files in batches (one subfolder at a time)</action>
+    <action>Read only API source details missing or incomplete in HomeGraph; use `homegraph_node` for indexed source.</action>
     <action>Extract: data service methods, trigger strings, request/response types from actual code</action>
   </check>
 
@@ -553,7 +547,7 @@ findings.batches_completed: [
 
   <check if="{{has_knowledge_graph}} == true">
     <action>Use `homegraph_search` with query="model OR entity OR schema OR Model OR State OR Data" to discover all data model classes. Filter results to {{project_root_path}} paths only.</action>
-    <action>Use `homegraph_explore` on top 5 data model entities to trace which ViewModels consume them, which services populate them, and which views display them. Use relation="calls" to show usage edges.</action>
+    <action>Use `homegraph_explore` on documentation-relevant data model entities to trace which ViewModels consume them, which services populate them, and which views display them.</action>
     <action>Use bounded `homegraph_callees` plus `homegraph_explore` on the core data service to reconstruct the data loading pipeline: caller → service → JSON file → model → consumer.</action>
     <action>Ask `homegraph_explore` focused questions about how the main data source reaches 2-3 top-level ViewModels; verify the returned propagation paths.</action>
   </check>
@@ -571,7 +565,7 @@ findings.batches_completed: [
     <check if="{{has_knowledge_graph}} == true">
       <action>Use `homegraph_node` on each model entity for detailed field metadata; supplement with file reads only for entities missing from the graph</action>
     </check>
-    <action>Read model files in batches (one subfolder at a time)</action>
+    <action>Read only model/schema details missing or incomplete in HomeGraph; use `homegraph_node` for indexed source.</action>
     <action>Extract: table names, fields, relationships, constraints from actual code</action>
   </check>
 
@@ -677,7 +671,7 @@ If yes, please provide paths or links. [Provide paths or type 'none']
 
   <check if="{{has_knowledge_graph}} == true">
     <action>Use `homegraph_search` with query="i18n OR locale OR resources OR element OR translations OR lang OR string" to discover i18n-related entities. Filter results to {{project_root_path}} paths only.</action>
-    <action>Use `homegraph_explore` on top 3 i18n consumers to trace which UI components use localized strings.</action>
+    <action>Use `homegraph_explore` on documentation-relevant i18n consumers to trace which UI components use localized strings.</action>
   </check>
 
   <check if="scan_level == quick">
@@ -723,7 +717,7 @@ If yes, please provide paths or links. [Provide paths or type 'none']
   <action>For each discovered entity cluster, run `homegraph_explore` to reveal their full dependency context.</action>
 </check>
 
-<action>Apply scan_level strategy to each pattern scan (quick=glob only, deep/exhaustive=read files)</action>
+<action>Apply the shared scan-level strategy to every pattern: Quick uses graph-first structural discovery with minimal direct reads; Deep uses comprehensive graph traversal plus selective verification; Exhaustive maximizes graph-backed coverage and reads broadly only to fill graph/resource/data gaps.</action>
 
 <template-output>comprehensive*analysis*{part_id}</template-output>
 
