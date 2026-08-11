@@ -3,7 +3,7 @@ import fs from "node:fs"
 import type { ConfigMCPV1 } from "@opencode-ai/core/v1/config/mcp"
 
 export function isHomeGraphEnabled(): boolean {
-  return process.env.DEVECO_HOMEGRAPH_ENABLED !== "0" && findHomeGraphExecutable() !== undefined
+  return findHomeGraphExecutable() !== undefined
 }
 
 function repositoryRoot(): string {

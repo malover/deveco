@@ -3,7 +3,7 @@ import { CodeToGraphRuntime } from "@/codetograph/runtime"
 
 export function render(item: { name: string; content: string; location: string }) {
   const root = path.dirname(item.location)
-  const deveco = CodeToGraphRuntime.selfCommand("generate")
+  const codetograph = CodeToGraphRuntime.generateCommand()
     .map((argument) => `"${argument.replaceAll('"', '\\"')}"`)
     .join(" ")
   return [
@@ -14,7 +14,7 @@ export function render(item: { name: string; content: string; location: string }
           "",
         ]
       : []),
-    item.content.replaceAll("{skill-root}", root).replaceAll("{deveco-command}", deveco).trim(),
+    item.content.replaceAll("{skill-root}", root).replaceAll("{codetograph-command}", codetograph).trim(),
     "",
     `Base directory for this skill: ${root}`,
     "Resolve all remaining relative skill paths from this directory.",

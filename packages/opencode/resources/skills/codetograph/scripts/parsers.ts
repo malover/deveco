@@ -84,11 +84,19 @@ async function initParser() {
 }
 
 function findWasm(name: string): string {
+  const installed = (() => {
+    try {
+      return fileURLToPath(import.meta.resolve(`web-tree-sitter/${name}`))
+    } catch {
+      return undefined
+    }
+  })()
   const paths = [
+    installed,
     join(CACHE, name),
     join(process.cwd(), "node_modules", "web-tree-sitter", name),
     join(import.meta.dirname || ".", "node_modules", "web-tree-sitter", name),
-  ]
+  ].filter((item): item is string => Boolean(item))
   for (const p of paths) {
     if (existsSync(p)) return p
   }
@@ -103,7 +111,7 @@ async function downloadWasm(url: string, dest: string): Promise<string> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Failed to download ${url}: ${res.status}`)
   const buf = Buffer.from(await res.arrayBuffer())
-  Bun.write(destPath, buf)
+  await Bun.write(destPath, buf)
   console.log(`  ✅ Cached: ${destPath}`)
   return destPath
 }

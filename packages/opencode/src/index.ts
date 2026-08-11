@@ -31,12 +31,10 @@ import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
 import { checkOnStartup as crashCheckOnStartup, cleanupOnExit as crashCleanupOnExit } from "./cli/crash-detect"
 
-if (process.argv.includes("--internal-codetograph-mcp")) {
-  const { CodeToGraphServer } = await import("./codetograph/server")
-  await CodeToGraphServer.serve(
-    process.env.DEVECO_CODETOGRAPH_GRAPH || "docs/codetograph.json",
-    process.env.DEVECO_CODETOGRAPH_DIAGRAMS || "docs/diagrams",
-  )
+const mcpIndex = process.argv.indexOf("--internal-codetograph-mcp")
+if (mcpIndex >= 0) {
+  const { CodeToGraphEntry } = await import("./codetograph/entry")
+  await CodeToGraphEntry.run(process.argv.slice(mcpIndex + 1))
   process.exit(0)
 }
 

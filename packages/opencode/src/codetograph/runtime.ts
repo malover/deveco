@@ -2,18 +2,19 @@ import path from "node:path"
 
 export type Runtime = "typescript" | "python"
 
-export function enabled() {
-  return process.env.DEVECO_CODETOGRAPH_ENABLED !== "0"
+export function serverCommand(runtime: Runtime) {
+  if (development()) return [process.execPath, path.join(import.meta.dir, "entry.ts"), runtime]
+  return [process.execPath, "--internal-codetograph-mcp", runtime]
 }
 
-export function selected(): Runtime {
-  return process.env.DEVECO_CODETOGRAPH_RUNTIME?.trim().toLowerCase() === "python" ? "python" : "typescript"
-}
-
-export function selfCommand(mode: "mcp" | "generate") {
-  const development = path.basename(process.execPath).toLowerCase().startsWith("bun")
-  const entrypoint = development && process.argv[1] ? path.resolve(process.argv[1]) : undefined
-  return [process.execPath, ...(entrypoint ? [entrypoint] : []), `--internal-codetograph-${mode}`]
+export function generateCommand() {
+  if (development()) {
+    return [
+      process.execPath,
+      path.resolve(import.meta.dir, "../../resources/skills/codetograph/scripts/codetograph.ts"),
+    ]
+  }
+  return [process.execPath, "--internal-codetograph-generate"]
 }
 
 export function pythonCommand() {
@@ -23,8 +24,12 @@ export function pythonCommand() {
   if (python3) return [python3]
   const python = Bun.which("python")
   if (python) return [python]
-  const launcher = process.platform === "win32" ? Bun.which("py") : undefined
-  if (launcher) return [launcher, "-3"]
+  if (process.platform === "win32") return [Bun.which("py") ?? "py", "-3"]
+  return ["python3"]
+}
+
+function development() {
+  return path.basename(process.execPath).toLowerCase().startsWith("bun")
 }
 
 export * as CodeToGraphRuntime from "./runtime"

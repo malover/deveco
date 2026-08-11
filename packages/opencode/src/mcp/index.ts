@@ -36,7 +36,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { McpCatalog } from "./catalog"
 import { builtInHomeGraphMcp } from "@/homegraph/integration"
-import { builtInCodeToGraphMcp } from "@/codetograph/integration"
+import { builtInCodeToGraphMcps } from "@/codetograph/integration"
 
 const DEFAULT_TIMEOUT = 30_000
 const CLIENT_OPTIONS = {
@@ -434,10 +434,7 @@ export const layer = Layer.effect(
         result.homegraph = builtIn
       }
 
-      const codetograph = yield* builtInCodeToGraphMcp(fsys)
-      if (codetograph) {
-        result.codetograph = codetograph
-      }
+      Object.assign(result, yield* builtInCodeToGraphMcps(fsys))
 
       // User configuration is applied after built-ins so a user may override
       // or explicitly disable the built-in entry.
@@ -503,7 +500,9 @@ export const layer = Layer.effect(
         const bridge = yield* EffectBridge.make()
         const config = yield* effectiveMcpConfig(cfg.mcp)
         const s: State = {
-          config: {},
+          config: Object.fromEntries(
+            Object.entries(config).filter((entry): entry is [string, ConfigMCPV1.Info] => isMcpConfigured(entry[1])),
+          ),
           status: {},
           clients: {},
           defs: {},

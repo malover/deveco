@@ -251,13 +251,11 @@ Verifies: files analyzed == total files, 0 missing, entity/edge counts match.
 
 ## Full Pipeline
 
-Run this command immediately when the user invokes `/codetograph`. Wait for it to finish and report the generated paths.
+Graph generation runs immediately when the user invokes `/codetograph`; it is not optional and does not require agent tool selection.
 
-```bash
-{deveco-command} --project <dir> [--output <dir>]
-```
+!`{codetograph-command} --project . $ARGUMENTS 2>&1`
 
-Runs all phases: discovery → extraction → graph → analysis → export → audit.
+Report the command output and generated paths. The command runs all phases: discovery → extraction → graph → analysis → export → audit.
 
 ---
 

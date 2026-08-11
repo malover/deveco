@@ -21,19 +21,11 @@ afterEach(async () => {
 })
 
 describe("CodeToGraph TypeScript MCP", () => {
-  test("selects the MCP backend explicitly and builds stable internal commands", () => {
-    const previous = process.env.DEVECO_CODETOGRAPH_RUNTIME
-    try {
-      delete process.env.DEVECO_CODETOGRAPH_RUNTIME
-      expect(CodeToGraphRuntime.selected()).toBe("typescript")
-      process.env.DEVECO_CODETOGRAPH_RUNTIME = "python"
-      expect(CodeToGraphRuntime.selected()).toBe("python")
-      expect(CodeToGraphRuntime.selfCommand("mcp").at(-1)).toBe("--internal-codetograph-mcp")
-      expect(CodeToGraphRuntime.selfCommand("generate").at(-1)).toBe("--internal-codetograph-generate")
-    } finally {
-      if (previous === undefined) delete process.env.DEVECO_CODETOGRAPH_RUNTIME
-      else process.env.DEVECO_CODETOGRAPH_RUNTIME = previous
-    }
+  test("builds dedicated development commands for both MCP implementations", () => {
+    expect(CodeToGraphRuntime.serverCommand("typescript").at(-1)).toBe("typescript")
+    expect(CodeToGraphRuntime.serverCommand("python").at(-1)).toBe("python")
+    expect(CodeToGraphRuntime.serverCommand("typescript").at(-2)).toEndWith("entry.ts")
+    expect(CodeToGraphRuntime.generateCommand().at(-1)).toEndWith("codetograph.ts")
   })
 
   test("serves the same tools and payloads as the retained Python implementation", async () => {
