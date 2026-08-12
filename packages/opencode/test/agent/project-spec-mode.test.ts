@@ -3,8 +3,8 @@ import { projectSpecGoalPrompt, projectSpecMode } from "@/agent/project-spec-mod
 
 describe("Project SPEC mode", () => {
   test("uses the direct path by default", () => {
-    expect(projectSpecMode({})).toBe("v2-direct")
-    expect(projectSpecGoalPrompt("mode={PROJECT_SPEC_MODE}", {})).toBe("mode=v2-direct")
+    expect(projectSpecMode({})).toBe("sequential-homegraph")
+    expect(projectSpecGoalPrompt("mode={PROJECT_SPEC_MODE}", {})).toBe("mode=sequential-homegraph")
   })
 
   test("supports both isolated rollback flags", () => {

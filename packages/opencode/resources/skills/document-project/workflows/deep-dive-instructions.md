@@ -88,9 +88,9 @@ This will read EVERY file in this area. Proceed? [y/n]
 
   <check if="{{has_knowledge_graph}} == true">
     <action>Pre-populate file_inventory context using MCP before reading files:
-      - Use `search_nodes` MCP tool (codetograph) with the target path to discover all entities in the scanned area.
-      - For each entity found, use `get_node` to pre-load: entity name, type, exports (functions/classes/types), file path, line range
-      - Use `get_neighbors` to pre-load import/call dependencies for each entity
+      - Use `homegraph_files` scoped to the target path/glob to establish the indexed file boundary.
+      - Use `homegraph_explore` **first** with a focused question about the target area (responsibilities, important symbols, dependencies, entry paths, and interactions). Treat its returned source/call-path/impact evidence as the primary investigation packet.
+      - Only if a concrete gap remains, use `homegraph_search` to locate candidates, `homegraph_node` for precise line-numbered source, or `homegraph_callers` / `homegraph_callees` for explicit directional call evidence. Do not repeat evidence already supplied by `homegraph_explore`.
       - This pre-population accelerates file reading by giving you known exports and dependencies before you open each file
       - Actual file reading remains mandatory — use MCP data to cross-validate and enrich, not to skip
     </action>
@@ -162,21 +162,19 @@ This will read EVERY file in this area. Proceed? [y/n]
 
   <check if="{{has_knowledge_graph}} == true">
     <action>For each file in file_inventory (from Step 13b), use MCP to map relationships:
-      - Use `get_neighbors` (relation_filter="import" / "call") on each file entity to discover direct dependencies
-      - Use `trace_calls` (codetograph) on entry-point functions to follow call chains and build sequence diagrams
-      - Use `find_path` / `shortest_path` between key entities to trace cross-module dependencies
+      - Use `homegraph_node` plus `homegraph_callers` / `homegraph_callees` for direct relationships.
+      - Use `homegraph_explore` for bounded cross-module questions and to surface relevant call paths/context.
     </action>
-    <action>Generate and save codetograph sequence diagrams:
-      - LLM-DRIVEN: Based on the scanned area's project type and code structure, the LLM determines what qualifies as entry-point functions (e.g., for HarmonyOS: Ability lifecycle methods; for web: route handlers, page initializers; for backend: main request handlers, server initializers; for CLI: command executors)
-      - Identify the top 3–5 entry-point functions from the file_inventory and `codetograph_god_nodes` — pick ones that represent REAL application startup or key request/command entry paths, not every uncalled utility method
-      - For each entry point, call `codetograph_trace_calls` to generate a Mermaid sequence diagram tracing the full call chain
-      - Save each diagram to disk: `{project_knowledge}/diagrams/{{sanitized_target_name}}-{{entry_point_name}}.mmd`
-      - Also save a combined dependency graph via `export_html` (codetograph) for interactive exploration: `{project_knowledge}/diagrams/{{sanitized_target_name}}-graph.html`
-      - Store diagram paths in `{{sequence_diagrams}}` array for embedding in Step 13e
+    <action>Generate and save HomeGraph-backed Mermaid sequence diagrams:
+      - LLM-DRIVEN: Based on the scanned area's project type and code structure, determine true entry-point functions (e.g., HarmonyOS Ability lifecycle methods, web route/page initializers, backend request handlers, CLI command executors).
+      - Identify the top 3–5 entry points from file_inventory and HomeGraph exploration. Prefer real startup/request/command paths, not every uncalled utility method.
+      - For each entry point, use `homegraph_node`, `homegraph_callees`, and when needed `homegraph_explore` to collect a bounded call chain. Verify ambiguous edges against source.
+      - Synthesize a Mermaid sequence diagram from that evidence and save it to `{project_knowledge}/diagrams/{{sanitized_target_name}}-{{entry_point_name}}.mmd`.
+      - Store diagram paths in `{{sequence_diagrams}}` for embedding in Step 13e.
     </action>
-    <action>Construct the dependency graph from MCP data:
-      - Nodes from `get_node` results: file paths, entity names, types
-      - Edges from `get_neighbors` results: import relationships, call relationships
+    <action>Construct the dependency graph from HomeGraph data:
+      - Nodes from `homegraph_node` / `homegraph_search`: file paths, entity names, types.
+      - Edges from `homegraph_callers`, `homegraph_callees`, and `homegraph_explore`: call/dependency relationships.
       - Entry points: identified by the LLM based on project type knowledge — typically nodes with no incoming edges within the scanned scope, validated against project conventions (e.g., ability lifecycle methods, main request handlers, initializers)
       - Leaf nodes: nodes with no outgoing edges within the scanned scope
       - Circular dependencies: detected via graph cycles in MCP results
@@ -194,7 +192,7 @@ This will read EVERY file in this area. Proceed? [y/n]
   </check>
 
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use MCP `trace_calls` (codetograph) to trace data flow with Mermaid sequence diagrams:
+    <action>Use `homegraph_callees` / `homegraph_callers` plus `homegraph_explore` to trace data flow, verify it against source, and synthesize Mermaid sequence diagrams:
       - Follow function calls and data transformations along the call chain
       - Track API calls and their responses
       - Document state updates and propagation
@@ -221,16 +219,16 @@ This will read EVERY file in this area. Proceed? [y/n]
 
 <step n="13d" goal="Find related code and similar patterns">
 
-  <critical>KNOWLEDGE GRAPH PREFERENCE: If {{has_knowledge_graph}} is true, use codetograph MCP tools (`search_nodes`) first to discover related code — they are faster and capture structural relationships that grep misses.</critical>
+  <critical>KNOWLEDGE GRAPH PREFERENCE: If {{has_knowledge_graph}} is true, use HomeGraph MCP tools (`homegraph_explore`, `homegraph_search`, `homegraph_node`) first to discover related code — they capture structural relationships that grep can miss.</critical>
 
   <check if="{{has_knowledge_graph}} == true">
     <action>Search codebase OUTSIDE scanned area using MCP tools:
-      - Use `search_nodes` with patterns matching entity names from the scanned area to find similar entities elsewhere
-      - Use `get_neighbors` (outgoing direction) on scanned entities to discover cross-module dependencies that point to related code
-      - Use `god_nodes` on the full graph to check if any scanned entities are also global architectural hotspots
+      - Use `homegraph_search` with relevant symbol/domain terms from the scanned area to find related entities elsewhere
+      - Use `homegraph_callees` and `homegraph_explore` on scanned entities to discover cross-module dependencies that point to related code
+      - Use `homegraph_explore` to identify whether scanned entities are central architectural hotspots or shared dependencies
     </action>
     <action>Identify code reuse opportunities from MCP data:
-      - Entities that are god_nodes (globally critical) → likely shared utilities fit for reuse
+      - Entities with many meaningful callers / cross-module relationships → likely shared utilities fit for reuse
       - Community boundaries → modules that could be extracted as shared libraries
       - Cross-module call edges → integration points where similar patterns may exist
     </action>
@@ -265,7 +263,7 @@ This will read EVERY file in this area. Proceed? [y/n]
 <action>Fill template with all collected data from steps 13b-13d</action>
 
 <check if="{{has_knowledge_graph}} == true AND {{sequence_diagrams}} is not empty">
-  <action>Embed codetograph sequence diagrams into the documentation:
+  <action>Embed HomeGraph-backed sequence diagrams into the documentation:
     - For `{{data_flow_diagram}}` template slot: embed each sequence diagram as a Mermaid code block (```mermaid ... ```) read from the saved .mmd files
     - For `{{dependency_graph_visualization}}` template slot: include a link to the interactive HTML graph file ({{sanitized_target_name}}-graph.html)
     - Include a "Sequence Diagrams" subsection under Data Flow listing each diagram with the entry point name and a brief description of the call chain

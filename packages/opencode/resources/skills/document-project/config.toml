@@ -15,6 +15,19 @@ document_output_language = "English"
 # Your name (used for greetings). Leave empty to be prompted.
 user_name = ""
 
+# ── Goal Step 0 ──
+[goal_step0]
+project_spec = "{project-root}/docs/project-spec.md"
+scan_report = "{project-root}/docs/project-scan-report.json"
+required_outputs = [
+  "{project-root}/docs/project-spec.md",
+  "{project-root}/docs/index.md",
+  "{project-root}/docs/project-scan-report.json",
+]
+default_scan_level = "quick"
+prompt_for_scan_level = true
+reuse_only_when_revision_matches = true
+
 # ── Workflow Customization ──
 [workflow]
 
@@ -36,10 +49,10 @@ persistent_facts = [
 
 # Executed when the workflow reaches its terminal stage, after
 # the main output has been delivered. Leave empty for no post-completion behavior.
-on_complete = """After documentation is generated, report whether the knowledge graph and diagrams may be stale:
+on_complete = """After documentation is generated, report whether the HomeGraph index and generated diagrams may be stale:
 
-1. CODETOGRAPH REFRESH: If docs/codetograph.json exists, recommend that the user explicitly run `/codetograph` to refresh codetograph.json and codetograph_tree.md. Never invoke it automatically.
+1. HOMEGRAPH REFRESH: If source files changed during or after the scan, recommend syncing HomeGraph before the next documentation run. Do not switch graph providers automatically.
 
-2. DIAGRAMS PRESERVATION: The docs/diagrams/ directory contains codetograph-generated .mmd sequence diagram files organized by category (god-*, entry-*, data-*, nav-*, component-*, path-*, state-*). The number is driven by what codetograph discovers — typically 15-30 diagrams. INDEX.md catalogs all diagrams with descriptions. These are linked from architecture.md. Keep them in sync — if architecture.md is regenerated, regenerate the diagrams as well via codetograph `trace_calls`/`reverse_trace_calls`/`find_path`.
+2. DIAGRAMS PRESERVATION: The docs/diagrams/ directory may contain .mmd diagrams synthesized from HomeGraph evidence. INDEX.md catalogs them. Keep the diagrams in sync when architecture documentation is regenerated.
 
-If codetograph is not available, report the missing tool but do not block completion — the documentation is still valid."""
+For manual invocation only, HomeGraph unavailability does not block direct-file documentation. Goal Step 0 must fail instead."""

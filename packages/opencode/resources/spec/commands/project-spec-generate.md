@@ -21,9 +21,9 @@ For a runtime chain `A → B → C`, prove both edges independently or obtain on
 
 ## Direct HomeGraph Workflow
 
-1. Initialize HomeGraph when the project is unindexed, or sync/recover an existing index, then call `homegraph_status` once. Reuse an existing artifact only when its repository commit and HomeGraph revision exactly match current verifiable values and the index is healthy. When revision values are unavailable, regenerate rather than infer freshness.
+1. Initialize HomeGraph when the project is unindexed, or sync/recover an existing index, then call `homegraph_status` once. When Goal Step 0 supplies an already verified healthy status and revisions, reuse them and do not initialize, sync, recover, or call status again. Reuse an existing artifact only when its repository commit and HomeGraph revision exactly match current verifiable values and the index is healthy. When revision values are unavailable, regenerate rather than infer freshness.
 2. Call `homegraph_files` once for a shallow indexed repository shape.
-3. Build a transient checklist for overview, modules, entry points, runtime flows, contracts, state/persistence, risk, reusable change paths, build/config/testing, documentation, and limitations.
+3. Build a transient checklist for overview, modules, entry points, runtime flows, contracts, state/persistence, risk, reusable change paths, build/config/testing, documentation, and limitations. When Goal Step 0 supplies a Quick/Deep/Exhaustive selection, use it to control exploration breadth and pass the same selection to the following document-project stage; do not ask for scan depth here.
 4. Resolve each missing graph-backed fact with the narrowest tool:
    - unknown symbol name: `homegraph_search`;
    - exact symbol/file and nearby edges: `homegraph_node`;

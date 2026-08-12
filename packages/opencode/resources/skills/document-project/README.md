@@ -18,10 +18,10 @@ A Code Genie skill that generates comprehensive AI-readable documentation for br
 | `data-models.md` | Entity models, relationships, migrations |
 | `deployment-guide.md` | Deployment architecture, CI/CD pipeline |
 | `localization.md` | i18n/l10n structure, supported locales, fallback chain |
-| `diagrams/` | Codetograph-generated Mermaid `.mmd` sequence diagrams |
+| `diagrams/` | HomeGraph-backed Mermaid `.mmd` sequence diagrams synthesized by the skill |
 | `project-scan-report.json` | Resumable state file — resume interrupted scans |
 
-Supports three scan modes: **Quick** (pattern-based, 2–5 min), **Deep** (reads critical directories, 10–30 min), and **Exhaustive** (reads every source file, 30–120 min).
+Supports three scan modes: **Quick** (fast HomeGraph structural analysis), **Deep** (comprehensive graph traversal with selective exact verification), and **Exhaustive** (maximum graph-backed coverage with broader reads for graph/resource/data gaps).
 
 ## Detects 15 Project Archetypes
 
@@ -36,9 +36,9 @@ web, mobile, backend, CLI, library, desktop, game, data, browser-extension, infr
 
 ### Recommended (for best results)
 
-- **codetograph MCP server** — generates AST-based dependency graphs, Mermaid sequence diagrams, call traces, cross-module paths. This is the primary analysis layer.
+- **HomeGraph MCP server** — provides indexed files/symbols, source context, callers/callees, exploration, and impact context. This is the primary structural analysis layer.
 
-The skill works without codetograph (falls back to manual glob/grep), but you will not get sequence diagrams and analysis will be slower.
+The skill can work without HomeGraph by falling back to direct file scanning. When HomeGraph is available, diagrams are synthesized from graph relationships plus verified source evidence.
 
 ---
 
@@ -88,15 +88,11 @@ Key settings in `[config]`:
 - `document_output_language` — language for generated docs (default: `English`)
 - `user_name` — your name (leave empty to be prompted)
 
-### 3. (Recommended) Set up codetograph
+### 3. (Recommended) Set up HomeGraph
 
-For Mermaid sequence diagrams, call traces, and cross-module dependency analysis, install the codetograph MCP server and generate a graph before running the skill:
+Install/configure the HomeGraph MCP for DevEco Code and ensure the target project has a HomeGraph index. The normal documentation path is **explore-first**: `homegraph_status` → `homegraph_files` → `homegraph_explore`, with `homegraph_search`, `homegraph_node`, `homegraph_callers`, `homegraph_callees`, and `homegraph_impact` used selectively for precise follow-up evidence. The skill also recognizes `homegraph_diff_impact`, `homegraph_arkui_migrate`, `homegraph_spec_match`, `homegraph_spec_find`, and `homegraph_spec_trace`, but invokes them only for relevant diff-review, ArkUI-migration, or Commit4Spec/history questions.
 
-```
-/codetograph
-```
-
-This creates `codetograph-out/codetograph.json` which the skill uses as its primary analysis layer.
+HomeGraph stores its local index under `.homegraph/`. The skill does not switch to either CodeToGraph MCP automatically.
 
 That's it! No other setup required.
 
@@ -117,16 +113,16 @@ The skill will:
 1. Detect your project type and structure
 2. Ask you to choose a scan level (Quick / Deep / Exhaustive)
 3. Generate all documentation to the configured output directory
-4. Offer to generate codetograph sequence diagrams (if codetograph graph exists)
+4. Generate evidence-backed Mermaid diagrams when a HomeGraph index is available
 5. Create a resumable state file — you can stop and resume later
 
 ### Scan Modes
 
 | Mode | Time | What It Reads | Best For |
 |------|------|---------------|----------|
-| **Quick** | 2–5 min | Config files, manifests, directory structure (no source files) | Quick overview |
-| **Deep** | 10–30 min | Critical directories per project type | Brownfield PRD preparation |
-| **Exhaustive** | 30–120 min | All source files | Complete audit, migration planning |
+| **Quick** | Fast | HomeGraph shape/exploration plus essential config/docs | Quick overview |
+| **Deep** | Comprehensive | HomeGraph across important subsystems plus selective exact source | Brownfield PRD preparation |
+| **Exhaustive** | Maximum coverage | HomeGraph across relevant indexed modules plus broader gap/resource/data reads | Complete audit, migration planning |
 
 ### Resume Interrupted Scans
 
@@ -161,7 +157,7 @@ persistent_facts = [
 ]
 
 # Post-completion behavior
-on_complete = "After documentation is generated, refresh codetograph..."
+on_complete = "After documentation is generated, report whether the HomeGraph index/diagrams may be stale..."
 ```
 
 ---
@@ -197,7 +193,7 @@ document-project/
 
 ### "No knowledge graph detected"
 
-Without codetograph, the skill falls back to manual file scanning. For sequence diagrams and faster analysis, run `/codetograph` first.
+Without HomeGraph, the skill falls back to direct file scanning. With HomeGraph available, structural discovery is faster and Mermaid diagrams can be synthesized from graph evidence.
 
 ### State file older than 24 hours
 

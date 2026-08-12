@@ -18,6 +18,15 @@ description: 'Document brownfield projects for AI context. Use when the user say
 
 ## On Activation
 
+### Invocation Context
+
+Set `invocation_mode` from the caller; default to `manual`.
+
+- `manual`: follow the activation and interactive router below.
+- `goal-step0`: do not greet, ask resume/router questions, or call `homegraph_status` here. Load `config.toml`, then read and follow `./workflows/goal-step0-workflow.md` immediately. The Goal agent already selected scan depth and generated Project SPEC.
+
+The `goal-step0` path owns full repository documentation only. The Goal agent initializes HomeGraph and generates Project SPEC first; this skill then reuses that same healthy index and writes under `{project-root}/docs/`.
+
 ### Step 1: Load Workflow Config
 
 Read and load `{skill-root}/config.toml`. All configuration is self-contained in this file:
@@ -44,21 +53,33 @@ Use values from `{config}` section of `config.toml`:
 
 Greet `{user_name}` (if you have not already), speaking in `{communication_language}`.
 
-### Step 5.5: Check Knowledge Graph Availability
+### Step 5.5: Check HomeGraph Availability
 
-<critical>Never generate a graph implicitly. Graph generation is a user-invoked command.</critical>
+<critical>For graph-backed exploration in this skill, use the HomeGraph MCP only. Do not use Python CodeToGraph or TypeScript CodeToGraph tools unless the user explicitly asks to compare providers.</critical>
 
-Check for existing codetograph graph at:
-1. `{project-root}/docs/codetograph.json`
-2. Legacy paths: `{project-root}/codetograph-out/codetograph.json` or `**/codetograph_out/codetograph.json`
+Call `homegraph_status` for `{project-root}` (pass `projectPath` when the MCP server is rooted elsewhere).
 
-If found, store `{{knowledge_graph_type}}` = `"codetograph"`.
+- If HomeGraph reports a healthy/indexed project, set `{{knowledge_graph_type}}` = `"homegraph"` and `{{has_knowledge_graph}}` = `true`.
+- If HomeGraph is unavailable or the project is not indexed, report that graph-enhanced analysis is unavailable and continue with normal file scanning unless the user asks to stop. Do not invoke CodeToGraph as a fallback.
 
-If no graph is found, explain that graph-backed documentation requires the user to run `/codetograph` explicitly. Ask whether to continue without a graph or stop. Do not load or run the `codetograph` skill automatically.
+Read and follow `./homegraph-analysis.md` as the canonical analysis policy for full documentation.
 
-Codetograph provides Mermaid sequence diagrams (`trace_calls`), HTML graph exports (`export_html`), and reverse call tracing (`reverse_trace_calls`).
+HomeGraph tool summary:
+- `homegraph_explore` — **primary exploration tool**. Start here for architectural/subsystem questions and when given symbols or filenames. It can return relevant source, call paths, and impact context in one request; do not mechanically decompose every investigation into search → node → callers/callees when `explore` already answers it.
+- `homegraph_files` — establish the indexed repository/file tree; use glob/language grouping when useful.
+- `homegraph_search` — fast symbol-name discovery when only locations/candidates are needed.
+- `homegraph_node` — precise source retrieval for one symbol or an entire indexed file, with line numbers and call relationships. Prefer it over generic file Read for indexed source when exact source evidence is needed.
+- `homegraph_callers` / `homegraph_callees` — targeted directional call analysis when `explore` needs clarification or a bounded explicit call chain is required.
+- `homegraph_impact` — change-impact analysis; use only when impact/blast-radius evidence materially helps architectural understanding.
+- `homegraph_diff_impact` — unified-diff/hunk impact evidence for code-review/change-analysis tasks; normally unnecessary for baseline project documentation.
+- `homegraph_arkui_migrate` — ArkUI migration/state-semantics snapshot; use only when the project/documentation task specifically requires ArkUI migration semantics.
+- `homegraph_spec_match` — match a requirement description against Commit4Spec history; optional historical requirements evidence, not a default scan step.
+- `homegraph_spec_find` — find Specs associated with a file path; optional when historical/spec context is relevant.
+- `homegraph_spec_trace` — trace a code symbol back to associated Specs; optional when explaining requirement provenance.
 
-Set `{{has_knowledge_graph}}` = `true` or `false`.
+Default exploration sequence: `homegraph_status` → `homegraph_files` → `homegraph_explore`. The shared policy defines Quick/Deep/Exhaustive behavior, direct-read rules, evidence reuse, and semantic stopping criteria. Specialized diff/ArkUI/spec tools are opt-in based on the documentation question, not mandatory scan stages.
+
+HomeGraph does not provide CodeToGraph-style `trace_calls`, `find_path`, or `export_html` tools. When this workflow requests a Mermaid flow/sequence diagram, derive it from HomeGraph caller/callee/explore evidence plus verified source reads, then write the `.mmd` file yourself.
 
 ### Step 6: Execute Append Steps
 

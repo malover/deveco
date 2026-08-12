@@ -6,44 +6,24 @@
 <critical>Handles: initial_scan and full_rescan modes</critical>
 <critical>YOU MUST ALWAYS SPEAK OUTPUT In your Agent communication style with the configured `{communication_language}`</critical>
 <critical>YOU MUST ALWAYS WRITE all artifact and document content in `{document_output_language}`</critical>
+<critical>Read and follow `../homegraph-analysis.md` as the canonical analysis policy for every scan stage.</critical>
+<critical>GOAL OVERRIDE: When invocation_mode == goal-step0, the parent Goal agent has already initialized HomeGraph, selected scan depth, and generated Project SPEC. Reuse those runtime values and discoveries. Skip Step 0.3 and every ask block. Use the supplied initial_scan/full_rescan mode, accept the evidence-backed project classification, merge the CSV baseline deterministically as described in Step 1, record no extra user/hardware context, generate every required conditional document, and finalize only after validation.</critical>
 
-<step n="0.3" goal="Ensure codetograph knowledge graph is available" if="resume_mode == false">
-<critical>MANDATORY CODETOGRAPH GENERATION — codetograph is the PRIMARY analysis tool for all scan levels. Do not skip this step.</critical>
+<step n="0.3" goal="Ensure HomeGraph knowledge graph is available" if="resume_mode == false">
+<critical>HOMEGRAPH IS THE ONLY GRAPH PROVIDER FOR THIS SKILL. Do not use Python or TypeScript CodeToGraph tools unless the user explicitly asks for a provider comparison.</critical>
 
-<action>Check for existing codetograph graph at `codetograph-out/codetograph.json` or `**/codetograph_out/codetograph.json`</action>
+<action>Call `homegraph_status` for {{project_root_path}} (use `projectPath` when required by the MCP).</action>
 
-<check if="codetograph graph found">
-  <action>Set {{knowledge_graph_type}} = "codetograph"</action>
+<check if="HomeGraph index is healthy/available">
+  <action>Set {{knowledge_graph_type}} = "homegraph"</action>
   <action>Set {{has_knowledge_graph}} = true</action>
-  <action>Display: "✓ Found existing codetograph graph at {{graph_path}}"</action>
+  <action>Display: "✓ HomeGraph index available. Proceeding with graph-enhanced analysis."</action>
 </check>
 
-<check if="codetograph graph NOT found">
-    <ask>No codetograph knowledge graph found.
-
-**Codetograph provides:**
-- Deterministic AST-based dependency graph (tree-sitter parsers)
-- Mermaid sequence diagrams via `trace_calls` / `reverse_trace_calls`
-- Cross-module dependency paths via `find_path`
-- Interactive HTML graph visualization via `export_html`
-- God-node architectural hotspot detection
-
-**Without a graph:** The workflow falls back to manual glob/grep scanning, which is slower, less accurate, and cannot generate sequence diagrams.
-
-Generate codetograph now? [y/n] (Recommended: y)
-</ask>
-    <check if="user selects 'y' or confirms">
-      <action>Load skill: `codetograph`</action>
-      <action>Run codetograph on {{project_root_path}} to generate `codetograph-out/codetograph.json`</action>
-      <action>Display: "✓ Codetograph generation complete. Proceeding with graph-enhanced analysis."</action>
-      <action>Set {{knowledge_graph_type}} = "codetograph"</action>
-      <action>Set {{has_knowledge_graph}} = true</action>
-    </check>
-    <check if="user selects 'n'">
-      <action>Set {{has_knowledge_graph}} = false</action>
-      <action>Display: "Proceeding without knowledge graph. Documentation will use manual file scanning — slower and without sequence diagrams. Consider running /codetograph later."</action>
-    </check>
-  </check>
+<check if="HomeGraph index is unavailable or missing">
+  <action>Set {{has_knowledge_graph}} = false</action>
+  <action>Display: "HomeGraph is unavailable or this project is not indexed. Proceeding with direct file scanning. Initialize/sync HomeGraph separately if graph-enhanced analysis is desired."</action>
+</check>
 </step>
 
 <step n="0.5" goal="Load documentation baseline data and explain hybrid approach" if="resume_mode == false">
@@ -128,43 +108,40 @@ Your choice [1/2/3]:
 <check if="workflow_mode == initial_scan OR workflow_mode == full_rescan">
   <ask>Choose your scan depth level:
 
-**1. Quick Scan** (2-5 minutes) [DEFAULT]
+**1. Quick Scan** [DEFAULT]
 
-- Pattern-based analysis without reading source files
-- Scans: Config files, package manifests, directory structure
-- Best for: Quick project overview, initial understanding
-- File reading: Minimal (configs, README, package.json, etc.)
+- Fast structural understanding through HomeGraph files/explore/search
+- Node/call-chain expansion only for a few important unresolved relationships
+- Minimal direct reads for manifests, build/config, CI, docs, and unindexed facts
 
-**2. Deep Scan** (10-30 minutes)
+**2. Deep Scan**
 
-- Reads files in critical directories based on project type
-- Scans: All critical paths from documentation requirements
-- Best for: Comprehensive documentation for brownfield PRD
-- File reading: Selective (key files in critical directories)
+- Comprehensive HomeGraph exploration across every important subsystem and documentation category
+- Targeted node/callers/callees/impact expansion
+- Selective exact source verification; never bulk-read every source file in a folder
 
-**3. Exhaustive Scan** (30-120 minutes)
+**3. Exhaustive Scan**
 
-- Reads ALL source files in project
-- Scans: Every source file (excludes node_modules, dist, build)
-- Best for: Complete analysis, migration planning, detailed audit
-- File reading: Complete (all source files)
+- Maximum HomeGraph-backed coverage across relevant indexed modules/files
+- Broader direct reads for graph gaps, resources, config, data, and exact details
+- HomeGraph-led rather than an indiscriminate filesystem crawl
 
 Your choice [1/2/3] (default: 1):
 </ask>
 
   <action if="user selects 1 OR user presses enter">
     <action>Set scan_level = "quick"</action>
-    <action>Display: "Using Quick Scan (pattern-based, no source file reading)"</action>
+    <action>Display: "Using Quick Scan (fast HomeGraph structural analysis with minimal direct reads)"</action>
   </action>
 
   <action if="user selects 2">
     <action>Set scan_level = "deep"</action>
-    <action>Display: "Using Deep Scan (reading critical files per project type)"</action>
+    <action>Display: "Using Deep Scan (comprehensive HomeGraph traversal with selective source verification)"</action>
   </action>
 
   <action if="user selects 3">
     <action>Set scan_level = "exhaustive"</action>
-    <action>Display: "Using Exhaustive Scan (reading all source files)"</action>
+    <action>Display: "Using Exhaustive Scan (maximum HomeGraph-backed coverage with broader gap reads)"</action>
   </action>
 
 <action>Initialize state file: {project_knowledge}/project-scan-report.json</action>
@@ -177,6 +154,7 @@ Your choice [1/2/3] (default: 1):
 "scan_level": "{{scan_level}}",
 "project_root": "{{project_root_path}}",
 "project_knowledge": "{{project_knowledge}}",
+"source_revision": {"repository": "{{repository_revision}}", "homegraph": "{{homegraph_revision}}"},
 "knowledge_graph": {"type": "{{knowledge_graph_type}}", "available": {{has_knowledge_graph}}},
 "completed_steps": [],
 "current_step": "step_1",
@@ -206,10 +184,9 @@ Your choice [1/2/3] (default: 1):
 <action>Store as {{project_root_path}}</action>
 
 <action>Gather project structure data for LLM analysis:
-  1. Run `ls -la {{project_root_path}}` — top-level directory listing
-  2. Run `find {{project_root_path}} -maxdepth 2 -type f \( -name "package.json" -o -name "go.mod" -o -name "requirements.txt" -o -name "Cargo.toml" -o -name "*.config.*" -o -name "*.toml" -o -name "*.yaml" -o -name "*.yml" -o -name "Makefile" -o -name "Dockerfile" -o -name "docker-compose*" -o -name "*.csproj" -o -name "build.gradle*" -o -name "pom.xml" -o -name "oh-package.json5" -o -name "hvigorfile.ts" \)` — find key config files
-  3. Run `find {{project_root_path}} -maxdepth 3 -type d | head -80` — directory structure (first 80 dirs)
-  4. If codetograph is available: run `codetograph_god_nodes(top_n=5)` — architectural hotspots
+  1. If HomeGraph is available, call `homegraph_files` for indexed repository shape, languages, modules, and file boundaries.
+  2. Use `homegraph_explore` with project-scoped architecture/subsystem questions to identify all materially important hotspots.
+  3. Supplement with a shallow top-level directory listing and targeted manifest/config discovery for non-symbol facts HomeGraph does not represent.
 </action>
 
 <action>Read key configuration files (up to 5 most informative: package.json, go.mod, requirements.txt, Cargo.toml, etc.)</action>
@@ -283,6 +260,8 @@ Your choice [1/2/3] (default: 1):
      - Reject baseline → keep LLM flag as false (LLM wins)
 </action>
 
+<critical>GOAL STEP 0 BASELINE MERGE: When `invocation_mode == goal-step0`, do not leave baseline gaps for model judgment and do not wait for confirmation. For every detected part, set each final `requires_*` value to `LLM value OR matching CSV baseline value`. A baseline `true` can never be turned back to `false`. Always accept `custom_scans`. Treat `closest_archetype` as a hint, not the only baseline selector: derive applicable archetypes from verified manifests, languages, frameworks, and directory layout, then OR all applicable baseline rows. In particular, `.ets` sources together with Harmony manifests such as `oh-package.json5`, `build-profile.json5`, or `hvigorfile.ts` require the `harmony` baseline even if the LLM chose another closest archetype. Persist these merged flags as the final classification before building the output manifest.</critical>
+
 <!-- ═══════════════ PHASE C: USER CONFIRMATION ═══════════════ -->
 
 <action>Display merged analysis to user:
@@ -313,6 +292,17 @@ Is this analysis correct? [y/n/edit]
 <action if="user confirms">Store final merged {{project_classification}} in state file</action>
 <action if="user rejects or edits">Ask user to specify corrections, re-run LLM analysis with corrections</action>
 
+<critical>REQUIRED OUTPUT MANIFEST:
+Immediately after the final merged classification, derive and store `required_outputs` before generating documents. This manifest is authoritative; later steps may add outputs but may not silently remove one.
+
+- Always require `project-overview.md`, `source-tree-analysis.md`, one architecture document per part, one component inventory per part, one development guide per part, `index.md`, and `project-scan-report.json`.
+- Require the matching API, data-model, localization, UX-flow, UX-screen-tree, UX-wireframe, UX-interactive-mockup, test-strategy, deployment, and custom-scan documents whenever the final merged `requires_*`, baseline, or custom-scan instruction says they apply. In Goal Step 0 this must use the deterministic OR-merged flags above, never the LLM flags alone. Preserve the original workflow's asset and hardware template outputs; require a separate asset/hardware file only when the original generation instructions define its exact filename.
+- Require `integration-architecture.md` and `project-parts.json` for multi-part projects.
+- For Deep or Exhaustive with a healthy HomeGraph, require the diagram catalog and every diagram promised by Steps 3.5 and 8.
+- Resolve single-part versus per-part filenames now and store exact repository-relative paths, not document categories or filename patterns.
+
+For Deep and Exhaustive, every manifest entry is mandatory. A missing file is a generation failure, never an acceptable omission or `_To be generated_` placeholder.</critical>
+
 <template-output>project_structure</template-output>
 <template-output>project_parts_metadata</template-output>
 
@@ -339,7 +329,8 @@ Is this analysis correct? [y/n/edit]
     "cached_baseline": {
       "csv_loaded": true,
       "rows_used": ["{{archetypes_used}}"]
-    }
+    },
+    "required_outputs": {{required_outputs}}
   }
 </action>
 
@@ -417,151 +408,92 @@ Are there any other important documents or key areas I should focus on while ana
 <action>PURGE detailed tech analysis from memory, keep only: "{{framework}} on {{language}}"</action>
 </step>
 
-<step n="3.5" goal="Generate sequence diagrams from codetograph trace analysis" if="workflow_mode != deep_dive AND {{has_knowledge_graph}} == true AND {{knowledge_graph_type}} == 'codetograph'">
-<critical>THIS STEP IS MANDATORY when codetograph is available. Do not skip. The generated Mermaid diagrams get embedded into architecture.md in Step 8.</critical>
+<step n="3.5" goal="Generate architecture and sequence diagrams from HomeGraph evidence" if="workflow_mode != deep_dive AND {{has_knowledge_graph}} == true AND {{knowledge_graph_type}} == 'homegraph'">
+<critical>Use HomeGraph as the graph evidence layer. HomeGraph does not emit CodeToGraph-style Mermaid traces directly; synthesize diagrams from `homegraph_explore`, `homegraph_node`, `homegraph_callers`, and `homegraph_callees`, and verify ambiguous relationships against source.</critical>
 
-<action>Display: "Generating sequence diagrams from codetograph call traces..."</action>
+<action>Display: "Generating diagrams from HomeGraph call/dependency evidence..."</action>
+<action>Create `{project_knowledge}/diagrams/` if it does not exist.</action>
 
-<action>Create the diagrams output directory: `mkdir -p {project_knowledge}/diagrams/`</action>
+<critical>DISCOVERY PHASE — cache these results for Step 4:</critical>
+<action>1. Run `homegraph_explore` with a project-scoped architectural question asking for central modules/symbols, startup paths, shared services, and high fan-in dependencies. Store the project-relevant central symbols as {{project_hotspots}}.</action>
+<action>2. ENTRY POINT DISCOVERY (LLM-driven): use `homegraph_search` with project-type-specific entry terms, inspect candidates with `homegraph_node`, and use `homegraph_callers` / `homegraph_callees` to distinguish true startup/request/command entry points from ordinary utilities. Cross-check `entry_point_patterns` only as a validation hint. Store selected symbols as {{entry_points}}.</action>
+<action>3. Use `homegraph_search` for ViewModel/state-controller terms and store {{viewmodels}}.</action>
+<action>4. Use `homegraph_search` for model/state/entity terms and store {{data_models}}.</action>
+<action>5. Use `homegraph_search` for component/build/view terms and store {{components}}.</action>
+<action>CACHE all result sets for Step 4.</action>
 
-<critical>DISCOVERY PHASE (run first — results feed both diagram generation here AND conditional analysis in Step 4):</critical>
-<action>1. Run `codetograph_god_nodes` (top_n=25) → filter to keep only nodes whose `file` field starts with {{project_root_path}}. Store as {{project_god_nodes}}. These are your architectural hotspots.</action>
-<action>2. ENTRY POINT CANDIDATE DISCOVERY (LLM-driven): Use `codetograph_search_nodes` with a broad query tailored to {{project_type_id}} — the LLM decides the query based on project type knowledge (e.g., query="Ability" for HarmonyOS, query="main OR server OR index" for web/backend, etc.). Then use `codetograph_get_neighbors` on the found candidates to surface lifecycle methods. The LLM analyzes the result and picks the TRUE application startup entry points (not every uncalled method). Cross-check candidates against the `entry_point_patterns` from documentation-requirements.csv — the patterns serve ONLY as a validation hint, NOT as a filter. If a candidate matches a known pattern (e.g., `EntryAbility.ets`), it confirms the choice. BUT: if the LLM discovers a valid entry point that does NOT match any pattern (e.g., a custom SplashPage that bootstraps the app), ACCEPT it — the graph-driven analysis is the primary authority. Generate diagrams for ALL selected entry points, regardless of whether they match the CSV patterns. Store the selected entry point entity IDs as {{entry_points}}.</action>
-<action>3. Run `codetograph_search_nodes` with query="ViewModel OR BaseVM OR sendEvent" → filter to {{project_root_path}}. Store as {{viewmodels}}. These are ViewModel classes.</action>
-<action>4. Run `codetograph_search_nodes` with query="Model OR State OR Data OR Entity" → filter to {{project_root_path}}. Store as {{data_models}}. These are data model entities.</action>
-<action>5. Run `codetograph_search_nodes` with query="struct OR @Component OR @Builder OR build" → filter to {{project_root_path}}. Store as {{components}}. These are UI components.</action>
-<action>CACHE all 5 result sets for reuse in Step 4 — do NOT re-run these queries there.</action>
+<critical>DIAGRAM GENERATION IS DATA-DRIVEN. Prefer a smaller set of accurate diagrams over a large set of speculative ones.</critical>
 
-<critical>DIAGRAM GENERATION IS DATA-DRIVEN, NOT HARDCODED. The number of diagrams depends on what codetograph discovers. Minimum expected: 20-50 diagrams for a typical project with 8 modules. Porting-oriented projects generate more reverse traces for shared utilities.</critical>
+<action>CATEGORY 1 — ARCHITECTURAL HOTSPOTS: For each materially important {{project_hotspots}} item, inspect with `homegraph_node`, collect important outgoing calls via `homegraph_callees` and important consumers via `homegraph_callers`, then synthesize focused Mermaid diagrams. Save as `hotspot-{label}-flow.mmd` / `hotspot-{label}-callers.mmd` when each view adds value.</action>
 
-<!-- ── CATEGORY 1: GOD NODE DIAGRAMS ── -->
-<action>CATEGORY 1 — GOD NODE FLOWS: Take {{project_god_nodes}} (filtered to {{project_root_path}} only, excluding @external nodes). For EACH project-relevant god node (up to 8 most-connected), generate TWO diagrams:</action>
-<action>  a. `codetograph_trace_calls` (node_id=god_id, max_depth=4, max_steps=35) → write to `{project_knowledge}/diagrams/god-{label}-trace.mmd`</action>
-<action>  b. `codetograph_reverse_trace_calls` (node_id=god_id, max_depth=3, max_steps=30) → write to `{project_knowledge}/diagrams/god-{label}-callers.mmd`</action>
-<action>  Priority order by degree (highest first). Skip any god node that has <3 edges (not architecturally significant). Append diagram file paths to {{diagram_index}} list.</action>
+<action>CATEGORY 2 — ENTRY POINT FLOWS: For each documentation-relevant {{entry_points}} item, follow important callees until the flow is sufficiently evidenced using `homegraph_callees`; use `homegraph_explore` when the flow crosses modules or is unclear. Verify key transitions and write `entry-{label}-trace.mmd`.</action>
 
-<!-- ── CATEGORY 2: ENTRY POINT DIAGRAMS ── -->
-<action>CATEGORY 2 — ENTRY POINT FLOWS (LLM-determined): From the {{entry_points}} selected in the discovery phase (the TRUE application startup entry points, not just every uncalled method), for each entry point (up to 5 most important):</action>
-<action>  a. `codetograph_trace_calls` (node_id=entry_id, max_depth=4, max_steps=35) → `{project_knowledge}/diagrams/entry-{label}-trace.mmd`</action>
-<action>  b. If the entry point is called by others (not just a bootstrap root), also run `codetograph_reverse_trace_calls` → `{project_knowledge}/diagrams/entry-{label}-callers.mmd`</action>
-<action>  Append to {{diagram_index}}.</action>
+<action>CATEGORY 3 — DATA/STORAGE FLOWS: Use `homegraph_search` for repository/service/storage/data-access terms. For each important symbol, use callers/callees to map producers and consumers and synthesize `data-{label}-flow.mmd` when useful.</action>
 
-<!-- ── CATEGORY 3: DATA SERVICE & STORAGE DIAGRAMS ── -->
-<action>CATEGORY 3 — DATA & STORAGE FLOWS: Use `codetograph_search_nodes` with query="MockRequest OR PreferenceManager OR call OR repository OR service OR storage" (filtered to {{project_root_path}}). For each data-service entity found (up to 5):</action>
-<action>  a. `codetograph_trace_calls` → `{project_knowledge}/diagrams/data-{label}-trace.mmd`</action>
-<action>  b. `codetograph_reverse_trace_calls` → `{project_knowledge}/diagrams/data-{label}-callers.mmd` (reveals which ViewModels/pages consume each data service)</action>
-<action>  Append to {{diagram_index}}.</action>
+<action>CATEGORY 4 — NAVIGATION/ROUTING: Search relevant routing/navigation symbols, inspect relationships, and synthesize the supported `nav-{label}-flow.mmd` diagrams needed for documentation.</action>
 
-<!-- ── CATEGORY 4: NAVIGATION & ROUTING DIAGRAMS ── -->
-<action>CATEGORY 4 — NAVIGATION & ROUTING: Use `codetograph_search_nodes` with query="PageContext OR NavPathStack OR Router OR pushPath OR replacePath OR popToIndex" (filtered to {{project_root_path}}). For each navigation entity (up to 3):</action>
-<action>  a. `codetograph_trace_calls` → `{project_knowledge}/diagrams/nav-{label}-trace.mmd`</action>
-<action>  b. `codetograph_reverse_trace_calls` → `{project_knowledge}/diagrams/nav-{label}-callers.mmd` (which pages/tabs invoke navigation)</action>
-<action>  Append to {{diagram_index}}.</action>
+<action>CATEGORY 5 — SHARED COMPONENT CONSUMERS: Search shared component symbols and use `homegraph_callers` to discover consumers. For each meaningful shared component, synthesize `component-{label}-consumers.mmd` when useful.</action>
 
-<!-- ── CATEGORY 5: SHARED COMPONENT USAGE ── -->
-<action>CATEGORY 5 — SHARED COMPONENT CONSUMERS: Use `codetograph_search_nodes` with query="Toast OR component OR @Component OR struct" to find shared components (filtered to common/ shared/ module paths). For the top 5 most-referenced shared components:</action>
-<action>  Run `codetograph_reverse_trace_calls` (max_depth=3, max_steps=25) to discover ALL consumers → `{project_knowledge}/diagrams/component-{label}-consumers.mmd`</action>
-<action>  Append to {{diagram_index}}.</action>
+<action>CATEGORY 6 — CROSS-MODULE FLOWS: Use `homegraph_explore` with explicit natural-language questions such as "How does <entry> reach <feature/service>?" and corroborate returned paths with node/caller/callee evidence. Create `path-{from}-to-{to}.mmd` diagrams when a supported, documentation-relevant path is found.</action>
 
-<!-- ── CATEGORY 6: CROSS-MODULE DEPENDENCY PATHS ── -->
-<action>CATEGORY 6 — CROSS-MODULE PATHS: For each pair of architecturally distinct modules (e.g., phone → common, componentlibrary → common, exploration → commonbusiness), run:</action>
-<action>  `codetograph_find_path` (from_id=representative_entity_A, to_id=representative_entity_B, max_hops=6) → `{project_knowledge}/diagrams/path-{from}-to-{to}.mmd`</action>
-<action>  Minimum: 3 cross-module paths. Maximum: 8 (one per major module boundary). Append to {{diagram_index}}.</action>
+<action>CATEGORY 7 — STATE MANAGEMENT: Search state/store/ViewModel symbols, use callers/callees to map publishers and subscribers, and synthesize the state flow diagrams needed to explain important behavior.</action>
 
-<!-- ── CATEGORY 7: STATE MANAGEMENT FLOW ── -->
-<action>CATEGORY 7 — STATE MANAGEMENT: Use `codetograph_search_nodes` with query="AppStorage OR @StorageProp OR @StorageLink OR @Observed OR setOrCreate" to find state management touchpoints. For the top 3 state-related entities:</action>
-<action>  `codetograph_trace_calls` AND `codetograph_reverse_trace_calls` → `{project_knowledge}/diagrams/state-{label}-flow.mmd` and `{project_knowledge}/diagrams/state-{label}-subscribers.mmd`</action>
-<action>  Append to {{diagram_index}}.</action>
+<action>CATEGORY 8 — PORTING/SHARED UTILITIES: Identify shared utilities with meaningful callers across multiple modules using `homegraph_callers` and exploration. For the highest-value utilities, synthesize caller/flow diagrams useful for cross-platform porting.</action>
 
-<!-- ── CATEGORY 9: PORTING DIAGRAMS ── -->
-<action>CATEGORY 9 — PORTING (reverse traces of shared utilities for cross-platform porting): Shared utilities that are called from many modules are the highest-value targets for porting understanding. Use `codetograph_search_nodes` with project-type-specific shared-utility patterns. For each shared utility entity called from ≥3 different modules (up to 10):</action>
-<action>  a. `codetograph_reverse_trace_calls` (node_id=utility_id, max_depth=3, max_steps=30) → `{project_knowledge}/diagrams/port-{label}-callers.mmd` (reveals all consumers that must be replicated)</action>
-<action>  b. If the utility has ≥2 outgoing calls to project entities: `codetograph_trace_calls` → `{project_knowledge}/diagrams/port-{label}-trace.mmd`</action>
-<action>  Default target entities for HarmonyOS: PreferenceManager (4 methods: getInstance, getValue, setValue, hasValue), PageContext (openPage, replacePage), Logger (info, error), Toast.showToast, WindowUtil (updateStatusBarColor, hideTitleBar), WebUtil (getComponentCodeUrl, createWebNode), MockRequest.call, DynamicInstallManager (fetchModule, loadModule), BreakpointType.getValue.</action>
-<action>  Append to {{diagram_index}}.</action>
-
-<!-- ── CATEGORY 8: EXISTING CODETOGRAPH DIAGRAMS ── -->
-<action>CATEGORY 8 — REUSE EXISTING CODETOGRAPH DIAGRAMS: For each god node and entry point entity, call `codetograph_get_diagram_path` on its entity_id. If codetograph has already generated a `.mmd` file for it (via `mermaid_seq.py`), copy the file into `{project_knowledge}/diagrams/` with a descriptive name instead of re-running the trace. This avoids duplicate work.</action>
-
-<!-- ── VALIDATION & INDEX ── -->
-<action>COUNT: Count all `.mmd` files in `{project_knowledge}/diagrams/`. If count < 15, display a warning: "Only {{count}} diagrams generated — codetograph may have limited visibility into this project. Consider running a deeper codetograph extraction."</action>
-
-<action>GENERATE INDEX FILE: Write `{project_knowledge}/diagrams/INDEX.md` with a table listing every diagram file, its category, what it traces, and which codetograph tool produced it (trace_calls / reverse_trace_calls / find_path / get_diagram_path). Structure:</action>
-<action>
-```
-# Sequence Diagram Index
-
-> Generated via codetograph. {{count}} diagrams across {{category_count}} categories.
-> Open .mmd files in any Mermaid renderer (VS Code, Mermaid Live, Obsidian).
-
-| # | File | Category | Traces | Tool |
-|---|------|----------|--------|------|
-| 1 | god-Logger-trace.mmd | God Nodes | Logger → downstream calls | trace_calls |
-| 2 | god-Logger-callers.mmd | God Nodes | All callers of Logger | reverse_trace_calls |
-| ... | ... | ... | ... | ... |
-</action>
-<action>IMMEDIATELY write INDEX.md to `{project_knowledge}/diagrams/INDEX.md`</action>
-
-<action>Validate that all listed `.mmd` files exist and are non-empty. Report any missing files.</action>
-
-<action>Display: "Generated {{total_diagram_count}} sequence diagrams in {project_knowledge}/diagrams/ across 8 categories: God Nodes ({{count1}}), Entry Points ({{count2}}), Data Services ({{count3}}), Navigation ({{count4}}), Shared Components ({{count5}}), Cross-Module Paths ({{count6}}), State Management ({{count7}}), Porting ({{count8}}). Index at diagrams/INDEX.md"</action>
+<action>GENERATE INDEX FILE: Write `{project_knowledge}/diagrams/INDEX.md` listing each generated `.mmd`, category, what it represents, and HomeGraph evidence used (`explore`, `callers`, `callees`, `node`). Do not claim HomeGraph generated Mermaid directly.</action>
+<action>Validate that all listed `.mmd` files exist, are non-empty, and contain only relationships supported by HomeGraph/source evidence.</action>
+<action>Set {{total_diagram_count}} to the number of validated diagrams and store diagram paths in {{sequence_diagrams}}.</action>
 
 <action>Update state file:
-- Add to completed_steps: {"step": "step_3.5", "status": "completed", "timestamp": "{{now}}", "summary": "Generated {{diagram_count}} sequence diagrams via codetograph trace_calls/reverse_trace_calls/find_path"}
+- Add to completed_steps: {"step": "step_3.5", "status": "completed", "timestamp": "{{now}}", "summary": "Generated {{total_diagram_count}} evidence-backed Mermaid diagrams using HomeGraph relationships"}
 - Update last_updated timestamp
 </action>
 
-<action>PURGE detailed diagram strings from context — keep only the summaries and the stored {{sequence_diagrams}} reference.</action>
+<action>PURGE detailed graph responses from context; keep concise findings and {{sequence_diagrams}} references.</action>
 </step>
 
 <step n="4" goal="Perform conditional analysis based on project type requirements" if="workflow_mode != deep_dive">
 
-<critical>KNOWLEDGE GRAPH PREFERENCE (CODETOGRAPH FIRST): If {{has_knowledge_graph}} is true AND {{knowledge_graph_type}} == "codetograph" (from SKILL.md Step 5.5), you MUST use codetograph MCP tools as the primary analysis layer. Available codetograph MCP tools: `codetograph_god_nodes`, `codetograph_search_nodes`, `codetograph_resolve`, `codetograph_get_node`, `codetograph_get_neighbors`, `codetograph_expand`, `codetograph_trace_calls`, `codetograph_reverse_trace_calls`, `codetograph_find_path`, `codetograph_query_graph`.
+<critical>KNOWLEDGE GRAPH PREFERENCE (HOMEGRAPH FIRST): If {{has_knowledge_graph}} is true AND {{knowledge_graph_type}} == "homegraph", use HomeGraph as the primary structural-discovery layer. Preferred tools: `homegraph_explore`, `homegraph_search`, `homegraph_node`, `homegraph_callers`, `homegraph_callees`, `homegraph_files`, and `homegraph_impact`.
 
-IMPORTANT PROJECT-PATH FILTERING: When the project is a subdirectory within a larger monorepo/workspace (e.g., `ProjectSampleOHDocs/sample_in_harmonyos` inside `/home/mika/ProjectGenCode/codegenie/`), codetograph may index the ENTIRE workspace. To filter results to only the target project, append the project's relative path to query terms (e.g., `Logger` → use `codetograph_resolve` with label `Logger`, then check the returned file path belongs to the project). ALWAYS verify that returned nodes' `file` field contains the project root path before using them.
+IMPORTANT PROJECT-PATH FILTERING: Pass `projectPath={{project_root_path}}` when needed, especially in monorepos/workspaces. Only use results belonging to the target project. If HomeGraph returns no relevant result, fall back to direct file reading/search.
 
-CRITICAL — DO NOT reference `codetograph_get_community` or `codetograph_graph_stats` as standalone discovery tools. Instead, use `codetograph_search_nodes` for community/file discovery, and `codetograph_get_neighbors` / `codetograph_expand` for dependency tracing.
+Do not call Python/TS CodeToGraph tools from this skill.
 
-If codetograph returns no relevant results for the target project path, fall back to manual file reading.</critical>
+SPECIALIZED HOMEGRAPH TOOLS:
+- `homegraph_diff_impact`: use only when documenting/reviewing a supplied code diff or changed hunks.
+- `homegraph_arkui_migrate`: use only for ArkUI migration/state-semantics documentation.
+- `homegraph_spec_match`, `homegraph_spec_find`, `homegraph_spec_trace`: use only when historical Commit4Spec/requirement provenance would improve the requested documentation. Do not make baseline project documentation depend on Commit4Spec data.</critical>
 
 <check if="{{has_knowledge_graph}} == true">
-  <critical>MANDATORY CODETOGRAPH ANALYSIS SEQUENCE (do not skip):</critical>
-
-  <action>STEP 4a: REUSE CACHED DISCOVERY — The discovery queries (god_nodes, search_nodes for entry/ViewModel/Model/component) were already run in Step 3.5. Use the cached {{project_god_nodes}}, {{entry_points}}, {{viewmodels}}, {{data_models}}, {{components}} result sets. Do NOT re-run the same queries.</action>
-
-  <action>STEP 4b: TRACE KEY FLOWS — For each entry point in {{entry_points}} (the LLM-selected true startup entry points from the discovery phase, up to 3), check if a corresponding `entry-{label}-trace.mmd` already exists in `{project_knowledge}/diagrams/` (generated in Step 3.5). If missing, run `codetograph_trace_calls` (node_id=entry_id, max_depth=4, max_steps=30). For each god node in {{project_god_nodes}} (top 3 project-relevant), check for existing `god-{label}-callers.mmd` — if missing, run `codetograph_reverse_trace_calls` (node_id=god_id, max_depth=3).</action>
-
-  <action>STEP 4c: CROSS-MODULE DEPENDENCY ANALYSIS:</action>
-  <action>Run `codetograph_find_path` between the main entry point (from {{entry_points}}) and 2-3 key feature modules. The LLM picks the pairs based on project architecture (e.g., main entry → key ViewModel, main entry → shared service). Store the shortest dependency paths for the architecture doc.</action>
-
-  <action>STEP 4d: ENTITY DETAILS — For each god node and entry point, run `codetograph_get_neighbors` to get its full dependency graph (incoming + outgoing). Use `codetograph_get_node` for entities whose metadata the neighbors query didn't fully surface.</action>
-
-  <action>STEP 4e: For pattern-specific scans below, use `codetograph_search_nodes` with domain patterns (e.g., "route", "handler", "model", "controller") instead of glob/grep. File reads are supplemental only — used to extract code-level details (comments, implementation logic) that the graph cannot provide.</action>
+  <critical>MANDATORY HOMEGRAPH ANALYSIS SEQUENCE: HomeGraph is explore-first, not a renamed CodeToGraph pipeline. Begin broad/subsystem investigations with `homegraph_explore`, which may already provide source + call-path + impact evidence. Use `homegraph_search`, `homegraph_node`, `homegraph_callers`, and `homegraph_callees` only for unresolved candidates, exact line-numbered evidence, or explicit directional traces. Avoid redundant calls that reproduce evidence already returned by `homegraph_explore`.</critical>
+  <action>STEP 4a: REUSE CACHED DISCOVERY — use {{project_hotspots}}, {{entry_points}}, {{viewmodels}}, {{data_models}}, and {{components}} from Step 3.5.</action>
+  <action>STEP 4b: TRACE KEY FLOWS — use `homegraph_node` + bounded `homegraph_callees` for entry points and `homegraph_callers` for central/shared symbols. Reuse existing Step 3.5 diagrams; synthesize a missing diagram only when required by documentation.</action>
+  <action>STEP 4c: CROSS-MODULE DEPENDENCY ANALYSIS — ask `homegraph_explore` focused questions between selected entry points and key feature/service modules; verify key transitions with node/caller/callee evidence and source reads.</action>
+  <action>STEP 4d: ENTITY DETAILS — use `homegraph_node` for detailed source/relationships and `homegraph_callers` / `homegraph_callees` for directional context.</action>
+  <action>STEP 4e: For domain scans below, prefer `homegraph_search` / `homegraph_explore`; use direct file reads for exact implementation details, comments, configuration, schemas, and behavior.</action>
 </check>
 
-<critical>BATCHING STRATEGY FOR DEEP/EXHAUSTIVE SCANS</critical>
+<critical>GRAPH-LED SUBSYSTEM STRATEGY FOR DEEP/EXHAUSTIVE SCANS</critical>
 
 <check if="scan_level == deep OR scan_level == exhaustive">
-  <action>This step requires file reading. Apply batching strategy:</action>
-
-<action>Identify subfolders to process based on: - scan_level == "deep": Use critical_directories from documentation_requirements - scan_level == "exhaustive": Get ALL subfolders recursively (excluding node_modules, .git, dist, build, coverage)
-</action>
-
-<action>For each subfolder to scan: 1. Read all files in subfolder (consider file size - use judgment for files >5000 LOC) 2. Extract required information based on conditional flags below 3. IMMEDIATELY write findings to appropriate output file 4. Validate written document (section-level validation) 5. Update state file with batch completion 6. PURGE detailed findings from context, keep only 1-2 sentence summary 7. Move to next subfolder
-</action>
+  <action>Identify documentation-relevant subsystems from HomeGraph files/explore evidence and the classification's critical_directories.</action>
+  <action>For Deep, investigate every important subsystem with focused `homegraph_explore`, then use node/callers/callees/impact and selective exact reads to close gaps. Never read every source file merely because it is in a critical folder.</action>
+  <action>For Exhaustive, cover all relevant indexed modules/files and subsystem relationships through HomeGraph, then read unindexed, partially represented, resource/config/data, or exact-detail files as needed. Do not perform an indiscriminate filesystem crawl.</action>
+  <action>For each subsystem: collect sufficient graph evidence, selectively verify exact facts, write and validate the relevant documentation, update state, retain a concise summary for reuse, then continue.</action>
 
 <action>Track batches in state file:
 findings.batches_completed: [
-{"path": "{{subfolder_path}}", "files_scanned": {{count}}, "summary": "{{brief_summary}}"}
+{"path": "{{subsystem_or_path}}", "files_scanned": {{selectively_verified_count}}, "summary": "{{brief_summary}}"}
 ]
 </action>
 </check>
 
 <check if="scan_level == quick">
-  <action>Use pattern matching only - do NOT read source files</action>
+  <action>Use fast HomeGraph structural analysis and minimal direct reads as defined by the shared policy.</action>
   <check if="{{has_knowledge_graph}} == true">
-    <action>Run `codetograph_god_nodes` (top_n=15) — filter to {{project_root_path}} only. Run `codetograph_search_nodes` for "entry", "ViewModel", "Model", "component", "util". Use entity labels and file paths only — no file reading.</action>
-    <action>Run `codetograph_trace_calls` on up to 2 entry points at max_depth=2 to get high-level flow diagrams without deep file analysis.</action>
+    <action>Use `homegraph_explore` to identify project-scoped architectural hotspots. Run `homegraph_search` for "entry", "ViewModel", "Model", "component", "util".</action>
+    <action>Use `homegraph_callees` on important unresolved entry points to collect sufficient high-level call evidence; synthesize concise Mermaid flow diagrams without deep source verification.</action>
     <action>Fall back to glob/grep only for patterns not covered by the graph</action>
   </check>
   <check if="{{has_knowledge_graph}} == false">
@@ -590,15 +522,15 @@ findings.batches_completed: [
   <action>Look for: controllers/, routes/, api/, handlers/, endpoints/</action>
 
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use `codetograph_search_nodes` with query="route OR handler OR controller OR endpoint OR MockRequest OR service" to discover API-related entities. Filter results to {{project_root_path}} paths only.</action>
-    <action>Use `codetograph_get_neighbors` on top 5 discovered API entities (node_id from search results) to trace middleware, services, and data models they depend on. Use relation="calls" filter for cleaner output.</action>
-    <action>Use `codetograph_trace_calls` on each key data-service handler (e.g., MockRequest.call node_id) to map request → parse → response chains.</action>
-    <action>Use `codetograph_reverse_trace_calls` on data-service entities to discover all consumers (which ViewModels call MockRequest, which pages use PreferenceManager).</action>
+    <action>Use `homegraph_search` with query="route OR handler OR controller OR endpoint OR MockRequest OR service" to discover API-related entities. Filter results to {{project_root_path}} paths only.</action>
+      <action>Use `homegraph_explore` on the discovered API entities that materially affect documentation to trace middleware, services, and data models they depend on.</action>
+    <action>Use `homegraph_callees` on each key data-service handler to map request → parse → response chains; synthesize a diagram only from supported edges.</action>
+    <action>Use `homegraph_callers` on data-service entities to discover consumers (which ViewModels call MockRequest, which pages use PreferenceManager).</action>
   </check>
 
   <check if="scan_level == quick">
     <check if="{{has_knowledge_graph}} == true">
-      <action>Use `codetograph_search_nodes` with endpoint patterns; extract signatures from entity labels</action>
+      <action>Use `homegraph_search` with endpoint patterns; extract signatures from entity labels</action>
     </check>
     <check if="{{has_knowledge_graph}} == false">
       <action>Use glob to find route files, extract patterns from filenames and folder structure</action>
@@ -607,10 +539,10 @@ findings.batches_completed: [
 
   <check if="scan_level == deep OR scan_level == exhaustive">
     <check if="{{has_knowledge_graph}} == true">
-      <action>Use `codetograph_get_node` on each API entity for detailed metadata; supplement with file reads only for entities missing from the graph</action>
-      <action>Use `codetograph_expand` (node_id=top_api_entity, hops=2, max_nodes=30) to see the full surrounding context of the data layer</action>
+      <action>Use `homegraph_node` on each API entity for detailed metadata; supplement with file reads only for entities missing from the graph</action>
+      <action>Use focused `homegraph_explore` questions on important API/data entities until the surrounding context is sufficiently evidenced.</action>
     </check>
-    <action>Read files in batches (one subfolder at a time)</action>
+    <action>Read only API source details missing or incomplete in HomeGraph; use `homegraph_node` for indexed source.</action>
     <action>Extract: data service methods, trigger strings, request/response types from actual code</action>
   </check>
 
@@ -628,10 +560,10 @@ findings.batches_completed: [
   <action>Look for: models/, schemas/, entities/, migrations/, prisma/, ORM configs</action>
 
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use `codetograph_search_nodes` with query="model OR entity OR schema OR Model OR State OR Data" to discover all data model classes. Filter results to {{project_root_path}} paths only.</action>
-    <action>Use `codetograph_get_neighbors` on top 5 data model entities to trace which ViewModels consume them, which services populate them, and which views display them. Use relation="calls" to show usage edges.</action>
-    <action>Use `codetograph_trace_calls` on MockRequest (or core data service) to see the full data loading pipeline: caller → service → JSON file → model → consumer.</action>
-    <action>Use `codetograph_find_path` between the main data source (MockRequest) and 2-3 top-level ViewModels to understand data propagation paths.</action>
+    <action>Use `homegraph_search` with query="model OR entity OR schema OR Model OR State OR Data" to discover all data model classes. Filter results to {{project_root_path}} paths only.</action>
+    <action>Use `homegraph_explore` on documentation-relevant data model entities to trace which ViewModels consume them, which services populate them, and which views display them.</action>
+    <action>Use bounded `homegraph_callees` plus `homegraph_explore` on the core data service to reconstruct the data loading pipeline: caller → service → JSON file → model → consumer.</action>
+    <action>Ask `homegraph_explore` focused questions about how the main data source reaches 2-3 top-level ViewModels; verify the returned propagation paths.</action>
   </check>
 
   <check if="scan_level == quick">
@@ -645,9 +577,9 @@ findings.batches_completed: [
 
   <check if="scan_level == deep OR scan_level == exhaustive">
     <check if="{{has_knowledge_graph}} == true">
-      <action>Use MCP `get_node` on each model entity for detailed field metadata; supplement with file reads only for entities missing from the graph</action>
+      <action>Use `homegraph_node` on each model entity for detailed field metadata; supplement with file reads only for entities missing from the graph</action>
     </check>
-    <action>Read model files in batches (one subfolder at a time)</action>
+    <action>Read only model/schema details missing or incomplete in HomeGraph; use `homegraph_node` for indexed source.</action>
     <action>Extract: table names, fields, relationships, constraints from actual code</action>
   </check>
 
@@ -664,9 +596,9 @@ findings.batches_completed: [
   <action>Analyze state management patterns</action>
   <action>Look for: Redux, Context API, MobX, Vuex, Pinia, Provider, MVVM patterns</action>
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use `codetograph_search_nodes` with query="State OR Store OR ViewModel OR BaseVM OR AppStorage OR @Observed" to discover state management entities. Filter by {{project_root_path}}.</action>
-    <action>Use `codetograph_get_neighbors` on the BaseVM class (or core state entities) to trace which ViewModels extend it and which views consume them.</action>
-    <action>Use `codetograph_reverse_trace_calls` on key AppStorage consumers to discover all state subscribers.</action>
+    <action>Use `homegraph_search` with query="State OR Store OR ViewModel OR BaseVM OR AppStorage OR @Observed" to discover state management entities. Filter by {{project_root_path}}.</action>
+    <action>Use `homegraph_explore` on the BaseVM class (or core state entities) to trace which ViewModels extend it and which views consume them.</action>
+    <action>Use `homegraph_callers` on key AppStorage consumers to discover all state subscribers.</action>
   </check>
   <action>Identify: stores, reducers, actions, state structure, reactive flow</action>
   <template-output>state_management_patterns_{part_id}</template-output>
@@ -676,9 +608,9 @@ findings.batches_completed: [
   <action>Inventory UI component library</action>
   <action>Scan: components/, ui/, widgets/, views/ folders</action>
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use `codetograph_search_nodes` with query="struct OR @Component OR @Builder OR build" to discover all UI components. Filter results to {{project_root_path}} paths only.</action>
-    <action>Use `codetograph_expand` on the top-level page structs (MainPage, SplashPage) at hops=2 to see their full component trees.</action>
-    <action>Use `codetograph_reverse_trace_calls` on shared components (Toast, TopNavigationView, WebSheet) to discover all pages that reuse them.</action>
+    <action>Use `homegraph_search` with query="struct OR @Component OR @Builder OR build" to discover all UI components. Filter results to {{project_root_path}} paths only.</action>
+    <action>Use `homegraph_explore` on top-level page structs (e.g., MainPage, SplashPage) to inspect their bounded component context.</action>
+    <action>Use `homegraph_callers` on shared components (Toast, TopNavigationView, WebSheet) to discover all pages that reuse them.</action>
   </check>
   <action>Categorize: Layout, Form, Display, Navigation, etc.</action>
   <action>Identify: Design system, component patterns, reusable elements</action>
@@ -689,8 +621,8 @@ findings.batches_completed: [
   <action>Analyze UX flows and interaction patterns</action>
   <action>Look for: navigation models, state machines, back-press handlers, error/loading states, conditional rendering</action>
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use `codetograph_search_nodes` with query="onBackPress OR ViewState OR navigate OR pushPath OR @State OR conditional" to discover navigation and state entities. Filter by {{project_root_path}}.</action>
-    <action>Use `codetograph_trace_calls` on the main page's build() method to trace component tree and conditional branches.</action>
+    <action>Use `homegraph_search` with query="onBackPress OR ViewState OR navigate OR pushPath OR @State OR conditional" to discover navigation and state entities. Filter by {{project_root_path}}.</action>
+    <action>Use `homegraph_node`, `homegraph_callees`, and source verification on the main page build method to reconstruct component-tree and conditional-flow evidence.</action>
   </check>
   <action>Document: primary user flows (step-by-step), navigation model (state transitions), error/offline UX, loading states, empty states, interaction patterns (tap, scroll, swipe)</action>
   <action>LLM-ONLY FLAG: If this archetype's CSV baseline has baseline_ux_flows=false, annotate: "Note: UX flows scan was proposed by LLM (not in CSV baseline for {{closest_archetype}} archetype). LLM detected UI components and state management."</action>
@@ -712,7 +644,7 @@ findings.batches_completed: [
   <action>Analyze testing infrastructure and recommend test strategy</action>
   <action>Scan for: test frameworks (Jest, Mocha, PyTest, Go test, Hypium, etc.), test file patterns, CI test integration</action>
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use `codetograph_search_nodes` with query="test OR spec OR __tests__ OR hypium OR describe OR it" to discover test files. Filter by {{project_root_path}}.</action>
+    <action>Use `homegraph_search` with query="test OR spec OR __tests__ OR hypium OR describe OR it" to discover test files. Filter by {{project_root_path}}.</action>
   </check>
   <action>Document: test framework used, current test coverage (scan for test files), recommended test inventory (test ID, target, what to test, priority), mocking strategy, CI integration commands</action>
   <action>LLM-ONLY FLAG: If this archetype's CSV baseline has baseline_test_strategy=false, annotate: "Note: Test strategy was proposed by LLM (not in CSV baseline for {{closest_archetype}} archetype). Every project benefits from documented test strategy."</action>
@@ -752,13 +684,13 @@ If yes, please provide paths or links. [Provide paths or type 'none']
   <action>Scan for i18n files: locales/, i18n/, translations/, resources/*/element/, lang/, messages/, *.po, *.pot, *.strings, *.json locale files</action>
 
   <check if="{{has_knowledge_graph}} == true">
-    <action>Use `codetograph_search_nodes` with query="i18n OR locale OR resources OR element OR translations OR lang OR string" to discover i18n-related entities. Filter results to {{project_root_path}} paths only.</action>
-    <action>Use `codetograph_get_neighbors` on top 3 i18n consumers to trace which UI components use localized strings.</action>
+    <action>Use `homegraph_search` with query="i18n OR locale OR resources OR element OR translations OR lang OR string" to discover i18n-related entities. Filter results to {{project_root_path}} paths only.</action>
+    <action>Use `homegraph_explore` on documentation-relevant i18n consumers to trace which UI components use localized strings.</action>
   </check>
 
   <check if="scan_level == quick">
     <check if="{{has_knowledge_graph}} == true">
-      <action>Use `codetograph_search_nodes` with i18n patterns; extract supported locales from filenames and directory structure</action>
+      <action>Use `homegraph_search` with i18n patterns; extract supported locales from filenames and directory structure</action>
     </check>
     <check if="{{has_knowledge_graph}} == false">
       <action>Use glob to find locale files, extract language codes from directory names and filenames</action>
@@ -767,7 +699,7 @@ If yes, please provide paths or links. [Provide paths or type 'none']
 
   <check if="scan_level == deep OR scan_level == exhaustive">
     <check if="{{has_knowledge_graph}} == true">
-      <action>Use `codetograph_get_node` on each i18n entity for detailed metadata; supplement with file reads for translation file formats</action>
+      <action>Use `homegraph_node` on each i18n entity for detailed metadata; supplement with file reads for translation file formats</action>
     </check>
     <action>Read locale files in batches (one directory at a time)</action>
     <action>Extract: supported languages, translation file format, UI string discovery, resource injection patterns</action>
@@ -794,12 +726,12 @@ If yes, please provide paths or links. [Provide paths or type 'none']
   </action>
 
 <check if="{{has_knowledge_graph}} == true">
-  <action>For each pattern above, use `codetograph_search_nodes` with the pattern's domain keywords. For entry_point_patterns, reuse the {{entry_points}} already discovered and LLM-validated in Step 3.5 — do NOT run a new search. For shared_code_patterns use query="common OR shared OR util". Filter ALL results to {{project_root_path}} paths ONLY — discard any nodes from outside the target project.</action>
-  <action>For auth/security, use `codetograph_search_nodes` with query="auth OR certManager OR crypto OR permission OR HUKS". For async events use query="emitter OR EventHub OR NotificationManager OR backgroundTask".</action>
-  <action>For each discovered entity cluster, run `codetograph_get_neighbors` to reveal their full dependency context.</action>
+  <action>For each pattern above, use `homegraph_search` with the pattern's domain keywords. For entry_point_patterns, reuse the {{entry_points}} already discovered and LLM-validated in Step 3.5 — do NOT run a new search. For shared_code_patterns use query="common OR shared OR util". Filter ALL results to {{project_root_path}} paths ONLY — discard any nodes from outside the target project.</action>
+  <action>For auth/security, use `homegraph_search` with query="auth OR certManager OR crypto OR permission OR HUKS". For async events use query="emitter OR EventHub OR NotificationManager OR backgroundTask".</action>
+  <action>For each discovered entity cluster, run `homegraph_explore` to reveal their full dependency context.</action>
 </check>
 
-<action>Apply scan_level strategy to each pattern scan (quick=glob only, deep/exhaustive=read files)</action>
+<action>Apply the shared scan-level strategy to every pattern: Quick uses graph-first structural discovery with minimal direct reads; Deep uses comprehensive graph traversal plus selective verification; Exhaustive maximizes graph-backed coverage and reads broadly only to fill graph/resource/data gaps.</action>
 
 <template-output>comprehensive*analysis*{part_id}</template-output>
 
@@ -822,7 +754,7 @@ If yes, please provide paths or links. [Provide paths or type 'none']
 
 <step n="5" goal="Generate source tree analysis with annotations" if="workflow_mode != deep_dive">
 <check if="{{has_knowledge_graph}} == true">
-  <action>Reuse the LLM-validated {{entry_points}} from Step 3.5 discovery phase. Use `codetograph_search_nodes` with query="component OR @Component OR struct" to map component locations. This supplements the directory tree with entity-level annotations.</action>
+  <action>Reuse the LLM-validated {{entry_points}} from Step 3.5 discovery phase. Use `homegraph_search` with query="component OR @Component OR struct" to map component locations. This supplements the directory tree with entity-level annotations.</action>
 </check>
 
 <action>For each part, generate complete directory tree using critical_directories from doc requirements</action>
@@ -963,7 +895,7 @@ project-root/
 ```
 ## Porting Patterns
 
-> Patterns critical for cross-platform porting — revealed by codetograph trace analysis.
+> Patterns critical for cross-platform porting — revealed by HomeGraph trace analysis.
 > Each pattern describes a recurring architectural convention that must be replicated
 > in the target platform.
 
@@ -1018,15 +950,14 @@ project-root/
 ```
 ## Sequence Diagrams
 
-> {{total_diagram_count}} sequence diagrams generated via codetograph `trace_calls`,
-> `reverse_trace_calls`, and `find_path`. Full catalog with descriptions:
+> {{total_diagram_count}} sequence diagrams synthesized from HomeGraph `explore`, `callers`, `callees`, and `node` evidence plus verified source reads. Full catalog with descriptions:
 > **[diagrams/INDEX.md](./diagrams/INDEX.md)**
 
 ### Highlights
 
 Pick the 3-5 most architecturally revealing diagrams from INDEX.md and link them with a 1-sentence analysis each:
 
-- **[god-{Label}-trace.mmd](./diagrams/god-{Label}-trace.mmd)** — {What this reveals: e.g., "Logger is called by 19 modules across all feature boundaries"}
+- **[hotspot-{Label}-trace.mmd](./diagrams/hotspot-{Label}-trace.mmd)** — {What this reveals: e.g., "Logger is called by 19 modules across all feature boundaries"}
 - **[entry-{Label}-trace.mmd](./diagrams/entry-{Label}-trace.mmd)** — {What this reveals}
 - **[data-{Label}-callers.mmd](./diagrams/data-{Label}-callers.mmd)** — {What this reveals}
 - **[path-{from}-to-{to}.mmd](./diagrams/path-{from}-to-{to}.mmd)** — {What this reveals}
@@ -1417,6 +1348,17 @@ For each item store structure:
 }
 </action>
 
+<critical>DEEP/EXHAUSTIVE COMPLETENESS GATE:
+When `scan_level` is `deep` or `exhaustive`, do not show the review/finalize menu yet. Compare the exact `required_outputs` manifest from Step 1 against readable, non-empty files on disk and also scan the index for incomplete markers.
+
+1. Set `missing_outputs` to every absent, empty, invalid, or marker-backed required file.
+2. Automatically route every item in `missing_outputs` through the matching generation instructions from Steps 3.5–9; generate all of them, not a model-selected subset.
+3. Rebuild `index.md`, remove markers only for files verified on disk, and repeat validation.
+4. Continue until `missing_outputs` is empty. If an item cannot be generated, write the exact path and error to `validation_status.validation_errors`, set validation status to failed, and stop instead of finalizing.
+5. Record `required_outputs`, `generated_outputs`, `missing_outputs`, and `validation_status.status = "passed" | "failed"` in `project-scan-report.json`.
+
+This gate overrides the optional incomplete-document menu below. Deep/Exhaustive completion is valid only with zero missing required outputs.</critical>
+
 <ask>Documentation generation complete!
 
 Summary:
@@ -1618,6 +1560,7 @@ Enter number(s) separated by commas (e.g., "1,3,5"), or type 'all':
 </step>
 
 <step n="12" goal="Finalize and provide next steps" if="workflow_mode != deep_dive">
+<critical>Before finalizing Deep or Exhaustive, reread `project-scan-report.json` and require `validation_status.status == "passed"` plus an empty `missing_outputs` array. If either check fails, return to Step 11; never claim completion.</critical>
 <action>Create final summary report</action>
 <action>Compile verification recap variables:
   - Set {{verification_summary}} to the concrete tests, validations, or scripts you executed (or "none run").

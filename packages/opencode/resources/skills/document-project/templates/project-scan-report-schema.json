@@ -49,6 +49,14 @@
       "type": "string",
       "description": "Absolute path to project knowledge folder"
     },
+    "source_revision": {
+      "type": "object",
+      "description": "Exact revisions used for deterministic Goal Step 0 reuse",
+      "properties": {
+        "repository": { "type": "string" },
+        "homegraph": { "type": "string" }
+      }
+    },
     "completed_steps": {
       "type": "array",
       "items": {
@@ -138,6 +146,16 @@
       "items": { "type": "string" },
       "description": "List of all output files generated"
     },
+    "required_outputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Exact files required by the final merged classification and scan depth"
+    },
+    "missing_outputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Required files that are absent, empty, invalid, or still marked incomplete"
+    },
     "resume_instructions": {
       "type": "string",
       "description": "Instructions for resuming from current_step"
@@ -145,6 +163,10 @@
     "validation_status": {
       "type": "object",
       "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "passed", "failed"]
+        },
         "last_validated": {
           "type": "string",
           "format": "date-time"
