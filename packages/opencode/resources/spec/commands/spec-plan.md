@@ -12,7 +12,7 @@ agent: goal
   * **Fallback**: If no valid user input is provided, default to the **current system language**.
   * **Ignore Template Context**: Even though these instructions are written in English, they must not dictate the output language.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
-6. **Project SPEC Context Rule**: For existing projects, `{PROJECT_ROOT}/docs/project-spec.md` is the required repository-level current-state context produced by Goal Step 0. Read it before broad source exploration. Treat Project SPEC as derived context, not absolute truth: verify feature-critical or uncertain claims against graph/source/config evidence before relying on them in `plan.md`.
+6. **Step 0 Documentation Context Rule**: For existing projects, `{PROJECT_ROOT}/docs/project-spec.md` is mandatory compact repository context and `{PROJECT_ROOT}/docs/index.md` is the router to detailed Step 0 documentation. Read both before repository exploration. Follow only index links relevant to the requested feature; do not load the full documentation set or hardcode generated documentation filenames. Treat Step 0 docs as precomputed derived context, not absolute truth. Use HomeGraph and current source/config only for feature-specific gaps, feature-critical validation, or stale/uncertain claims.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -29,13 +29,16 @@ agent: goal
         - `FEATURE_SPEC` = `Confirmed_Feature_Dir/spec.md`
         - `IMPL_PLAN` = `Confirmed_Feature_Dir/plan.md`
         - `PROJECT_SPEC` = `{PROJECT_ROOT}/docs/project-spec.md`
+        - `DOCS_INDEX` = `{PROJECT_ROOT}/docs/index.md`
 
-2. **Ensure & Load Project SPEC** (existing projects only):
-    - Check whether `PROJECT_SPEC` exists.
-    - If it exists, read it before broad repository exploration.
-    - When invoked by the Goal workflow, if it does not exist, report `[TOOL_ERROR] project-spec: required Step 0 artifact is unavailable` and return control to Goal. Do not regenerate it in Phase 2.
-    - Only a standalone/manual invocation outside Goal may run `{CONFIG_ROOT}/specs/commands/project-spec-generate.md` as a compatibility fallback. Record any fallback limitation in `## Research & Decisions`.
-    - For feature-specific design decisions, verify any Project SPEC statement that is uncertain, stale-looking, or directly determines implementation correctness.
+2. **Ensure & Load Step 0 Context** (existing projects only):
+    - Check whether `PROJECT_SPEC` and `DOCS_INDEX` exist.
+    - Read `PROJECT_SPEC` first as compact repository context, then read `DOCS_INDEX` as the documentation router.
+    - From `DOCS_INDEX`, select only links whose titles/descriptions are relevant to the requested feature, affected subsystems, data/contracts, UX, deployment, or testing decisions. Read only those existing linked files.
+    - Do not recursively load every link, scan the whole `docs/` folder, or assume a documentation filename not present in the index.
+    - When invoked by the Goal workflow, if either required file does not exist, report `[TOOL_ERROR] step0-docs: required Step 0 artifact is unavailable` and return control to Goal. Do not regenerate Step 0 documentation in Phase 2.
+    - Outside Goal, do not silently replace missing Step 0 context with broad repository discovery. The user must generate the missing Project SPEC and documentation index before planning.
+    - Use HomeGraph/current source/config only to resolve feature-specific gaps or verify claims that are stale-looking, uncertain, conflicting, or directly determine implementation correctness. Current graph/source evidence wins.
 
 3. **Check Existing Document** (if `IMPL_PLAN` already exists):
     - Preserve existing sections that remain valid and relevant.
@@ -44,7 +47,7 @@ agent: goal
 
 4. **Load Context & Template**:
     - Read `FEATURE_SPEC`.
-    - Use `PROJECT_SPEC` as repository-level current-state context when available.
+    - Use `PROJECT_SPEC` plus the selectively loaded `DOCS_INDEX` targets as precomputed repository context.
     - Load plan template from `{CONFIG_ROOT}/specs/templates/plan-template.md`.
     - **Fallback:** If the template is missing, initialize `IMPL_PLAN` with the minimal required structure: `## Summary`, `## Technical Context`, `## Project Structure`, `## Complexity Tracking`, `## Research & Decisions`, `## Data Model`, `## Contracts & Interfaces`.
 
@@ -56,18 +59,18 @@ agent: goal
 
 6. **Write Plan Artifact**: Use the `spec_write` tool with `filePath: "{IMPL_PLAN}"` to write the completed implementation plan. Do NOT use the generic `write` tool for plan artifacts.
 
-7. **Stop and Report**: Command ends after Phase 1 Design & Contracts. Report the absolute path of `IMPL_PLAN`, whether Project SPEC was used, and list all generated artifacts. Do not trigger further actions.
+7. **Stop and Report**: Command ends after Phase 1 Design & Contracts. Report the absolute path of `IMPL_PLAN`, which Step 0 documents were selectively used, and list all generated artifacts. Do not trigger further actions.
 
 ## Phases
 ### Phase 0: Research & Resolution
 
 1. **Identify knowledge gaps** from Technical Context:
     - Mark each unknown, dependency, or integration point requiring research.
-    - Start from Project SPEC when available instead of rediscovering repository-wide architecture.
+    - Start from Project SPEC and relevant index-linked documents instead of rediscovering repository-wide architecture.
 
 2. **Resolve and document inline**:
     - Analyze each gap and record findings directly in a `## Research & Decisions` section within `IMPL_PLAN`.
-    - Prefer targeted graph/source/config verification for gaps rather than broad repository reads.
+    - Prefer targeted HomeGraph/current source/config verification for feature-specific gaps rather than broad repository or documentation reads.
     - When Commit4Spec is available, call `homegraph_spec_match` with the actual feature requirement to find relevant historical implementation patterns, then verify every adopted pattern against current `homegraph_node`/caller/callee evidence. Historical evidence never overrides the current graph.
     - Format each entry strictly as:
         - **Decision**: [chosen approach]
@@ -78,7 +81,7 @@ agent: goal
 **Prerequisites:** Phase 0 complete
 
 0. **Architecture structure selection**:
-    - If the feature is for an existing HarmonyOS/ArkTS project, use Project SPEC when available to understand the current architecture and directory conventions, then verify feature-critical details against current source/config/graph evidence. Follow the project's current architecture unless the feature request explicitly asks to optimize or migrate the project to MVVM.
+    - If the feature is for an existing HarmonyOS/ArkTS project, use Project SPEC and relevant index-linked architecture/source-tree documents to understand the current architecture and directory conventions, then verify feature-critical details against current HomeGraph/source/config evidence. Follow the project's current architecture unless the feature request explicitly asks to optimize or migrate the project to MVVM.
     - If the feature is for a new HarmonyOS/ArkTS project structure, or if MVVM optimization is explicitly requested, choose the lightest structure tier first, then decide whether the selected tier needs further file splitting:
       - **Trivial**: Hello World, static single-page demos, or one-button interactions. Use only `entryability/`, `pages/`, and `entry/src/main/resources/` as needed. Target 1-2 ArkTS files.
       - **Light**: single-page features with a few reusable UI blocks and simple local state. Use `pages/`, `components/`, and `common/` as needed. Target 3-6 ArkTS files.
@@ -109,7 +112,8 @@ agent: goal
 - Consolidate all design artifacts—research decisions, data models, interface contracts directly into `IMPL_PLAN` using the designated sections.
 - Use absolute paths for all file and directory references.
 - Project SPEC describes current repository state; `FEATURE_SPEC` describes desired behavior; `IMPL_PLAN` describes the delta. Do not merge these roles.
-- For existing-project planning, read Project SPEC first when available, then use graph/source/config tools only for feature-relevant verification and gaps.
+- For existing-project planning, read Project SPEC and the documentation index, selectively load only feature-relevant linked documents, then use HomeGraph/current source/config only for feature-relevant verification and gaps.
+- Do not enumerate or hardcode all possible Step 0 document names in this workflow; `DOCS_INDEX` is the authoritative router.
 - For HarmonyOS/ArkTS plans, do not generate a vague `pages/components/service` structure for complex features. If MVVM triggers apply, include `viewmodel/`; if they do not apply, explicitly justify the lighter structure.
 - For HarmonyOS/ArkTS plans, do not expand many pages, views, services, models, or components merely because MVVM directories exist. Default to minimal viable file splitting within MVVM and split files only when the feature complexity makes the split necessary.
 - For existing HarmonyOS/ArkTS projects, do not introduce MVVM directories or restructure the project unless the user's request explicitly asks for MVVM optimization or migration.

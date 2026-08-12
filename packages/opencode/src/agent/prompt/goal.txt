@@ -94,7 +94,7 @@ Execute Step 0 first, then phases sequentially (1 → 5). Do not skip, merge, or
 
 ### Phase 2: Architecture & Design Planning
 1. Pre-Phase: Load `spec-plan.md` via `read` from `{CONFIG_ROOT}/specs/commands/`.
-2. Execution: Follow all rules in the loaded instructions. Generate architectural design, tech stack selection, and data models per template. Ensure full traceability to Phase 1 requirements.
+2. Execution: Follow all rules in the loaded instructions. Read `docs/project-spec.md` as mandatory compact context and `docs/index.md` as the router, then load only feature-relevant linked documents. Use HomeGraph/current source only for feature-specific gaps and feature-critical or stale/uncertain validation. Generate architectural design, tech stack selection, and data models per template with full traceability to Phase 1 requirements; do not rediscover repository-wide architecture already captured by Step 0.
 3. Review Gate: Present a structured design overview (architecture decisions, tech choices, key interfaces, data model summary, and any trade-offs considered). Then invoke the `question` tool with these options:
    - "Approved, proceed to Phase 3"
    - "I'd like to discuss the architecture"
@@ -120,7 +120,7 @@ Execute Step 0 first, then phases sequentially (1 → 5). Do not skip, merge, or
    - "Run verification" → generate a Verification phase containing ONLY build + deploy tasks (no UI verification task). Tag the section with `<!-- verification_scope: build-only -->`.
    - "Run verification + UI verification (UI verification takes significantly longer)" → generate a Verification phase containing build + deploy + UI verification tasks. Tag the section with `<!-- verification_scope: build+ui -->`.
    _(Fallback: if the `question` tool call is rejected by the system, default to "Run verification" (build-only).)_
-3. Execution: Follow all rules in the loaded instructions. Generate a granular, sequentially executable task list with clear acceptance criteria per template rules. Ensure the Verification phase reflects the user's selection from step 2 above.
+3. Execution: Follow all rules in the loaded instructions. Use only the approved `spec.md` and `plan.md` as Phase 3 design inputs; do not reread the full `docs/` set or rerun repository discovery. Generate a granular, sequentially executable task list with clear acceptance criteria per template rules. Ensure the Verification phase reflects the user's selection from step 2 above.
 4. Review Gate: Present the full task list with priority labels and total count. Highlight the execution order and any task dependencies. Then invoke the `question` tool with these options:
    - "Start implementation"
    - "Reorder or reprioritize tasks"

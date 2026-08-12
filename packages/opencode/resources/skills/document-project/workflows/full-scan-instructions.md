@@ -1192,6 +1192,18 @@ When a document SHOULD be generated but wasn't (due to quick scan, missing data,
 
 <action>Create index.md with intelligent navigation based on project structure</action>
 
+<critical>START HERE ROUTER:
+Place a prominent `## Start Here` section near the top of `index.md`, before detailed navigation. This section is the Step 0 documentation router for later SDD planning.
+
+- Include `[Project SPEC](./project-spec.md)` when `project-spec.md` exists.
+- Include `[Project Overview](./project-overview.md)` when generated.
+- Include each generated architecture document; use `Architecture` for a single part and the part name for multi-part architecture links.
+- Include `[Source Tree](./source-tree-analysis.md)` when generated.
+- Include `[Diagrams](./diagrams/INDEX.md)` only when the diagram index exists.
+- Include only readable files verified on disk. Never add incomplete markers or links to absent files in Start Here.
+- Keep Project SPEC separate: link to it, but never copy or embed its full contents into `index.md`.
+</critical>
+
 <action if="single part project">
   <action>Generate simple index with:
     - Project name and type
@@ -1216,6 +1228,14 @@ When a document SHOULD be generated but wasn't (due to quick scan, missing data,
 <action>Include in index.md:
 
 ## Project Documentation Index
+
+## Start Here
+
+{{#if project_spec_exists}}- [Project SPEC](./project-spec.md) — compact repository-level context for planning and implementation.{{/if}}
+{{#if project_overview_exists}}- [Project Overview](./project-overview.md) — broader project context.{{/if}}
+{{#each generated_architecture_files}}- [Architecture{{#if part_name}} — {{part_name}}{{/if}}](./{{file_name}}) — detailed architecture and subsystem relationships.{{/each}}
+{{#if source_tree_exists}}- [Source Tree](./source-tree-analysis.md) — annotated repository structure.{{/if}}
+{{#if diagram_index_exists}}- [Diagrams](./diagrams/INDEX.md) — HomeGraph-backed flows and dependency diagrams.{{/if}}
 
 ### Project Overview
 
@@ -1273,13 +1293,14 @@ When a document SHOULD be generated but wasn't (due to quick scan, missing data,
 <action>Before writing index.md, check which expected files actually exist:
 
 - For each document that should have been generated, check if file exists on disk
-- Set existence flags: architecture_file_exists, component_inventory_exists, dev_guide_exists, etc.
+- Set existence flags: project_spec_exists, project_overview_exists, source_tree_exists, diagram_index_exists, architecture_file_exists, component_inventory_exists, dev_guide_exists, etc.
+- Build generated_architecture_files from only the readable architecture files found on disk
 - These flags determine whether to add the _(To be generated)_ marker
 - Track which files are missing in {{missing_docs_list}} for reporting
   </action>
 
 <action>IMMEDIATELY write index.md to disk with appropriate _(To be generated)_ markers for missing files</action>
-<action>Validate index has all required sections and links are valid</action>
+<action>Validate index has all required sections, every Start Here target exists and is readable, and Project SPEC content was not embedded</action>
 
 <template-output>index</template-output>
 

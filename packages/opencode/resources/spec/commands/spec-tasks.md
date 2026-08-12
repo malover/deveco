@@ -21,6 +21,7 @@ agent: goal
 3. **No Auto-Execute Next Phase**: This command covers only its own scope. Upon completion, it must NOT auto-trigger the next SDD phase. Phase transitions (to Phase 4 and beyond) are managed by the parent orchestrator (`goal.txt`), which controls Review Gates and progression. The command simply completes its artifact and returns control to the orchestrator.
 4. **Strict Path Resolution**: `CONFIG_ROOT` MUST be set to `~/.local/share/deveco/`. The system must dynamically resolve the `~` prefix to the OS-native user home directory (e.g., `C:\Users\${username}` on Windows, `/Users/${username}` on macOS). ${username} is a placeholder for the current system username. `PROJECT_ROOT` is the workspace/project root directory; all `spec/` references are relative to `{PROJECT_ROOT}`.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
+6. **Phase 3 Context Boundary**: Generate tasks from `Confirmed_Feature_Dir/spec.md` and `Confirmed_Feature_Dir/plan.md`. Do not reread `docs/`, Project SPEC, the Step 0 index, HomeGraph, or repository source by default. If either artifact is missing or lacks information required for actionable tasks, apply the fallback below without rediscovering or inventing design context.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -31,6 +32,7 @@ agent: goal
 ## Outline & Workflow
 1. **Load & Validate Design Documents**: Read from `Confirmed_Feature_Dir`:
     - **Expected**: `plan.md` (tech stack, libraries, structure), `spec.md` (user stories with priorities)
+    - These two artifacts are the complete Phase 3 planning context; do not reload Step 0 documentation.
     - **Fallback Rule**: If `plan.md` or `spec.md` is missing, insert a `⚠️ MISSING ARTIFACTS` block at the top of `tasks.md`. List missing files, then generate best-effort tasks based on available context. **DO NOT fabricate fictional specs.**
 2. **Execute Task Generation**:
     - Extract tech stack & project structure from `plan.md`
