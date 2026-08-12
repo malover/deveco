@@ -1,4 +1,4 @@
-# Localization — {{part_id}}
+# Localization{{#if multi-part}} — {{part_id}}{{/if}}
 
 **Generated:** {{date}}
 **Scan Level:** {{scan_level}}

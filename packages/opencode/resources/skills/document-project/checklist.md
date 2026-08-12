@@ -69,7 +69,7 @@
 - [ ] Configuration files located and documented
 - [ ] Authentication/security patterns identified
 - [ ] Entry points correctly identified
-- [ ] Integration points mapped (for multi-part projects)
+- [ ] Integration points mapped (for multi-part projects or meaningful internal module dependencies)
 - [ ] Test files and patterns documented
 
 ## Source Tree Analysis
@@ -108,7 +108,7 @@
 
 ## Localization Documentation Quality (if requires_localization = true)
 
-- [ ] Localization written to standalone `localization-{part_id}.md` (NOT merged into asset-inventory or any other file)
+- [ ] Localization uses `localization.md` for one part or `localization-{part_id}.md` only for true multi-part (NOT merged into another file)
 - [ ] Template `templates/localization-template.md` sections all filled
 
 - [ ] All supported locales identified and listed
@@ -120,6 +120,8 @@
 
 ## Multi-Part Project Specific (if applicable)
 
+- [ ] Every proposed part has an evidenced independent runtime/product/deployment boundary
+- [ ] Internal modules remain nested under their owning part
 - [ ] Each part documented separately
 - [ ] Part-specific architecture files created (architecture-{part_id}.md)
 - [ ] Part-specific component inventories created (if applicable)
@@ -139,6 +141,7 @@
 - [ ] Getting started section provides clear next steps
 - [ ] AI-assisted development guidance included
 - [ ] Navigation structure matches project complexity (simple for single-part, detailed for multi-part)
+- [ ] Internal modules are listed beneath their owning application/part, not exposed as separate parts
 
 ## File Completeness
 
@@ -152,7 +155,7 @@
 - [ ] data-models.md (or per-part) generated if data models found
 - [ ] deployment-guide.md generated if deployment config found
 - [ ] contribution-guide.md generated if guidelines found
-- [ ] integration-architecture.md generated if multi-part
+- [ ] integration-architecture.md generated for true multi-part or meaningful internal module dependencies
 - [ ] localization.md (or per-part) generated if requires_localization = true
 - [ ] project-parts.json generated if multi-part
 

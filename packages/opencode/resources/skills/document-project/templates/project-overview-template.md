@@ -36,6 +36,19 @@ This project consists of {{parts_count}} distinct parts:
 {{integration_description}}
 {{/if}}
 
+{{#if has_internal_modules}}
+
+## Internal Modules
+
+These modules are responsibility boundaries inside their owning application/service, not independently documented project parts:
+
+{{#each internal_modules}}
+
+- **{{module_name}}** — `{{root_path}}`: {{purpose}}
+  {{/each}}
+
+{{/if}}
+
 ## Technology Stack Summary
 
 {{#if is_single_part}}
@@ -94,9 +107,16 @@ This project consists of {{parts_count}} distinct parts:
 For detailed information, see:
 
 - [index.md](./index.md) - Master documentation index
-- [architecture.md](./architecture{{#if is_multi_part}}-{part_id}{{/if}}.md) - Detailed architecture
 - [source-tree-analysis.md](./source-tree-analysis.md) - Directory structure
-- [development-guide.md](./development-guide{{#if is_multi_part}}-{part_id}{{/if}}.md) - Development workflow
+{{#if is_single_part}}
+- [architecture.md](./architecture.md) - Detailed architecture, including internal modules
+- [development-guide.md](./development-guide.md) - Development workflow
+{{else}}
+{{#each project_parts}}
+- [architecture-{{part_id}}.md](./architecture-{{part_id}}.md) - {{part_name}} architecture
+- [development-guide-{{part_id}}.md](./development-guide-{{part_id}}.md) - {{part_name}} development workflow
+{{/each}}
+{{/if}}
 
 ---
 

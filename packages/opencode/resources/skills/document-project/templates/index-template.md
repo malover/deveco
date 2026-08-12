@@ -9,6 +9,19 @@
 
 {{project_description}}
 
+{{#if has_internal_modules}}
+
+## Internal Modules
+
+The following modules belong to the same application or service and share the canonical documentation set:
+
+{{#each internal_modules}}
+
+- **{{module_name}}** (`{{root_path}}`) — {{purpose}}
+  {{/each}}
+
+{{/if}}
+
 {{#if is_multi_part}}
 
 ## Project Structure
@@ -23,6 +36,12 @@ This project consists of {{parts_count}} parts:
 - **Location:** `{{root_path}}`
 - **Tech Stack:** {{tech_stack_summary}}
 - **Entry Point:** {{entry_point}}
+  {{#if modules}}
+- **Modules:**
+    {{#each modules}}
+  - **{{module_name}}** (`{{root_path}}`) — {{purpose}}
+    {{/each}}
+    {{/if}}
   {{/each}}
 
 ## Cross-Part Integration
@@ -61,6 +80,7 @@ This project consists of {{parts_count}} parts:
 {{#if is_single_part}}
 
 - [Architecture](./architecture.md) - Detailed technical architecture
+  {{#each internal_modules}}- **Module:** {{module_name}} (`{{root_path}}`) — {{purpose}}{{/each}}
 - [Component Inventory](./component-inventory.md) - Catalog of major components{{#if has_ui_components}} and UI elements{{/if}}
 - [Development Guide](./development-guide.md) - Local setup and development workflow
   {{#if has_api_docs}}- [API Contracts](./api-contracts.md) - API endpoints and schemas{{/if}}
@@ -78,23 +98,38 @@ This project consists of {{parts_count}} parts:
 - [Development Guide](./development-guide-{{part_id}}.md) - Setup and dev workflow
   {{#if has_api}}- [API Contracts](./api-contracts-{{part_id}}.md) - API documentation{{/if}}
   {{#if has_data}}- [Data Models](./data-models-{{part_id}}.md) - Data architecture{{/if}}
+  {{#if has_localization}}- [Localization](./localization-{{part_id}}.md) - Localization structure and workflow{{/if}}
+  {{#if has_ux}}- [UX Flows](./ux-flows-{{part_id}}.md) - User and navigation flows{{/if}}
+  {{#if has_ux}}- [UX Screen Trees](./ux-screen-trees-{{part_id}}.md) - Screen/component hierarchy{{/if}}
+  {{#if has_ux}}- [UX Wireframes](./ux-screen-wireframes-{{part_id}}.html) - Screen wireframes{{/if}}
+  {{#if has_ux}}- [UX Interactive Mockup](./ux-interactive-mockup-{{part_id}}.html) - Interactive flow prototype{{/if}}
+  {{#if has_tests}}- [Test Strategy](./test-strategy-{{part_id}}.md) - Testing approach{{/if}}
   {{/each}}
+{{/if}}
+
+{{#if has_integration_architecture}}
 
 ### Integration
 
-- [Integration Architecture](./integration-architecture.md) - How parts communicate
+- [Integration Architecture](./integration-architecture.md) - Cross-part communication or internal module dependencies
+{{/if}}
+
+{{#if is_multi_part}}
 - [Project Parts Metadata](./project-parts.json) - Machine-readable structure
-  {{/if}}
+{{/if}}
 
 ### Optional Documentation
 
 {{#if has_deployment_guide}}- [Deployment Guide](./deployment-guide.md) - Deployment process and infrastructure{{/if}}
 {{#if has_contribution_guide}}- [Contribution Guide](./contribution-guide.md) - Contributing guidelines and standards{{/if}}
+{{#if is_single_part}}
+{{#if has_localization}}- [Localization](./localization.md) - Localization structure and workflow{{/if}}
 {{#if has_ux_flows}}- [UX Flows](./ux-flows.md) - User flows, navigation model, error/offline UX{{/if}}
 {{#if has_ux_flows}}- [UX Screen Trees](./ux-screen-trees.md) - Static Component Tree per screen{{/if}}
 {{#if has_ux_flows}}- [UX Wireframes](./ux-screen-wireframes.html) - Interactive HTML wireframes of all ViewStates{{/if}}
 {{#if has_ux_flows}}- [UX Interactive Mockup](./ux-interactive-mockup.html) - Click-through prototype implementing the navigation state machine{{/if}}
 {{#if has_test_strategy}}- [Test Strategy](./test-strategy.md) - Test inventory, mocking strategy, coverage targets{{/if}}
+{{/if}}
 
 ## Existing Documentation
 

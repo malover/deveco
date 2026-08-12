@@ -200,6 +200,14 @@ Your choice [1/2/3] (default: 1):
       "part_id": "string (e.g. 'frontend', 'api', 'root')",
       "part_name": "Human-readable name",
       "root_path": "Relative path from project root",
+      "modules": [
+        {
+          "module_id": "Stable module identifier",
+          "module_name": "Human-readable module name",
+          "root_path": "Relative path from the owning part",
+          "purpose": "Responsibility within the owning application/service"
+        }
+      ],
       "project_type": "Free-text description (e.g. 'React + Vite SPA', 'FastAPI Python backend', 'HarmonyOS ArkUI')",
       "primary_language": "TypeScript | Python | Go | Rust | etc.",
       "primary_framework": "React | FastAPI | Gin | etc.",
@@ -225,12 +233,27 @@ Your choice [1/2/3] (default: 1):
     "integration_type": "REST API | GraphQL | gRPC | Event Bus | Shared DB | etc.",
     "description": "Brief description of how parts communicate"
   },
+  "module_integration": {
+    "detected": true/false,
+    "description": "Important build-time or runtime dependencies among modules within one owning part"
+  },
   "special_considerations": ["List of any special things the LLM noticed (e.g. 'Uses Prisma ORM with SQLite', 'Has Docker Compose for local dev', 'Contains Storybook stories')"],
   "analysis_confidence": "high | medium | low"
 }
 </action>
 
+<critical>PARTS VS MODULES CLASSIFICATION:
+Classify a `part` only when repository evidence establishes a meaningful independent product/runtime boundary: it is independently runnable or deployable, has its own runtime/framework stack, communicates across an explicit service/IPC boundary, or has an independent build/package root representing a separately operated product.
+
+A source directory, build module, library, data layer, shared package, UI feature, or additional module manifest is not a part merely because it has its own folder or descriptor. Assign such units to the owning part's `modules` array. Multiple module descriptors alone never prove multiple parts.
+
+Use HomeGraph dependency evidence together with workspace/build configuration, application/service entry points, packaging, deployment configuration, and runtime communication to decide ownership. If candidate units build, launch, deploy, and version as one application, classify one part rooted at their common application boundary and record the units as modules. Use `multi-part` only when at least two independently meaningful parts are proven; otherwise use `monolith` or `monorepo` with one part.
+
+Before accepting classification, explicitly test each proposed part against the independent-boundary criteria. Merge any candidate that lacks such evidence into its owning part as a module.</critical>
+
 <action>Store LLM output as {{llm_analysis}}</action>
+<action>After boundary validation, set `is_multi_part = true` only when the final classification contains at least two proven independent parts. Set `is_single_part = true` when it contains exactly one part, regardless of directory count, module count, workspace layout, or whether repository_type is monorepo.</action>
+<action>For one part, set `cross_part_integration.detected = false`. Record important internal dependency relationships only in `module_integration`; do not relabel modules as parts to justify integration documentation.</action>
 
 <!-- ═══════════════ PHASE B: CSV BASELINE CROSS-CHECK ═══════════════ -->
 
@@ -273,6 +296,7 @@ Your choice [1/2/3] (default: 1):
 | {{parts_table_rows}}
 
 **Repository Structure:** {{repository_type}} ({{parts_count}} part(s) detected)
+**Internal Modules:** {{module_summary}}
 **Integration:** {{cross_part_integration.description}}
 **Special Considerations:** {{special_considerations}}
 
@@ -297,9 +321,17 @@ Immediately after the final merged classification, derive and store `required_ou
 
 - Always require `project-overview.md`, `source-tree-analysis.md`, one architecture document per part, one component inventory per part, one development guide per part, `index.md`, and `project-scan-report.json`.
 - Require the matching API, data-model, localization, UX-flow, UX-screen-tree, UX-wireframe, UX-interactive-mockup, test-strategy, deployment, and custom-scan documents whenever the final merged `requires_*`, baseline, or custom-scan instruction says they apply. In Goal Step 0 this must use the deterministic OR-merged flags above, never the LLM flags alone. Preserve the original workflow's asset and hardware template outputs; require a separate asset/hardware file only when the original generation instructions define its exact filename.
-- Require `integration-architecture.md` and `project-parts.json` for multi-part projects.
+- Require `integration-architecture.md` for true multi-part projects or when meaningful internal module dependencies must be documented. Require `project-parts.json` only for true multi-part projects.
 - For Deep or Exhaustive with a healthy HomeGraph, require the diagram catalog and every diagram promised by Steps 3.5 and 8.
 - Resolve single-part versus per-part filenames now and store exact repository-relative paths, not document categories or filename patterns.
+
+CANONICAL DOCUMENT NAMING:
+Derive suffixes only from the final number of independently meaningful parts, never from module count.
+
+- Exactly one part: use unsuffixed canonical filenames for architecture, component inventory, development guide, API contracts, data models, localization, UX artifacts, and test strategy. Describe all internal modules as sections inside those files.
+- Two or more proven parts: use one `-{part_id}`-suffixed file per part.
+
+Internal modules must never cause duplicate top-level document families.
 
 For Deep and Exhaustive, every manifest entry is mandatory. A missing file is a generation failure, never an acceptable omission or `_To be generated_` placeholder.</critical>
 
@@ -547,7 +579,7 @@ findings.batches_completed: [
   </check>
 
 <action>Build API contracts catalog</action>
-<action>IMMEDIATELY write to: {project_knowledge}/api-contracts-{part_id}.md</action>
+<action>IMMEDIATELY write to: `{project_knowledge}/api-contracts.md` when there is one part; otherwise `{project_knowledge}/api-contracts-{part_id}.md`</action>
 <action>Validate document has all required sections</action>
 <action>Update state file with output generated</action>
 <action>PURGE detailed API data, keep only: "{{api_count}} endpoints documented"</action>
@@ -584,7 +616,7 @@ findings.batches_completed: [
   </check>
 
 <action>Build database schema documentation</action>
-<action>IMMEDIATELY write to: {project_knowledge}/data-models-{part_id}.md</action>
+<action>IMMEDIATELY write to: `{project_knowledge}/data-models.md` when there is one part; otherwise `{project_knowledge}/data-models-{part_id}.md`</action>
 <action>Validate document completeness</action>
 <action>Update state file with output generated</action>
 <action>PURGE detailed schema data, keep only: "{{table_count}} tables documented"</action>
@@ -626,14 +658,14 @@ findings.batches_completed: [
   </check>
   <action>Document: primary user flows (step-by-step), navigation model (state transitions), error/offline UX, loading states, empty states, interaction patterns (tap, scroll, swipe)</action>
   <action>LLM-ONLY FLAG: If this archetype's CSV baseline has baseline_ux_flows=false, annotate: "Note: UX flows scan was proposed by LLM (not in CSV baseline for {{closest_archetype}} archetype). LLM detected UI components and state management."</action>
-  <action>IMMEDIATELY write to: {project_knowledge}/ux-flows-{part_id}.md</action>
+  <action>IMMEDIATELY write to: `{project_knowledge}/ux-flows.md` when there is one part; otherwise `{project_knowledge}/ux-flows-{part_id}.md`</action>
   <action>Validate document has all required sections (user flows, navigation, error UX, offline, interaction patterns)</action>
-  <action>IMMEDIATELY write to: {project_knowledge}/ux-screen-trees-{part_id}.md</action>
+  <action>IMMEDIATELY write to: `{project_knowledge}/ux-screen-trees.md` when there is one part; otherwise `{project_knowledge}/ux-screen-trees-{part_id}.md`</action>
   <action>Generate screen tree document with: widget hierarchy for each screen/ViewState (equivalent to DevEco Component Tree inspector), extracted from ArkUI build() methods or equivalent UI framework. Include data bindings, conditional branches, props/links, and component reuse map. Also extract and consolidate Design Tokens section from resource files (color.json, float.json, dimens.xml, etc.) and hardcoded values: color palette, typography scale, spacing/sizing tokens, border radius, shadow styles, opacity values, backgrounds/gradients, icon sizes.</action>
   <action>Validate screen tree document has all required sections (tree per view state, component reuse map, legend)</action>
-  <action>Generate HTML wireframe: create {project_knowledge}/ux-screen-wireframes.html with styled HTML/CSS phone frames rendering each ViewState as visual boxes with the same colors, spacing, and layout extracted from the tree. Use tabs/sidebar to switch between ViewStates. Include annotation tooltips showing component names and properties. Ensure the linearGradient background, card borders, semi-transparent overlays, and font sizes match the design tokens.</action>
+  <action>Generate HTML wireframe using `ux-screen-wireframes.html` for one part or `ux-screen-wireframes-{part_id}.html` for true multi-part, with styled HTML/CSS frames for the documented ViewStates.</action>
   <action>Copy icon/asset images: scan all `$r('app.media.XXX')` or equivalent image references from source code, copy the actual PNG/SVG files from resource directories to {project_knowledge}/images/, and embed them as `<img>` tags in the wireframe HTML. For any missing icons (e.g., system resources), create inline SVG placeholders so the wireframe renders visually complete.</action>
-  <action>Generate interactive UX mockup: create {project_knowledge}/ux-interactive-mockup.html — a self-contained HTML file that renders a phone frame with clickable UI elements. Implement the full state machine from ux-flows.md: every tap/gesture triggers a ViewState transition with animated loading delays (1-1.5s), error simulation, and back-press handling. Include: (1) a right-side panel with live state indicator, flow diagram with highlighted current state, breadcrumb path, and navigation history log, (2) keyboard shortcuts (Esc=back, Enter=search), (3) a toast notification showing each transition action. The mockup must be standalone — no server, no dependencies, open in any browser.</action>
+  <action>Generate interactive UX mockup using `ux-interactive-mockup.html` for one part or `ux-interactive-mockup-{part_id}.html` for true multi-part. It must be self-contained and implement the documented state machine.</action>
   <action>Update state file with output generated</action>
   <action>PURGE detailed UX data, keep only: "UX flows documented for {{part_id}}"</action>
   <template-output>ux_flows_{part_id}</template-output>
@@ -648,7 +680,7 @@ findings.batches_completed: [
   </check>
   <action>Document: test framework used, current test coverage (scan for test files), recommended test inventory (test ID, target, what to test, priority), mocking strategy, CI integration commands</action>
   <action>LLM-ONLY FLAG: If this archetype's CSV baseline has baseline_test_strategy=false, annotate: "Note: Test strategy was proposed by LLM (not in CSV baseline for {{closest_archetype}} archetype). Every project benefits from documented test strategy."</action>
-  <action>IMMEDIATELY write to: {project_knowledge}/test-strategy-{part_id}.md</action>
+  <action>IMMEDIATELY write to: `{project_knowledge}/test-strategy.md` when there is one part; otherwise `{project_knowledge}/test-strategy-{part_id}.md`</action>
   <action>Validate document has all required sections (test inventory, mocking, CI, coverage targets)</action>
   <action>Update state file with output generated</action>
   <action>PURGE detailed test data, keep only: "Test strategy documented for {{part_id}}"</action>
@@ -674,11 +706,11 @@ If yes, please provide paths or links. [Provide paths or type 'none']
   <action>Scan and catalog assets using asset_patterns</action>
   <action>Categorize by: Images, Audio, 3D Models, Sprites, Textures, etc.</action>
   <action>Calculate: Total size, file counts, formats used</action>
-  <action>Include a cross-reference at the top: "For localization / i18n details, see [localization-{part_id}.md](./localization-{part_id}.md)."</action>
+  <action>Include a cross-reference to the resolved localization filename: unsuffixed for one part, suffixed for true multi-part.</action>
   <template-output>asset_inventory_{part_id}</template-output>
 </check>
 
-<critical>LOCALIZATION IS A SEPARATE STANDALONE DOCUMENT. Do NOT merge localization content into asset inventory or any other file. Localization must be written to its own `localization-{part_id}.md` file. Use the localization-template.md from the templates folder.</critical>
+<critical>LOCALIZATION IS A SEPARATE STANDALONE DOCUMENT. Do NOT merge localization content into asset inventory or any other file. Use `localization.md` for one part and `localization-{part_id}.md` only for true multi-part repositories. Use the localization-template.md from the templates folder.</critical>
 <check if="requires_localization == true">
   <action>Analyze internationalization (i18n) and localization support using localization_patterns</action>
   <action>Scan for i18n files: locales/, i18n/, translations/, resources/*/element/, lang/, messages/, *.po, *.pot, *.strings, *.json locale files</action>
@@ -707,7 +739,7 @@ If yes, please provide paths or links. [Provide paths or type 'none']
 
   <action>Categorize: supported languages, translation file format, string resource structure, locale switching mechanism</action>
   <action>Use template: templates/localization-template.md — fill all sections from the locale analysis data</action>
-  <action>IMMEDIATELY write to: {project_knowledge}/localization-{part_id}.md</action>
+  <action>IMMEDIATELY write to: `{project_knowledge}/localization.md` when there is one part; otherwise `{project_knowledge}/localization-{part_id}.md`</action>
   <action>Validate document has all required sections</action>
   <action>Update state file with output generated</action>
   <action>PURGE detailed i18n data, keep only: "{{locale_count}} languages supported"</action>
@@ -842,17 +874,18 @@ project-root/
   <action>PURGE detailed instructions, keep only: "Dev setup and deployment documented"</action>
   </step>
 
-<step n="7" goal="Detect multi-part integration architecture" if="workflow_mode != deep_dive and project has multiple parts">
+<step n="7" goal="Document cross-boundary or module integration architecture" if="workflow_mode != deep_dive and (project has multiple parts OR module_integration.detected == true)">
 <action>Analyze how parts communicate:
 - Scan integration_scan_patterns across parts
-- Identify: REST calls, GraphQL queries, gRPC, message queues, shared databases
-- Document: API contracts between parts, data flow, authentication flow
+- For true multi-part repositories, identify runtime/service boundaries such as APIs, IPC, queues, or shared infrastructure.
+- For a single part with modules, identify module dependencies, ownership direction, shared contracts, and build/runtime coupling; label them as modules, not project parts.
+- Document the appropriate dependency/data/authentication flows without implying independent deployment where none exists.
 </action>
 
 <action>Create integration_points array with:
 
-- from: source part
-- to: target part
+- from: source part or module
+- to: target part or module
 - type: REST API, GraphQL, gRPC, Event Bus, etc.
 - details: Endpoints, protocols, data formats
   </action>
@@ -885,6 +918,7 @@ project-root/
     * Deployment Architecture (from Step 6)
     * Testing Strategy (from test patterns)
     * Porting Patterns (if porting-mode or ≥3 cross-module patterns discovered via diagram traces)
+  - Add an Internal Modules section when the part has modules. Describe each module's responsibility, root, ownership, dependencies, and relevant entry points inside the owning part's architecture document.
 </action>
 
 <critical>PORTING PATTERNS: If ≥3 cross-module patterns were discovered during diagram trace analysis (Step 3.5), add a "## Porting Patterns" section to architecture.md. Each pattern describes a recurring architectural convention critical for cross-platform porting.</critical>
@@ -971,6 +1005,7 @@ Open `.mmd` files in any Mermaid renderer (VS Code, Mermaid Live, Obsidian).
 
 <action if="single part project">
   - Generate: architecture.md (no part suffix)
+  - Cover the part's internal modules as sections in architecture.md
 </action>
 
 <action if="multi-part project">
@@ -995,6 +1030,7 @@ Open `.mmd` files in any Mermaid renderer (VS Code, Mermaid Live, Obsidian).
   </step>
 
 <step n="9" goal="Generate supporting documentation files" if="workflow_mode != deep_dive">
+<critical>For a single part with internal modules, aggregate findings across all modules into each unsuffixed canonical document. Use module headings/sections inside the document; do not emit one file per module. Per-part loops mean independently meaningful parts only.</critical>
 <action>Generate project-overview.md with:
 - Project name and purpose (from README or user input)
 - Executive summary
@@ -1039,7 +1075,7 @@ Open `.mmd` files in any Mermaid renderer (VS Code, Mermaid Live, Obsidian).
   <action>IMMEDIATELY write each development guide to disk and validate</action>
 
 <action if="deployment configuration found">
-   <critical>DEPLOYMENT-CONFIG SCOPE: This document covers build config, module dependencies, signing, permissions, and CI/CD pipeline ONLY. For localization/i18n content, reference `localization-{part_id}.md`.</critical>
+   <critical>DEPLOYMENT-CONFIG SCOPE: This document covers build config, module dependencies, signing, permissions, and CI/CD pipeline ONLY. For localization/i18n content, reference the resolved canonical localization filename.</critical>
   <action>Generate deployment-guide.md with:
     - Infrastructure requirements
     - Deployment process
@@ -1080,7 +1116,7 @@ Open `.mmd` files in any Mermaid renderer (VS Code, Mermaid Live, Obsidian).
 </action>
 
 <action if="localization_documented == true">
-   <critical>Localization is a standalone file: `localization-{part_id}.md`. For deployment/CI/CD content, reference `deployment-guide-{part_id}.md`.</critical>
+   <critical>Localization is a standalone file: unsuffixed for one part and suffixed only for true multi-part. For deployment/CI/CD content, reference the resolved canonical deployment guide.</critical>
   <action>Generate localization.md (or per-part) with:
     - Supported languages and locale codes
     - Translation file format and structure
@@ -1145,19 +1181,21 @@ Open `.mmd` files in any Mermaid renderer (VS Code, Mermaid Live, Obsidian).
   <action>IMMEDIATELY write to disk and validate</action>
 </action>
 
-<action if="multi-part project">
+<action if="multi-part project OR module_integration.detected == true">
   <action>Generate integration-architecture.md with:
-    - How parts communicate
+    - How independently meaningful parts communicate, or how internal modules depend on one another
     - Integration points diagram/description
-    - Data flow between parts
+    - Data flow across the applicable boundary
     - Shared dependencies
   </action>
   <action>IMMEDIATELY write to disk and validate</action>
+</action>
 
+<action if="multi-part project">
 <action>Generate project-parts.json metadata file:
 `json
     {
-      "repository_type": "monorepo",
+      "repository_type": "{{repository_type}}",
       "parts": [ ... ],
       "integration_points": [ ... ]
     }
@@ -1250,6 +1288,12 @@ Place a prominent `## Start Here` section near the top of `index.md`, before det
 - **Tech Stack:** {{tech_stack_summary}}
 - **Entry Point:** {{entry_point}}
 - **Architecture Pattern:** {{architecture_pattern}}
+  {{#if internal_modules}}
+- **Internal Modules:**
+    {{#each internal_modules}}
+  - **{{module_name}}** (`{{root_path}}`) — {{purpose}}
+    {{/each}}
+    {{/if}}
   {{else}}
   {{#each parts}}
 
@@ -1258,6 +1302,12 @@ Place a prominent `## Start Here` section near the top of `index.md`, before det
 - **Type:** {{project_type}}
 - **Tech Stack:** {{tech_stack}}
 - **Root:** {{root_path}}
+  {{#if modules}}
+- **Modules:**
+    {{#each modules}}
+  - **{{module_name}}** (`{{root_path}}`) — {{purpose}}
+    {{/each}}
+    {{/if}}
   {{/each}}
   {{/if}}
 
@@ -1265,6 +1315,7 @@ Place a prominent `## Start Here` section near the top of `index.md`, before det
 
 - [Project Overview](./project-overview.md)
 - [Architecture](./architecture{{#if multi-part}}-{part\*id}{{/if}}.md){{#unless architecture_file_exists}} (To be generated) {{/unless}}
+  {{#unless multi-part}}{{#each internal_modules}}- **Module:** {{module_name}} (`{{root_path}}`) — {{purpose}}{{/each}}{{/unless}}
 - [Source Tree Analysis](./source-tree-analysis.md)
 - [Component Inventory](./component-inventory{{#if multi-part}}-{part\*id}{{/if}}.md){{#unless component_inventory_exists}} (To be generated) {{/unless}}
 - [Development Guide](./development-guide{{#if multi-part}}-{part\*id}{{/if}}.md){{#unless dev_guide_exists}} (To be generated) {{/unless}}
@@ -1276,7 +1327,7 @@ Place a prominent `## Start Here` section near the top of `index.md`, before det
   {{#if ux_flows_documented}}- [UX Flows](./ux-flows{{#if multi-part}}-{part_id}{{/if}}.md){{#unless ux_flows_exists}} (To be generated) {{/unless}}{{/if}}
   {{#if ux_flows_documented}}- [UX Screen Trees](./ux-screen-trees{{#if multi-part}}-{part_id}{{/if}}.md){{#unless ux_flows_exists}} (To be generated) {{/unless}}{{/if}}
   {{#if test_strategy_documented}}- [Test Strategy](./test-strategy{{#if multi-part}}-{part_id}{{/if}}.md){{#unless test_strategy_exists}} (To be generated) {{/unless}}{{/if}}
-  {{#if multi-part}}- [Integration Architecture](./integration-architecture.md){{#unless integration_arch_exists}} (To be generated) {{/unless}}{{/if}}
+  {{#if integration_arch_exists}}- [Integration Architecture](./integration-architecture.md){{/if}}
 
 ### Existing Documentation
 

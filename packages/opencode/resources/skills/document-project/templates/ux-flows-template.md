@@ -1,6 +1,6 @@
 # UX Flows — {{project_name}}
 
-> **Part**: {{part_id}} | **Generated**: {{generation_date}} | **Scan Level**: {{scan_level}}
+> {{#if multi-part}}**Part**: {{part_id}} | {{/if}}**Generated**: {{generation_date}} | **Scan Level**: {{scan_level}}
 >
 > For detailed widget hierarchy per screen, see **[UX Screen Trees](./ux-screen-trees{{#if multi-part}}-{{part_id}}{{/if}}.md)** — a static Component Tree generated from {{ui_framework}} `build()` analysis.
 > For visual wireframes, see **[UX Wireframes](./ux-screen-wireframes.html)** — interactive HTML with all ViewStates.

@@ -101,7 +101,37 @@
             "repository_type": { "type": "string" },
             "parts_count": { "type": "integer" },
             "primary_language": { "type": "string" },
-            "architecture_type": { "type": "string" }
+            "architecture_type": { "type": "string" },
+            "parts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "part_id": { "type": "string" },
+                  "part_name": { "type": "string" },
+                  "root_path": { "type": "string" },
+                  "modules": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "module_id": { "type": "string" },
+                        "module_name": { "type": "string" },
+                        "root_path": { "type": "string" },
+                        "purpose": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "module_integration": {
+              "type": "object",
+              "properties": {
+                "detected": { "type": "boolean" },
+                "description": { "type": "string" }
+              }
+            }
           }
         },
         "technology_stack": {

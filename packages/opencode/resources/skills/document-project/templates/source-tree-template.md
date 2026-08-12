@@ -72,6 +72,23 @@ This project is organized into {{parts_count}} distinct parts:
 
 {{/if}}
 
+{{#if has_internal_modules}}
+
+## Internal Module Boundaries
+
+{{#each internal_modules}}
+
+### {{module_name}}
+
+- **Location:** `{{root_path}}`
+- **Purpose:** {{purpose}}
+- **Owning Part:** {{owning_part_name}}
+- **Dependencies:** {{dependencies}}
+
+{{/each}}
+
+{{/if}}
+
 ## Entry Points
 
 {{#if is_single_part}}
