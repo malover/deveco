@@ -23,234 +23,399 @@ Before broad source reading:
 5. identify representative runtime/data flows,
 6. identify candidate UX entry points and user-facing flows.
 
-Use Homegraph to select which source files need verification.
+Use Homegraph to select source files for verification.
 
-## 3. Read existing declared documentation
+## 3. Inspect declared documentation and developer workflow
 
-Read the root README and obvious existing architecture/business/design docs.
+Read:
+- root README,
+- obvious architecture/business/design docs,
+- build wrapper/task files,
+- package/config files exposing build/test commands,
+- all `.github/workflows/*.yml` / `.yaml`,
+- test configuration/directories.
 
-Treat these as declared behavior.
+For HarmonyOS specifically inspect when present:
+- `hvigorw`
+- `hvigorw.bat`
+- `hvigorfile.ts`
+- `build-profile.json5`
+- root/module `oh-package.json5`
 
-Do not assume documentation is current.
+## 4. Build / run / test / CI extraction
 
-## 4. Selective source verification
+Derive practical commands only from repository evidence.
 
-Read source/config only to verify:
-- module metadata,
-- UI state/navigation/events,
-- constants/thresholds,
-- error/fallback behavior,
-- persistence schemas,
-- API configuration,
-- ambiguous graph findings,
-- public/exported surfaces.
+Capture:
+- prerequisite/setup steps,
+- dependency installation,
+- build commands,
+- run/launch steps,
+- unit/integration/UI test commands,
+- module-specific variants when meaningful,
+- CI workflow names,
+- CI triggers,
+- major CI jobs,
+- what CI builds/tests/checks,
+- what CI does not validate when evident.
+
+Never invent a command.
+
+Before stating a CI gap, inspect the complete discovered workflow set.
 
 ## 5. Evidence reconciliation
 
-Track three kinds of evidence:
-- declared/documented,
-- graph-observed,
-- source-observed.
+Track:
+- declared/documented behavior,
+- graph-observed structure,
+- source-observed executable behavior.
 
-For current executable behavior, prefer source/config.
-
-If sources materially disagree, create one repository-level finding.
-
-### Finding ownership
+For executable behavior, prefer source/config.
 
 All cross-cutting findings go only in:
+`docs/high-level-architecture.md` → `Repository Findings`.
 
-`docs/high-level-architecture.md` → `## Repository Findings`
+Business docs never contain findings sections.
 
-Do not duplicate them in module or business docs.
+## 6. Finding classification
 
-A finding belongs in a module architecture document only if it is genuinely local to that module and not relevant to repository-level behavior.
+Inside Repository Findings:
 
-Business docs never contain an inconsistency/findings section.
+### Observed Inconsistencies
 
-### Finding format
+Use for conflicting evidence:
+- docs vs code,
+- graph vs code,
+- configuration vs implementation.
 
-```markdown
-## Repository Findings
+### Architecture Concerns
 
-### <Finding title>
-- **Declared/documented:** ...
-- **Observed implementation:** ...
-- **Why it matters:** ...
-- **Affected scope:** ...
-```
+Use for evidence-backed concerns:
+- security,
+- coupling,
+- robustness,
+- maintainability,
+- public-surface exposure,
+- architectural smells.
 
-Avoid speculative root-cause analysis.
+Do not mix the two categories.
 
-## 6. Classify each scope internally
+Promote findings to repository level when they affect:
+- user-visible behavior,
+- repository-level capability,
+- cross-module contract,
+- cache/persistence semantics,
+- runtime/build/test behavior,
+- shared public surface.
 
-Choose `ux` or `code-first`.
+Group related findings.
 
-Never emit this classification as a document heading.
+## 7. Internal scope classification
 
-## 7. UX-backed business reconstruction
+Classify each scope as `ux` or `code-first`.
 
-For each important UX capability:
+Do not emit classification headings.
 
-1. identify the user trigger,
-2. reconstruct the meaningful user-visible steps,
-3. identify the successful outcome,
-4. identify user-visible alternatives/failures,
-5. map the flow to its Homegraph execution path,
-6. verify exact behavior from targeted source reads.
+## 8. UX reconstruction methodology
 
-### Required UX diagram
+For UX scopes, explicitly perform:
 
-If there are 3+ meaningful steps/states, generate a Mermaid flowchart immediately after the textual flow.
+### Step A — State/process skeleton
 
-The diagram must show user/business progression, not classes.
+Identify meaningful states from UI/router/state-machine code.
 
-Example:
+Translate technical state names into business/user meanings.
 
-```mermaid
-flowchart TD
-  START["Open application"] -->|"ready"| SEARCH["Search or choose saved city"]
-  SEARCH -->|"search submitted"| RESULTS["Matching cities"]
-  RESULTS -->|"city selected"| WEATHER["Weather details"]
-  WEATHER -->|"back"| RESULTS
-```
+### Step B — Transitions
 
-### Mermaid syntax requirements
+For every important transition identify:
+- trigger,
+- source state,
+- destination state,
+- observable meaning.
 
-For every flowchart:
-- simple IDs only,
-- every node label double-quoted,
-- every edge label double-quoted,
-- every subgraph label double-quoted,
-- one edge per line,
-- no `A --> B & C`,
-- avoid raw ArkTS/TypeScript expressions in labels.
+### Step C — Data dependencies
 
-Unsafe:
+Identify information required to reach/render each meaningful state.
 
-```mermaid
-graph TD
-  A[Index.ets] -->|@Link| B[SearchBarComponent]
-```
+### Step D — Behavioral rules
 
-Safe:
+Extract conditions changing outcomes:
+- validation,
+- freshness,
+- offline fallback,
+- permissions,
+- navigation restrictions,
+- retry behavior.
 
-```mermaid
-flowchart TD
-  A["Main page"] -->|"shares state"| B["Search bar"]
-```
+### Step E — Architecture cross-reference
 
-## 8. Code-first business reconstruction
+Use Homegraph to trace implementation behind each important transition/process.
 
-Start from actual discovered callers/public entry points and Homegraph paths.
+### Step F — Completeness check
 
-For each representative operation:
+Check:
+- happy path,
+- errors,
+- empty result,
+- retry,
+- back/navigation,
+- offline/cache,
+- permissions where relevant.
 
-```text
-Input/trigger
-→ meaningful processing
-→ output/effect
+## 9. Canonical business diagram purity
 
-Alternatives/failures
-```
+The repository business diagram must represent value delivery only.
 
-Do not invent hypothetical consumers.
+Do not include:
+- cache checks,
+- DB writes,
+- API calls,
+- repository/data-source branches,
+- mapper steps,
+- concurrency.
 
-Do not turn implementation details into business rules.
+Prefer:
 
-## 9. Business-document filters
+`User action → system capability → user-visible outcome`
 
-Before emitting a business statement, ask:
+Technical branches belong in architecture or Behavioral Rules.
 
-### Is this a domain/business concept?
-Allowed:
-- City
-- Weather
-- Forecast
-- Search history
-- Cache freshness if behaviorally relevant
+## 10. Module UX diagrams
 
-Usually not allowed:
-- ViewState
-- WeatherViewModel
-- DAO
-- repository pattern
-- mapper
-- relationalStore class
+Only generate when additive.
 
-### Is this an observable rule?
-Allowed:
-- data older than N minutes is refreshed
-- empty search is ignored
-- failed city search shows an error
-- cached data is reused while fresh
+Visible labels must use business/user meanings, not raw enum/state identifiers.
 
-Not business rules:
-- current and forecast are fetched with `Promise.all`
-- DAOs run concurrently
-- repository is singleton
-- mappers convert records
+Technical state names may appear in Key Evidence.
 
-### Is this really an alternative path?
-Alternative path = user/caller sees a different outcome.
+## 11. Business actor purity
 
-Internal preconditions such as "city was not saved yet" belong in architecture, not business flow alternatives.
+For UX applications:
 
-## 10. Conflict-aware writing
+### Actors
 
-If documentation says behavior X but source implements behavior Y:
+Only include:
+- humans,
+- genuinely external actors participating in the product interaction.
 
-Do NOT write X as fact in:
-- Purpose
-- Core Capabilities
-- successful outcomes
-- behavioral rules
+Do not include:
+- internal modules,
+- repositories,
+- ViewModels,
+- services,
+- DAOs,
+- data layers,
+- UI components.
 
-Write the observed executable behavior or neutral phrasing.
+For code-first repositories, use `Callers` when more appropriate.
 
-Record X vs Y once in Repository Findings.
+## 12. Domain concept purity
 
-## 11. Architecture abstraction
+Domain concepts should represent business/data vocabulary.
+
+Prefer:
+- City,
+- Weather,
+- Forecast,
+- Search history.
+
+Avoid:
+- screen names,
+- ViewState,
+- ViewModel,
+- repository,
+- DAO,
+- mapper,
+- component names.
+
+Policy-like notions such as freshness/timeout/retry usually belong under Behavioral Rules.
+
+## 13. High-level business flow compression
+
+Keep the happy-path process focused on value delivery.
+
+Move reusable conditions into `Explicit Behavioral Rules`.
+
+## 14. High-level business rule threshold
+
+Only retain rules in `high-level-business.md` if they materially affect:
+- what the user/caller can do,
+- result received,
+- when observable behavior changes,
+- product-level domain policy.
+
+Move persistence-internal rules such as upsert/overwrite semantics to the owning module unless they affect repository-level behavior.
+
+## 15. Capability naming precision
+
+Capability names must describe currently observed behavior.
+
+Do not use names implying stronger guarantees than the implementation provides, such as:
+- "offline support",
+- "secure transport",
+- "fault tolerance",
+- "automatic recovery",
+- "real-time synchronization"
+
+when only partial supporting mechanisms are observed.
+
+Prefer narrower evidence-backed names such as:
+- "local weather caching" instead of "offline support",
+- "remote API communication" instead of "secure transport" when transport guarantees are not established.
+
+## 16. Alternative-path purity
+
+Alternative path = user/caller experiences a different outcome.
+
+Do not list internal branches unless they produce an externally meaningful result.
+
+## 17. Code-first semantic abstraction
+
+Describe technical operations one abstraction level above implementation.
+
+Prefer:
+
+"Resolve the query using the configured geocoding service."
+
+Avoid:
+
+"Construct the Nominatim URL and issue an HTTP GET."
+
+Exact protocol/class/endpoint details belong in architecture.
+
+## 18. Architectural certainty wording
+
+Do not say:
+- strict architecture,
+- enforced layering,
+- guaranteed boundary,
+- impossible to bypass
+
+unless explicitly enforced or comprehensively proven.
+
+Prefer:
+- "Observed dependency direction is..."
+- "Current implementation routes..."
+- "Homegraph shows..."
+- "Existing code follows..."
+
+## 19. Direct vs transitive dependencies
+
+Module dependency sections should primarily describe direct dependencies.
+
+Do not list a platform/library dependency under a module merely because another module it depends on uses that dependency.
+
+Mention transitive dependencies only when they impose a meaningful:
+- runtime constraint,
+- deployment constraint,
+- security constraint,
+- integration constraint
+
+on the current module.
+
+When a transitive dependency is important enough to mention, identify it explicitly as transitive rather than presenting it as a direct dependency.
+
+## 20. Public surface significance
+
+Distinguish:
+
+### External / Package Surface
+
+Actual exports consumable by other modules/packages.
+
+### Framework / Application Entry Points
+
+Abilities, routes, lifecycle entry points, services.
+
+### Internal Shared Symbols
+
+Shared internal instances/functions used within the module.
+
+If low-level implementation components are publicly exported alongside a facade, explicitly call it out.
+
+## 21. Ownership precision
+
+Distinguish between:
+- implementation ownership,
+- state/data ownership,
+- lifecycle/wiring ownership,
+- registration/global-reference ownership.
+
+Do not say a module "owns" an object/reference merely because the object's type or implementation is defined there.
+
+When ownership is split, describe the responsibilities separately.
+
+For example:
+
+- a data module may own the repository implementation,
+- an application module may own repository initialization and lifecycle,
+- an application entry point may own registration of the instance in a global/application context.
+
+Use the most precise ownership description supported by the code.
+
+## 22. Architecture abstraction
 
 ### High-level
 
 Show:
 - physical module responsibilities,
 - module relationships,
-- major integrations,
+- integrations,
 - data/state ownership,
-- key runtime flows.
-
-Do not reproduce per-class/folder inventories.
+- runtime flows,
+- developer workflow,
+- CI.
 
 ### Module
 
-Group Internal Structure into 4–7 architectural areas where possible.
+Group internal code into ~4–7 meaningful architectural responsibilities.
 
-For public surfaces, explicitly distinguish:
-- external package exports,
-- application/framework entry points,
-- internal shared symbols.
+Group by responsibility, not merely folder shape or component size.
 
-## 12. Deduplication
+## 23. CI coverage gaps
 
-High-level docs should summarize module behavior, not replay module details.
+State both:
+- what CI validates,
+- what CI does not validate when supported by the complete workflow set.
 
-Business docs should not repeat architecture call chains.
+## 24. Agent usability
 
-Repository findings should exist in one location only.
+Generated docs should help a future coding agent answer quickly:
+- Where should this feature go?
+- Which module owns the relevant capability/data?
+- What current patterns are observed?
+- What build/test/CI steps should I run?
+- What known inconsistencies/concerns affect this feature?
+- Which public surface is actually available?
 
-## 13. Review checklist
+## 25. Deduplication
 
-Before finishing verify:
+- one canonical repository UX diagram,
+- module UX diagrams only when additive,
+- repository findings appear once,
+- related findings grouped,
+- high-level docs summarize rather than replay module details,
+- business docs do not replay architecture call chains,
+- build/run/test/CI lives primarily at repo level.
+
+## 26. Final validation
+
+Verify:
 - Homegraph used first,
-- every module explored,
-- UX diagrams present where meaningful,
-- Mermaid syntax follows quoting rules,
-- no issue is duplicated across files,
-- no classification headings are emitted,
-- no technical implementation concepts are presented as domain concepts,
-- no technical optimization is labeled a business rule,
-- disputed documented behavior is not presented as fact,
-- module public surfaces are classified correctly,
-- internal structure is grouped rather than inventoried.
+- each module explored,
+- UX method followed,
+- canonical business diagram contains no implementation mechanisms,
+- module diagram labels are business/user-facing,
+- actors are genuine actors,
+- domain concepts are business/data concepts,
+- high-level business rules pass the product-level threshold,
+- capability names do not overstate observed behavior,
+- code-first business prose is one abstraction level above source,
+- architectural certainty wording is evidence-calibrated,
+- direct and transitive dependencies are not conflated,
+- public surface is classified correctly,
+- ownership wording distinguishes implementation/data/lifecycle/wiring/registration ownership where relevant,
+- findings are grouped and categorized,
+- all workflow files were inspected before CI-gap claims,
+- no command was invented.

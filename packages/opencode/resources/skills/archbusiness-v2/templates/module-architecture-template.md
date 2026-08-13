@@ -7,7 +7,9 @@ Technical role of this physical module.
 Relevant `module.json5` facts.
 
 ## Internal Structure
-Group implementation into ~4–7 meaningful architectural areas.
+Group implementation into ~4–7 meaningful architectural responsibilities.
+
+Group by responsibility, not merely directory shape or component size.
 
 Do not inventory every directory/class.
 
@@ -15,6 +17,8 @@ Do not inventory every directory/class.
 
 ### External / Package Surface
 Exports actually available to other modules/packages.
+
+If low-level implementation components are exported alongside a higher-level facade, state this explicitly and explain that consumers are not technically restricted to the facade.
 
 ### Framework / Application Entry Points
 Abilities, routes, services, lifecycle entry points, etc.
@@ -32,6 +36,8 @@ Important dependencies into this module.
 ### Outbound
 Important dependencies from this module.
 
+Use evidence-calibrated wording rather than "strict" or "enforced" unless proven.
+
 ## Data and State Ownership
 State, models, persisted data, caches or resources owned by the module.
 
@@ -42,14 +48,20 @@ Maximum one diagram.
 
 All Mermaid node and edge labels must be double-quoted.
 
+Do not reproduce the repository-level business process diagram here.
+
+## Module Build/Test Notes
+Include only if this module has distinct build/test configuration or commands.
+
+Do not duplicate the full repository developer workflow.
+
 ## Existing Patterns
 Observed patterns only.
 
 ## Module-Local Findings
-Include only issues truly local to this module and not already present in repository findings.
+Include only findings truly local to this module.
 
-If a relevant finding is cross-cutting, do not duplicate it; optionally write:
-`See high-level-architecture.md → Repository Findings.`
+If the issue affects repository-level behavior, shared contracts, cache/persistence semantics, runtime/build/test behavior, or shared public surface, promote it to repository findings instead.
 
 Omit when none exist.
 

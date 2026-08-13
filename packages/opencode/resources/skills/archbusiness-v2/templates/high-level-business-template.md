@@ -1,17 +1,21 @@
 # High-Level Business Specification
 
 ## Purpose
-Concise description of the value/capability delivered by the repository.
+Concise description of value/capability delivered by the repository.
 
-If declared documentation conflicts with source behavior, do not repeat disputed behavior as an unqualified fact.
+Do not repeat disputed documented behavior as an unqualified fact.
 
-## Actors / Callers
-Only actually evidenced actors/callers.
+## Actors
+Include only genuine human/external actors involved in product interaction.
+
+Do not list internal modules, repositories, services, ViewModels, DAOs, data layers, or UI components.
+
+For a code-first repository where there is no meaningful human actor, rename this section to `Callers` and include only evidence-backed callers.
 
 ## Core Capabilities
 Business-level capability names and outcomes.
 
-Do not include class names or call chains here.
+No implementation call chains.
 
 ## Core Processes / Operations
 
@@ -32,44 +36,48 @@ For each important UX process:
 - ...
 - ...
 
-If the process has 3+ meaningful user-visible steps, add a Mermaid flowchart immediately after its textual explanation.
+Keep the flow focused on value delivery.
+Move reusable cache/persistence/validation/fallback mechanics into `Explicit Behavioral Rules`.
 
-Example:
+### Canonical process diagram
 
-```mermaid
-flowchart TD
-  START["Open application"] -->|"search submitted"| LOADING["Search in progress"]
-  LOADING -->|"matches found"| RESULTS["City results"]
-  RESULTS -->|"city selected"| WEATHER["Weather details"]
-  WEATHER -->|"back"| RESULTS
-```
+For UX repositories, include one canonical end-to-end process diagram that visualizes business/user progression and value delivery only.
 
-For code-first repositories, use:
-- Input/trigger
-- Processing
-- Output/effect
-- Alternatives/failures
+Do NOT show:
+- cache checks,
+- DB writes,
+- API calls,
+- repository/data-source branching,
+- DTO mapping,
+- concurrency.
 
-Do not emit classification headings.
+Every visible node and edge label must be double-quoted.
+
+Do not duplicate this diagram in a module business document.
 
 ## Domain Concepts
-Only business/domain concepts.
+Only business/data concepts.
 
-Do not include ViewState, ViewModel, repository, DAO, data-source, or UI component concepts.
+Policy-like notions such as freshness, timeout, retry, or retention should normally live under Behavioral Rules unless clearly first-class domain concepts.
 
 ## Explicit Behavioral Rules
-Only rules that materially affect observable/domain behavior.
+Include only rules that materially affect:
+- what the user/caller can do,
+- what result they receive,
+- when observable behavior changes,
+- product-level domain policy.
 
-Do not include implementation concurrency or internal technical sequencing.
+Move persistence-internal rules such as upsert/overwrite semantics to the owning module unless they materially affect repository-level behavior.
 
 ## Failure and Alternative Behavior
-Externally meaningful failure/fallback/offline/empty/retry behavior not already clear in process sections.
+Externally meaningful fallback/offline/empty/retry behavior not already clear in process descriptions.
 
 ## Capability to Module Mapping
-Map capabilities to physical modules without class-level implementation detail.
+Map capabilities to physical modules without class-level detail.
 
-Do not include an issue/inconsistency section here.
-Cross-cutting findings live only in `high-level-architecture.md`.
+Internal modules belong here rather than in Actors.
+
+Do not include findings/issues here.
 
 ## Key Evidence
-3–8 important evidence anchors, including relevant Homegraph paths.
+3–8 important evidence anchors, including Homegraph paths corresponding to major processes.

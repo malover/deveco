@@ -1,30 +1,33 @@
-# archbusiness-v3
+# archbusiness-v6
 
-Third iteration of the compact Homegraph-backed architecture + business documentation skill.
+Sixth iteration of the compact Homegraph-backed architecture + business documentation skill.
 
-## Output
+## v6 focus
 
-```text
-docs/
-├── high-level-architecture.md
-├── high-level-business.md
-└── modules/
-    └── <module>/
-        ├── architecture.md
-        └── business.md
-```
+This is a final cleanup pass before testing on a structurally different repository.
 
-## v3 changes
+### Business abstraction
+- Canonical repository business diagrams now exclude cache/DB/API/concurrency mechanics.
+- High-level business rules must pass a product-level observable-behavior threshold.
+- Code-first business prose is written one abstraction level above source implementation.
+- Policy concepts such as freshness normally live under Behavioral Rules rather than Domain Concepts.
+- Module state diagrams use user/business labels rather than raw enum names.
 
-- Mermaid safety rule: all visible flowchart node labels, edge labels and subgraph labels are double-quoted.
-- UX business documentation now requires a flow diagram when a meaningful 3+ step interaction exists.
-- Cross-cutting issues/inconsistencies are centralized once in `high-level-architecture.md` → `Repository Findings`.
-- Business docs no longer repeat issue sections.
-- Removes generator meta such as `UX classification` from output.
-- Prevents disputed documentation from being repeated as fact in summaries.
-- Prevents technical optimizations such as `Promise.all` from becoming business rules.
-- Prevents implementation concepts such as `ViewState` from becoming domain concepts.
-- Prevents internal implementation preconditions from being listed as user-facing alternative paths.
-- Distinguishes package/public APIs from application entry points and internal shared symbols.
-- Tightens internal-structure generation to avoid folder/class inventory dumps.
-- Keeps Homegraph-first discovery and 2 repo + 2/module output.
+### Findings
+- Repository Findings are now split into:
+  - Observed Inconsistencies
+  - Architecture Concerns
+- Related findings are grouped.
+- Repository-relevant module findings are promoted.
+
+### Architectural precision
+- Internal structure is grouped by responsibility rather than source-tree shape/component size.
+- Public surface remains explicitly separated from framework entry points and internal symbols.
+- Evidence-strength wording remains calibrated.
+
+### CI precision
+- CI coverage-gap claims require inspection of the complete discovered workflow set.
+
+Output remains:
+- 2 repository-level documents,
+- 2 documents per physical module.
