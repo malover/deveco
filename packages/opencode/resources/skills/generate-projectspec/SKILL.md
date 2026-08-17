@@ -1,9 +1,9 @@
 ---
-name: archbusiness-v6
+name: generate-projectspec
 description: Generate a compact Homegraph-backed architecture and business knowledge base with research-driven UX reconstruction, centralized findings, developer workflow instructions, and stricter semantic/business abstraction.
 ---
 
-# archbusiness-v6
+# generate-projectspec
 
 Generate a compact, evidence-backed knowledge base for an existing repository.
 

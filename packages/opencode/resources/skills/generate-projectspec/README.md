@@ -1,4 +1,4 @@
-# archbusiness-v6
+# generate-projectspec
 
 Sixth iteration of the compact Homegraph-backed architecture + business documentation skill.
 
