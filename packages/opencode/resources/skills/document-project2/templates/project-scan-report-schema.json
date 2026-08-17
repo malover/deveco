@@ -51,7 +51,7 @@
     },
     "source_revision": {
       "type": "object",
-      "description": "Exact revisions used for deterministic Goal Step 0 reuse",
+      "description": "Exact revisions used for deterministic documentation reuse",
       "properties": {
         "repository": { "type": "string" },
         "homegraph": { "type": "string" }

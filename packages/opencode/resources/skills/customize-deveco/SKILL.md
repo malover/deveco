@@ -314,7 +314,7 @@ file, `disable: true` in frontmatter.
 
 ### Built-in agents
 
-DevEco Code ships with 5 user-facing agents and 7 hidden internal agents. To override a built-in's fields, define the same key in `agent: { <name>: { ... } }`.
+DevEco Code ships with 5 user-facing agents and 6 hidden internal agents. To override a built-in's fields, define the same key in `agent: { <name>: { ... } }`.
 
 | Agent ID             | Mode       | Hidden | Description                                                      |
 | -------------------- | ---------- | ------ | ---------------------------------------------------------------- |
@@ -326,7 +326,6 @@ DevEco Code ships with 5 user-facing agents and 7 hidden internal agents. To ove
 | `debug`              | `primary`  | Yes    | Sticky ArkTS debugging mode triggered by `/debug`.               |
 | `spec-implementation`| `subagent` | Yes    | Execute implementation tasks from an approved spec.              |
 | `spec-verify`        | `subagent` | Yes    | Build, deploy, and UI-verify Harmony features against spec.      |
-| `project-spec`       | `subagent` | Yes    | Legacy isolated Project SPEC fallback for A/B comparison.         |
 | `compaction`         | `primary`  | Yes    | Context summarization assistant.                                 |
 | `title`              | `primary`  | Yes    | Thread title generator (≤50 chars).                              |
 | `summary`            | `primary`  | Yes    | PR-description-style conversation summarizer.                    |

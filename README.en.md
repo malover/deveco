@@ -267,7 +267,7 @@ DevEco Code includes these manually invoked slash commands:
 
 Start a development checkout with `bun dev "<project-path>"`. `/mcps` lists the TypeScript `codetograph` MCP and lets you toggle it with Space, but connecting it does not create a graph. Run `/codetograph` to explicitly create or rebuild `docs/codetograph.json`.
 
-HomeGraph MCP startup is also side-effect free. `/init` initializes or refreshes HomeGraph before generating `AGENTS.md`; Goal Step 0 does the same before Project SPEC and `document-project2` generation.
+HomeGraph MCP startup is side-effect free. `/init` initializes or refreshes HomeGraph before generating `AGENTS.md`; when high-level project documentation is missing, Goal Step 0 runs `generate-projectspec` directly and lets that skill own the graph and source exploration required for documentation generation.
 
 ### MCP
 

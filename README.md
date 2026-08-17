@@ -267,7 +267,7 @@ DevEco Code 内置以下手动斜杠命令：
 
 开发环境使用 `bun dev "<project-path>"` 启动。`/mcps` 会列出 TypeScript `codetograph` MCP，并可用空格切换；连接 MCP 不会创建图谱。运行 `/codetograph` 才会显式创建或重建 `docs/codetograph.json`。
 
-HomeGraph MCP 启动也不会产生索引副作用。`/init` 会先初始化或刷新 HomeGraph，再生成 `AGENTS.md`；Goal Step 0 会在 Project SPEC 和 `document-project2` 生成前执行相同操作。
+HomeGraph MCP 启动不会产生索引副作用。`/init` 会先初始化或刷新 HomeGraph，再生成 `AGENTS.md`；Goal Step 0 在缺少高层项目文档时会直接执行 `generate-projectspec`，由该 Skill 负责文档生成所需的图谱和源码探索。
 
 ### MCP
 

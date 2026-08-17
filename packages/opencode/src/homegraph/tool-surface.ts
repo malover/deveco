@@ -1,5 +1,5 @@
 const GENERAL_TOOLS = new Set(["homegraph_explore", "homegraph_node", "homegraph_impact"])
-const PROJECT_SPEC_TOOLS = new Set([
+const GOAL_DOCUMENTATION_TOOLS = new Set([
   "homegraph_status",
   "homegraph_files",
   "homegraph_search",
@@ -15,7 +15,6 @@ const PROJECT_SPEC_TOOLS = new Set([
 
 export function homeGraphToolAllowed(agent: string, tool: string) {
   if (!tool.startsWith("homegraph_")) return true
-  if (agent === "project-spec") return false
-  if (agent === "goal") return PROJECT_SPEC_TOOLS.has(tool)
+  if (agent === "goal") return GOAL_DOCUMENTATION_TOOLS.has(tool)
   return GENERAL_TOOLS.has(tool)
 }

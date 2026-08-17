@@ -7,8 +7,6 @@
 <critical>YOU MUST ALWAYS SPEAK OUTPUT In your Agent communication style with the configured `{communication_language}`</critical>
 <critical>YOU MUST ALWAYS WRITE all artifact and document content in `{document_output_language}`</critical>
 <critical>Read and follow `../homegraph-analysis.md` as the canonical analysis policy for every scan stage.</critical>
-<critical>GOAL OVERRIDE: When invocation_mode == goal-step0, the supplied autonomous runtime values take precedence throughout this file. Skip Step 0.3 and all ask blocks because goal-step0-instructions.md already asked the single scan-depth question. Reuse its HomeGraph status, revisions, workflow_mode, scan_level, project_root_path, and concise Project SPEC discoveries. For skipped manual decisions: use the supplied initial_scan/full_rescan mode, accept the evidence-backed project classification and CSV baseline, record no extra user/hardware context, generate required conditional documents, and finalize after validation.</critical>
-
 <step n="0.3" goal="Ensure HomeGraph knowledge graph is available" if="resume_mode == false">
 <critical>HOMEGRAPH IS THE ONLY GRAPH PROVIDER FOR THIS SKILL. Do not use Python or TypeScript CodeToGraph tools unless the user explicitly asks for a provider comparison.</critical>
 

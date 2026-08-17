@@ -28,8 +28,6 @@ Use values already resolved by SKILL.md from `config.toml`:
 
 Read and follow `../homegraph-analysis.md` for all repository analysis.
 
-When invoked by `goal-step0`, the parent workflow supplies the already-selected `scan_level` and other values; they override the defaults above. In that mode, skip all questions, greetings, baseline explanations, project-root prompts, and duplicate HomeGraph status checks.
-
 ---
 
 ## EXECUTION

@@ -13,7 +13,6 @@ describe("MCP tool names", () => {
     expect(homeGraphToolAllowed("goal", "homegraph_spec_match")).toBe(true)
     expect(homeGraphToolAllowed("build", "homegraph_callers")).toBe(false)
     expect(homeGraphToolAllowed("build", "homegraph_node")).toBe(true)
-    expect(homeGraphToolAllowed("project-spec", "homegraph_node")).toBe(false)
     expect(homeGraphToolAllowed("build", "github_search")).toBe(true)
   })
 })

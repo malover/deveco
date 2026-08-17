@@ -18,15 +18,6 @@ description: 'Document brownfield projects for AI context. Use when the user say
 
 ## On Activation
 
-### Invocation Context
-
-Set `invocation_mode` from the caller; default to `manual`.
-
-- `manual`: follow the activation and interactive router below.
-- `goal-step0`: do not greet, ask resume/router questions, or call `homegraph_status` here. Load `config.toml`, then read and follow `./workflows/goal-step0-workflow.md` immediately. That workflow asks exactly one scan-depth question.
-
-The `goal-step0` path owns repository documentation and the initial HomeGraph bootstrap. It may write under `{project-root}/docs/` and may initialize or refresh `{project-root}/.homegraph/` once before analysis; it must not delete, migrate, or switch the graph provider.
-
 ### Step 1: Load Workflow Config
 
 Read and load `{skill-root}/config.toml`. All configuration is self-contained in this file:
@@ -62,7 +53,7 @@ Call `homegraph_status` for `{project-root}` (pass `projectPath` when the MCP se
 - If HomeGraph reports a healthy/indexed project, set `{{knowledge_graph_type}}` = `"homegraph"` and `{{has_knowledge_graph}}` = `true`.
 - If HomeGraph is unavailable or the project is not indexed, report that graph-enhanced analysis is unavailable and continue with normal file scanning unless the user asks to stop. Do not invoke CodeToGraph as a fallback.
 
-Read and follow `./homegraph-analysis.md` as the canonical analysis policy for both Project SPEC and full documentation.
+Read and follow `./homegraph-analysis.md` as the canonical analysis policy for full project documentation.
 
 HomeGraph tool summary:
 - `homegraph_explore` — **primary exploration tool**. Start here for architectural/subsystem questions and when given symbols or filenames. It can return relevant source, call paths, and impact context in one request; do not mechanically decompose every investigation into search → node → callers/callees when `explore` already answers it.

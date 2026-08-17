@@ -1,13 +1,13 @@
 # Shared HomeGraph Analysis Policy
 
-Apply this policy to both Project SPEC and full project documentation. They differ in output detail, not in evidence quality or traversal philosophy.
+Apply this policy to full project documentation.
 
 ## Provider and index invariants
 
 - HomeGraph is the only graph provider. Never invoke Python or TypeScript CodeToGraph as a fallback.
 - Treat `{project-root}/.homegraph/` as read-only shared evidence. Never create, delete, refresh, rebuild, migrate, replace, or provider-switch it.
-- Reuse the HomeGraph status and revision supplied by the invoking workflow. Do not repeat health initialization between stages.
-- In `goal-step0`, unavailable, mismatched, or unhealthy HomeGraph is fatal. Manual mode may use its existing direct-file fallback.
+- Reuse the HomeGraph status established during skill activation. Do not repeat health checks between scan stages.
+- When HomeGraph is unavailable, use the skill's existing direct-file fallback.
 
 ## Explore-first tool policy
 

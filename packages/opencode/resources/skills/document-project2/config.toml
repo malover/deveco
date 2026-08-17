@@ -15,19 +15,6 @@ document_output_language = "English"
 # Your name (used for greetings). Leave empty to be prompted.
 user_name = ""
 
-# ── Goal Step 0 ──
-[goal_step0]
-project_spec = "{project-root}/docs/project-spec.md"
-scan_report = "{project-root}/docs/project-scan-report.json"
-required_outputs = [
-  "{project-root}/docs/project-spec.md",
-  "{project-root}/docs/index.md",
-  "{project-root}/docs/project-scan-report.json",
-]
-default_scan_level = "quick"
-prompt_for_scan_level = true
-reuse_only_when_revision_matches = true
-
 # ── Workflow Customization ──
 [workflow]
 
@@ -55,4 +42,4 @@ on_complete = """After documentation is generated, report whether the HomeGraph 
 
 2. DIAGRAMS PRESERVATION: The docs/diagrams/ directory may contain .mmd diagrams synthesized from HomeGraph caller/callee/explore results plus verified source reads. INDEX.md catalogs them. Keep these diagrams in sync with architecture.md when documentation is regenerated.
 
-For manual invocation only, if HomeGraph is unavailable, report the missing graph capability but do not block completion — documentation may still be generated with direct file scanning. Goal Step 0 must fail instead."""
+If HomeGraph is unavailable, report the missing graph capability but do not block completion — documentation may still be generated with direct file scanning."""

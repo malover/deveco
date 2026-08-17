@@ -4,11 +4,6 @@
 
 <workflow>
 
-<check if="invocation_mode == goal-step0">
-  <action>Read fully and follow: ./workflows/goal-step0-workflow.md</action>
-  <action>Exit this interactive router after the Goal Step 0 workflow returns</action>
-</check>
-
 <critical>This router determines workflow mode and delegates to specialized sub-workflows</critical>
 
 <step n="1" goal="Check for ability to resume and determine workflow mode">
