@@ -1,0 +1,14 @@
+interface:
+  display_name: ProjectSpec Hierarchy v6
+  short_description: Generate scalable evidence-backed project documentation
+  default_prompt: Use $generate-projectspec-hierarchy-v6 to document this repository
+    as an evidence-backed Business and Architecture hierarchy.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
