@@ -330,14 +330,14 @@ async function main() {
       const businessStandalone = surfaces.abilities.length > 0 || surfaces.pages.length > 0
       const moduleSlug = slug(module.name)
       if (architectureStandalone) addDocument(documents, documentPath(base, `modules/${moduleSlug}/architecture.md`), "architecture", module.id, "deterministic significance signals")
-      if (businessStandalone) addDocument(documents, documentPath(base, `modules/${moduleSlug}/business.md`), "business", module.id, "declared user/system-facing surface; confirm semantic ownership")
       for (const ability of surfaces.abilities) capabilityCandidates.push({ id: slug(`${project.id}-${ability.name}`), kind: ability.type, name: ability.name, entry: ability.srcEntry, project: project.id, module: module.id, evidence: module.descriptor })
       for (const page of surfaces.pages) capabilityCandidates.push({ id: slug(`${project.id}-${page}`), kind: "page-profile", name: page, project: project.id, module: module.id, evidence: module.descriptor })
       return {
         id: module.id,
         path: module.path,
         architecture: architectureStandalone ? "standalone" : "grouped",
-        business: businessStandalone ? "standalone-candidate" : "grouped",
+        business: architectureStandalone ? "pending-semantic-classification" : "grouped",
+        businessRole: architectureStandalone ? "pending" : "architecture-only",
         rationaleSignals: { sourceFiles: module.sourceFiles, ...module.signals, declaredAbilities: surfaces.abilities.length, declaredPages: surfaces.pages.length },
       }
     })
@@ -358,7 +358,7 @@ async function main() {
     crossProjectEdges: inventory.dependencies,
     semanticEnrichmentContract: {
       maxRevisions: 1,
-      required: ["classify every capability candidate", "add source-discovered capabilities", "select exactly one detailed business owner per major capability", "consolidate shallow standalone candidates", "record excluded candidates with reason"],
+      required: ["classify every capability candidate", "add source-discovered capabilities", "classify every standalone Architecture module as behavior-owner, supporting-behavior, or architecture-only", "reconcile module Business owner documents with classifications", "select exactly one detailed business owner per major capability", "consolidate shallow standalone candidates", "record excluded candidates with reason", "record characterization examples and diagram decisions for important flows"],
     },
   }
 

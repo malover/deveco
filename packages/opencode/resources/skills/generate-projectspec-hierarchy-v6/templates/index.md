@@ -19,7 +19,7 @@ Keep this compact and link to substantive sections.
 
 ## Project or module inventory
 
-| Unit | Role | Kind | Business | Architecture | Status |
+| Unit | Role | Kind | Business role | Business | Architecture | Status |
 |---|---|---|---|---|---|
 
 Use Projects in multi-project mode and modules in single-project mode. Show `Grouped in parent` rather than dead links.

@@ -6,6 +6,11 @@
 > Evidence: Observed / Declared / Inferred / Unavailable as noted  
 > Parent: [Project Business](<relative link>) · [Documentation index](<relative link>)  
 > Coverage: <owned capability/subprocess>
+> Module ID: <stable documentation-plan module id>
+> Business role: behavior-owner | supporting-behavior
+> Parent behavior: CAP-* or FLOW-* | None — owns <CAP-* or FLOW-*>
+
+Use this template only for a semantically enriched `behavior-owner` or `supporting-behavior`; `architecture-only` never uses it. A `behavior-owner` explains a distinct observable UX, system, API, operational, or data operation/journey and may own `CAP-*`/`FLOW-*` detail. A `supporting-behavior` explains only its observable contribution, links to its parent `CAP-*` or `FLOW-*`, and does not invent a separate capability, actor, or value proposition. Omit every conditional subsection that does not apply instead of emitting an empty heading or placeholder.
 
 ## Business contribution, value, and boundary
 
@@ -56,6 +61,26 @@ Include preconditions, main flow, alternatives/exceptions, and postconditions fo
 
 | Rule ID | Testable rule | Condition | Result | Evidence |
 |---|---|---|---|---|
+
+## As-Is characterization examples
+
+Include this entire section only when an important local rule or flow benefits from characterization; otherwise omit the heading and its contents. Parent documents link to child-owned examples rather than repeating them. These examples describe As-Is behavior and are not executable specifications.
+
+### EXAMPLE-<stable-id> — <RULE-* or FLOW-*>
+
+- **Given:** <evidenced starting state/input/precondition>
+- **When:** <observed trigger/operation/decision>
+- **Then:** <observable user/caller/state/persistence outcome or exact external handoff>
+- **Evidence status:** <Observed|Declared|Inferred|Unavailable> — <anchor or boundary>
+
+## Business journey diagram decision
+
+Include this entire section only for a detailed `FLOW-*` owned here; otherwise omit it. Immediately after the flow detail, record exactly one of:
+
+- `**Diagram decision:** required — <flowchart or stateDiagram-v2 and reason>`, immediately followed by one compact Mermaid `flowchart` or `stateDiagram-v2` block; or
+- `**Diagram decision:** not-useful — <reason>`, with no Mermaid block for that flow.
+
+Do not diagram a simple linear flow, duplicate a parent/child diagram, or expose a low-level call graph.
 
 ## Domain concepts, data, and external systems
 

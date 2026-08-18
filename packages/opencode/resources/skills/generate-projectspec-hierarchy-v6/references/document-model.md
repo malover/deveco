@@ -43,6 +43,18 @@ Keep/create a Module Business document only when the module cleanly owns:
 
 Distributed capabilities belong in the narrowest parent or a capability document. Utilities, DTO-only modules, build glue, variants, generated code, and low-level targets remain Architecture inventory/group content unless behavior proves otherwise.
 
+### Module Business classification
+
+Every module with standalone Architecture must receive exactly one semantic Business role during enrichment:
+
+- `behavior-owner`: owns a distinct observable capability, operation, UX/system journey, or independently consumed contract.
+- `supporting-behavior`: owns an observable subprocess, rule set, validation/data transformation, persistence effect, platform handoff, or recovery behavior within a parent capability.
+- `architecture-only`: architecturally significant but without an independent Business narrative, including utilities, DTO/model-only units, resources, generated code, variants, build glue, and low-level targets.
+
+The bootstrap may mark the role `pending` but must not infer the final role from filenames, file counts, or declared UI surfaces. `behavior-owner` and `supporting-behavior` require a module Business document; `architecture-only` must remain in Architecture inventories and may link to its parent Business owner. Supporting behavior must link to its parent `CAP-*` or `FLOW-*` and must not invent an independent actor or value proposition.
+
+The enriched plan records `businessOwnerDocument` and, for supporting behavior, `parentBehavior`. Every module Business owner must be a unique path in `plan.documents`, exist, and identify itself with separate `> Module ID:`, `> Business role:`, and `> Parent behavior:` lines. The ID and role must exactly match the module plan record. Supporting owners use one `CAP-*`/`FLOW-*` parent in both places; behavior owners use `None — owns ...`. Pending or invalid roles and `architecture-only` cannot have a Business owner.
+
 ## Capability document gate
 
 Create a dedicated capability Business file only when:
@@ -64,7 +76,9 @@ If not, consolidate into the parent and mark the unit `Grouped`.
 
 ## Capability ownership and traceability
 
-Every major `CAP-*` has exactly one detailed Business owner. Every flow/rule maps to Architecture owners and representative evidence/tests when present. Child documents explain local contribution; parents synthesize cross-boundary behavior.
+Every major `CAP-*` has exactly one detailed Business owner. Detailed ownership is declared only by a heading beginning with `CAP-*`, `FLOW-*`, or `RULE-*`; portfolio rows, links, examples, and prose mentions are references, not ownership. Each explicit `FLOW-*` and `RULE-*` detailed heading occurs in only one Business document. Every flow/rule maps to Architecture owners and representative evidence/tests when present. Child documents explain local contribution; parents synthesize cross-boundary behavior.
+
+The enriched plan records major journeys in `flows` with `id`, `major`, `owner_document`, `diagram_decision`, and `diagram_reason`. `required` identifies the detailed owner containing the flow-local Mermaid block; `not-useful` supplies the reason and requires no diagram. Unknown decisions and empty reasons are invalid.
 
 The final plan must account for all deterministic capability candidates as major, sub-capability, technical-support, or excluded with reason. This gives coverage without creating files per route/test/module.
 

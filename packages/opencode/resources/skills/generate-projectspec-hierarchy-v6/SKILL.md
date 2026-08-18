@@ -14,10 +14,13 @@ Generate **As-Is** documentation. Do not invent future requirements, owners, roa
 
 ## Non-negotiable invariants
 
-1. Run the deterministic bootstrap immediately after resolving root/revision/output. It must create both `workspace-inventory.json` and `documentation-plan.json` before semantic analysis.
+1. Run the deterministic bootstrap immediately after resolving root/revision/output. This single command creates `docs/.projectspec/` and atomically writes both `workspace-inventory.json` and `documentation-plan.json` before semantic analysis.
 2. Discover physical ownership before semantic grouping. Freeze Workspace -> Project -> Module/Build-unit boundaries from manifests/descriptors.
 3. Keep every physical unit visible in an Architecture inventory, even when grouped.
 4. Make Business capability-complete and behavior-rich, not module-count-complete.
+5. Classify every standalone Architecture module as `behavior-owner`, `supporting-behavior`, or `architecture-only`; generate Business docs only for the first two.
+6. Add concise As-Is Given/When/Then characterization examples for important `RULE-*`/`FLOW-*` behavior, with observable Then outcomes and evidence status; never add Cucumber dependencies or `.feature` files.
+7. Add compact business-oriented Mermaid flow/state diagrams only for major journeys with meaningful branching, state transitions, multiple actors, or module/platform handoffs.
 5. Trace every major capability from a real trigger to an observed local terminal outcome or exact external handoff. “Not inspected” is not `Unavailable`.
 6. Do not derive runtime behavior, ownership, lifecycle status, or terminal outcomes from names/directories alone.
 7. Make every Architecture level a drift-prevention contract: state invariants, permitted dependency direction, forbidden shortcuts, extension points, constraints, limitations, and pre-change checks.
@@ -90,8 +93,11 @@ Never preload all references or templates.
 
 ## Evidence and tool policy
 
+- Establish a queryable HomeGraph for each frozen Project before implementation-source semantic analysis. If `<Project-root>/.homegraph/` is missing, first run `homegraph init -i <Project-root>`; if it exists, synchronize it incrementally. Then prove readiness through the MCP status/files/anchored-explore sequence. If one bounded recovery attempt fails, require explicit user approval before bounded fallback.
+
 - Use manifests/build/package descriptors for hierarchy and declared topology; use semantic evidence for behavior.
-- Use Homegraph explore-first when healthy, serially and with exact symbols/files. Do not assume `trace_calls` exists.
+- Use the built-in Goal HomeGraph MCP sequence (`homegraph_status` -> `homegraph_files` -> anchored `homegraph_explore`) before semantic analysis, then use focused graph calls repeatedly for owners and major flows. Do not assume `trace_calls` exists.
+- If initialization, synchronization, and one bounded recovery attempt cannot produce a queryable graph, ask the user whether to retry, approve bounded fallback, or stop. Never silently choose fallback.
 - Stop Homegraph after the first memory-budget failure and use bounded symbol/source inspection; do not launch parallel explorations into one index.
 - Inspect representative controllers/state owners/callbacks/persistence/native bridges/tests, not only package indexes.
 - Verify exact constants, branches, permissions, security behavior, returned results, persistence effects, and failure recovery from defining source/config/contracts.

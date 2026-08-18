@@ -28,7 +28,13 @@ Read `references/hierarchy.md`.
 
 Change a frozen boundary only when direct ownership/build evidence contradicts it; record the correction.
 
-## 2. Build semantic coverage before selecting final files
+## 2. Establish HomeGraph and build semantic coverage before selecting final files
+
+Read `references/homegraph.md` before implementation-source analysis. For each frozen Project, check `<Project-root>/.homegraph/`; run `homegraph init -i <Project-root>` when it is missing, or incrementally synchronize an existing index. Then serially call `homegraph_status`, confirm indexed scope with `homegraph_files`, and prove queryability with an anchored `homegraph_explore` using a descriptor-derived file, route, ability, or symbol. If one bounded recovery attempt fails, call `question` to offer retry, explicit bounded fallback, or stop.
+
+Maintain a compact HomeGraph Coverage Ledger for the current Project: readiness, anchors, overview evidence, major-capability entry/orchestrator/callees/terminal effect, persistence/integration/cross-module coverage, unresolved verification questions, and any approved fallback.
+
+Use the Documentation Plan as the structural baseline only after graph-backed semantic coverage is established.
 
 Read `references/document-model.md`, `references/business.md`, and for large repositories `references/evidence-and-performance.md`.
 
@@ -51,9 +57,11 @@ Classify every candidate as:
 
 Do not infer a capability solely from a directory or filename. Tests and names are anchors that require representative source/contract confirmation.
 
+For every module with standalone Architecture, classify Business role as `behavior-owner`, `supporting-behavior`, or `architecture-only` from observed contracts, states, effects, and handoffs. Resolve non-UI API/system/data journeys as Business behavior when observable; exclude utilities, DTOs, resources, and build glue without such behavior.
+
 ### 2.2 Trace representative behavior
 
-For every major capability trace one end-to-end path:
+For every major capability trace one end-to-end path with HomeGraph first:
 
 1. real trigger/caller and preconditions;
 2. entry point and orchestration owner;
@@ -64,7 +72,11 @@ For every major capability trace one end-to-end path:
 7. material cancel, error, empty, offline, permission, retry, and recovery branches;
 8. one representative test when present.
 
+Use `homegraph_explore` for the focused capability packet, `homegraph_search` only to locate missing anchors, `homegraph_node` for precise evidence, bounded `homegraph_callees` for trigger-to-outcome direction, `homegraph_callers` for consumers, and `homegraph_impact` when shared blast radius changes guardrails. Reuse returned evidence and stop when the ledger has a terminal effect or exact external handoff.
+
 For GUI behavior, also inventory screens/states, component-to-action mapping, conditional rendering, back/dismiss behavior, visible data, localization, and accessibility evidence. For non-GUI behavior, reconstruct an equivalent caller/system/API journey with input, decisions, state/effects, output, and failure recovery.
+
+For each important `RULE-*` or `FLOW-*`, decide whether a short As-Is Given/When/Then characterization example adds value. Require an observable `Then` and evidence status; do not create Cucumber specifications or `.feature` files. For each major journey, record a diagram decision as `required` with type/reason or `not-useful` with reason. Use compact business-oriented Mermaid flow/state diagrams only for branching, meaningful state transitions, multiple actors, or module/platform handoffs.
 
 ### 2.3 Enrich the documentation plan exactly once
 
@@ -105,6 +117,7 @@ For the current Project:
 4. Analyze planned standalone owners and representative flows; gather compact facts for grouped units.
 5. Inspect real controllers/state owners/callbacks/persistence/native bridges/tests—not only indexes.
 6. Resolve every local `Unavailable` by inspection or relabel it `Not inspected`; only outside-scope/missing evidence is `Unavailable`.
+7. Confirm the module Business role, parent capability/flow for supporting behavior, characterization examples, and diagram decisions before loading a Business template.
 
 ### 3.1 Write substantive Business owners
 

@@ -51,6 +51,7 @@ export function builtInHomeGraphMcp(): ConfigMCPV1.Info | undefined {
   return {
     type: "local",
     command: [process.execPath, path.join(import.meta.dir, "serve.ts")],
+    environment: { HOMEGRAPH_MAX_RSS_MB: "4096" },
     enabled: true,
     timeout: 300_000,
   }
@@ -61,7 +62,8 @@ export const HOMEGRAPH_INSTRUCTIONS = `
 
 DevEco starts the built-in persistent MCP server without creating or refreshing an index. Repository indexing is explicit: \`/init\` owns manual initialization, while the documentation skill invoked by Goal Step 0 owns any indexing required to generate project knowledge. When HomeGraph is connected and indexed, use it before grep/find or broad file reading for code discovery:
 
-- **General coding**: use \`homegraph_explore\` for a targeted path, \`homegraph_node\` for one known symbol/file, and \`homegraph_impact\` before changing shared symbols.
+  - **General coding**: use \`homegraph_explore\` for a targeted path, \`homegraph_node\` for one known symbol/file, and \`homegraph_impact\` before changing shared symbols.
+  - **Goal documentation**: the active ProjectSpec skill owns deterministic bootstrap and HomeGraph readiness. After readiness, use \`homegraph_status\` -> \`homegraph_files\` -> anchored \`homegraph_explore\`, then use bounded follow-up tools only for focused evidence. If recovery fails, ask the user before fallback.
 - **Goal documentation**: run \`project_spec_analyze\` once for deterministic hierarchy/statistics, then use HomeGraph only for semantic questions anchored by exact Project paths, files, routes, abilities, or symbols. Pass \`projectPath\`, keep \`maxFiles\` at 2-3 for local questions (up to 5 for one representative flow), and use the limit/offset inputs exposed by targeted tools.
 - **History**: Commit4Spec provides supporting history only; current graph/source evidence always wins.
 

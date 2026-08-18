@@ -26,6 +26,8 @@ Do not repeat equivalent diagrams at multiple levels.
 
 Show actors, business states/steps, decisions, outcomes, recovery, and Project/capability handoffs. For UX include loading, empty, error, offline/permission when present, cancel/back/dismiss behavior, and the terminal visible/caller result. Hide classes, repositories, and low-level calls; map the same transitions to symbols in traceability tables.
 
+Require a compact flow or state diagram only when a major journey has meaningful branching/recovery, multiple business states, multiple actors/callers, or cross-module/Project/platform/external handoffs whose direction matters. Record `required` with type and reason, or `not-useful` with reason. Do not diagram simple linear flows, duplicate an equivalent parent/child diagram, or use a diagram when prose is clearer. Diagrams are business views, not call graphs.
+
 ## Architecture diagrams
 
 Show physical or logical boundaries explicitly. Distinguish internal modules, sibling Projects, external packages, and external systems. A diagram should answer one question; do not build a universal map.

@@ -57,6 +57,23 @@ Include preconditions, main path, exceptions, and postconditions.
 | Rule ID | Testable rule | Condition | Outcome | Evidence |
 |---|---|---|---|---|
 
+## As-Is characterization examples
+
+Include this entire section only when an important locally owned rule or flow benefits from characterization; otherwise omit the heading and its contents. Parent documents link to child-owned examples rather than repeating them.
+
+### EXAMPLE-<stable-id> — <RULE-* or FLOW-*>
+
+- **Given:** <evidenced starting state/input/precondition>
+- **When:** <observed trigger/operation/decision>
+- **Then:** <observable user/caller/state/persistence outcome or exact external handoff>
+- **Evidence status:** <Observed|Declared|Inferred|Unavailable> — <anchor or boundary>
+
+These examples characterize As-Is behavior and are not executable specifications.
+
+## Business journey diagram decision
+
+Include this entire section only for a detailed `FLOW-*` owned here; otherwise omit it. Record `**Diagram decision:** required — <flowchart or stateDiagram-v2 and reason>` immediately followed by one compact Mermaid block, or `**Diagram decision:** not-useful — <reason>` with no diagram for that flow. Do not diagram simple linear flows, duplicate parent/child diagrams, or expose low-level call graphs.
+
 ## Domain concepts, business data, and external systems
 
 ## Observable quality, privacy, localization, and accessibility

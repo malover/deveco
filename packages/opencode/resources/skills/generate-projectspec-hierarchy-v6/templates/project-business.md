@@ -54,6 +54,26 @@ If no UI exists, provide the caller/system/API journey with request states, deci
 | Rule ID | Testable behavior | Condition | Result | Evidence |
 |---|---|---|---|---|
 
+## As-Is characterization examples
+
+Include this entire section only when an important cross-module rule or flow owned here benefits from characterization; otherwise omit the heading and its contents. Link to child-owned examples rather than repeating them.
+
+### EXAMPLE-<stable-id> — <RULE-* or FLOW-*>
+
+- **Given:** <evidenced starting state/input/precondition>
+- **When:** <observed trigger/operation/decision>
+- **Then:** <observable user/caller/state/persistence outcome or exact external handoff>
+- **Evidence status:** <Observed|Declared|Inferred|Unavailable> — <anchor or boundary>
+
+These describe As-Is behavior and are not executable specifications.
+
+## Business journey diagram decisions
+
+Include this entire portfolio section only when a major flow has a recorded decision; otherwise omit it. Summarize child decisions and link to their detailed owners without duplicating diagrams. A flow owned here uses `required — <type/reason>` with one compact owner-local Mermaid `flowchart` or `stateDiagram-v2`, or `not-useful — <reason>` with no diagram. Do not diagram simple linear flows, duplicate parent/child diagrams, or expose low-level call graphs.
+
+| FLOW-* | Decision | Type/reason | Detailed owner |
+|---|---|---|---|
+
 ## Domain concepts and data requirements
 
 Explain business entities/concepts, inputs, outputs, freshness/persistence-visible effects, and terminology. Link to Architecture for storage implementation.

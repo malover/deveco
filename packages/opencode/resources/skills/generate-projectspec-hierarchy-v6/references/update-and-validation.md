@@ -37,6 +37,12 @@ For existing documents:
 - Use cases, rules/decisions, domain data, external dependencies, and architecture/test traceability contain scope-appropriate substance.
 - Exact rules are verified.
 - Technical-only units do not receive invented business narratives.
+- Every standalone Architecture module has exactly one Business role: `behavior-owner`, `supporting-behavior`, or `architecture-only`.
+- `behavior-owner` and `supporting-behavior` modules have Business owners; `architecture-only` modules do not receive standalone Business documents.
+- Module Business owners are planned, unique per module, and carry matching `Module ID`, `Business role`, and `Parent behavior` metadata; supporting behavior links one parent `CAP-*`/`FLOW-*` in both plan and document.
+- Important `RULE-*` and `FLOW-*` behavior has concise As-Is characterization examples when needed, with complete Given/When/Then/Evidence status, unique stable example IDs, and observable `Then` outcomes. Omit the whole section when no example qualifies and link to child-owned examples rather than repeating them.
+- Major journeys record `required`/`not-useful` diagram decisions with reasons; required complex journeys include one owner-local compact business-oriented Mermaid flow/state diagram, while not-useful journeys do not.
+- Explicit detailed `CAP-*`, `FLOW-*`, and `RULE-*` headings have one Business owner; portfolio rows, links, examples, and prose mentions do not establish ownership.
 - Every planned major capability has a Detailed Business owner, not only a portfolio row.
 - Every detailed owner covers trigger, preconditions, terminal outcome or explicit unavailable-outcome marker, alternatives/failures, participating units, evidence, and unknowns.
 - Observed terminal outcomes have evidence reaching that outcome; handoffs across unavailable native/external boundaries are not promoted to certainty.
@@ -68,10 +74,10 @@ Run `scripts/validate_docs.py` against the output root. Fix:
 - missing high-level files/index;
 - broken local Markdown links;
 - unmatched/nested ProjectSpec markers;
-- unbalanced Mermaid fences;
+- unclosed fences, empty/unsupported Mermaid declarations, and invalid required/not-useful diagram contracts;
 - unresolved template tokens/TODOs;
 - duplicate generated document titles.
 
-Pass `--inventory` and `--plan` so the validator can check physical-unit coverage, planned documents, capability owners, traceability IDs, outcome/unknown markers, and evidence classes. Manually review narrative truthfulness and abstraction level.
+Pass `--inventory` and `--plan` so the validator can check physical-unit coverage, planned documents, capability/flow owners, module role metadata, traceability IDs, outcome/unknown markers, characterization structure, evidence classes, and plan diagram decisions. The enriched plan uses `flows` entries with `id`, `major`, `owner_document`, `diagram_decision`, and `diagram_reason`. Manually review narrative truthfulness, observability, diagram usefulness, and abstraction level; the mechanical validator does not infer semantic truth from implementation keywords.
 
 The validator is a mechanical gate only. After it passes, manually challenge permission/security claims, local-versus-external boundaries, lifecycle/deprecation claims, diagram direction, terminal outcomes, constraints, and limitations against representative source/config/contracts/tests.

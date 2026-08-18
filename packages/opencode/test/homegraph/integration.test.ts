@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { HomeGraphBootstrap } from "@/homegraph/bootstrap"
 import { selectHomeGraphExecutable } from "@/homegraph/integration"
+import { HOMEGRAPH_INSTRUCTIONS } from "@/homegraph/integration"
 
 describe("HomeGraph integration", () => {
   test("returns no executable when HomeGraph is not installed", () => {
@@ -19,5 +20,11 @@ describe("HomeGraph integration", () => {
     expect(initialize).toContain("!`${homegraph_init_command}`")
     expect(HomeGraphBootstrap.bootstrapCommand("/project").at(-2)).toEndWith("bootstrap.ts")
     expect(HomeGraphBootstrap.bootstrapCommand("/project").at(-1)).toBe("/project")
+  })
+
+  test("advertises the ProjectSpec readiness protocol", () => {
+    expect(HOMEGRAPH_INSTRUCTIONS).toContain("homegraph_status")
+    expect(HOMEGRAPH_INSTRUCTIONS).toContain("homegraph_files")
+    expect(HOMEGRAPH_INSTRUCTIONS).toContain("ask the user before fallback")
   })
 })

@@ -32,11 +32,11 @@ Do not enumerate source trees to decide ownership.
 
 ## Semantic analysis budget
 
-Use Homegraph per Project when queryable:
+Use HomeGraph per Project as a readiness-gated semantic layer:
 
-1. one Project overview query;
+1. status/files readiness and one anchored Project overview query;
 2. focused queries for standalone docs and ambiguous grouped units;
-3. representative traces for important flows;
+3. representative traces for every major documented flow;
 4. source verification only for unresolved exact claims.
 
 Maintain a Verification Queue. Every source read must answer a named question and use the smallest symbol/file expected to resolve it.
@@ -49,7 +49,9 @@ Default starting budgets are heuristics, not correctness limits:
 
 Do not stop merely because a numeric budget was reached. Stop when the trigger-to-terminal path, material branches, architectural constraints, and change guardrails are supported; or when additional evidence repeats established facts/cannot change the document.
 
-## Fallback without Homegraph
+## Fallback without HomeGraph
+
+Fallback requires explicit user approval after one bounded recovery attempt. If approval is not obtained, pause generation.
 
 1. Use descriptor and existing-document evidence first.
 2. Search for named entry points, exports, abilities/routes, state enums, integration clients, persistence owners, and error types.

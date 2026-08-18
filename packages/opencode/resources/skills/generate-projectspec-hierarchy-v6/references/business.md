@@ -141,6 +141,25 @@ For each major process:
 
 Use a Mermaid flow/state diagram for the canonical journey when it materially clarifies branching. A list of files or method calls is not a business process.
 
+## As-Is characterization examples
+
+For important rules and flows, add concise characterization examples rather than executable specifications:
+
+```markdown
+### EXAMPLE-<slug> — <RULE-id or FLOW-id>
+
+- **Given:** evidenced starting state, input, or precondition
+- **When:** observed trigger, operation, or decision
+- **Then:** observable user/caller/state/persistence result or exact external handoff
+- **Evidence status:** Observed at `<path#symbol-or-key>` | Declared at `<path#section>` | Inferred from `<anchors>` | Unavailable beyond `<boundary>`
+```
+
+Use examples for consequential rules, terminal outcomes, material alternate/failure/recovery branches, or state/persistence semantics that prose could leave ambiguous. Reference existing `RULE-*`/`FLOW-*` IDs. `Then` must describe an observable outcome, never an internal call. These are As-Is characterization examples, not acceptance criteria, Cucumber specifications, or `.feature` files. Do not add Cucumber dependencies.
+
+## Module behavior discovery
+
+For every standalone Architecture module, determine whether it owns behavior, supports a parent behavior, or is architecture-only. Inspect caller-visible contracts, returned results, state transitions, validation, persistence effects, transformations, retries, recovery, and platform handoffs. When no UX exists, document a system/API/data/operational journey using requesting application, OS service, consumer module, or scheduled task as the actor when evidenced. Do not create Business narratives for utilities, DTOs, resources, or build glue without observable behavior.
+
 ## Rules and decision tables
 
 Write rules as testable statements:
