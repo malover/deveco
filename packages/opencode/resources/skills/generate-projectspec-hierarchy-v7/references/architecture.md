@@ -1,0 +1,144 @@
+# Architecture Documentation
+
+## Primary purpose: prevent architectural drift
+
+Architecture documents are descriptive change maps paired with a separate constraints/limitations registry. A coding agent must be able to determine:
+
+- where new behavior belongs and which owner/source of truth must remain authoritative;
+- which entry points, public contracts, consumers, and dependency directions must be preserved;
+- what extension seams and reference patterns to use;
+- where to resolve applicable `ARC-*`, `LIM-*`, and `CHK-*` governance IDs.
+
+A component list or dependency diagram alone is insufficient.
+
+## Required views at every architecture level
+
+Provide scope-appropriate substance for:
+
+1. context, scope, boundary, and responsibilities;
+2. physical inventory plus logical architectural areas;
+3. annotated source-tree/ownership map at the current zoom;
+4. entry points, lifecycle hooks, public/shared surfaces, and known consumers;
+5. direct dependency direction and cross-boundary contracts;
+6. representative runtime/lifecycle/state/control flows;
+7. data/state ownership, sources of truth, persistence, caches, transformations, consistency, and invalidation;
+8. external/platform/native integrations and failure boundaries;
+9. technology/build/run/test/CI/deployment posture evidenced by repository files;
+10. security, permission, privacy, localization/accessibility, and resource behavior when relevant;
+11. extension/modification points and patterns to follow;
+12. link to the applicable constraints/limitations registry;
+13. evidence anchors and business capability traceability.
+
+Omit a conditional domain only when truly irrelevant. Do not embed constraint, limitation, or guardrail sections; extract them to the companion registry described in `references/constraints-and-limitations.md`.
+
+## Zoom by level
+
+- **Workspace/System**: Project/subsystem boundaries, shared contracts/data/integrations, root orchestration, cross-Project dependency direction, compatibility and blast radius.
+- **Project**: complete module/build-unit inventory, architectural areas, intra-project direction, Project public surface, build/runtime/data/native/platform behavior, project-wide invariants.
+- **Module**: internal responsibilities, key folders/files, exports/entry points, callers/consumers, direct dependencies, state/data/integration ownership, important flows, local extension seams and gotchas.
+- **Subsystem roll-up**: component membership, aggregated dependencies, shared contracts, and cross-subsystem blast radius.
+- **GN target**: normally an inventory row; expand only for a meaningful public/native/runtime boundary.
+
+Do not show all levels in one universal diagram.
+
+## Ownership precision
+
+Separate:
+
+- implementation/orchestration ownership;
+- state/data/source-of-truth ownership;
+- lifecycle/wiring/registration ownership;
+- public API/ABI/schema ownership;
+- external delegated behavior.
+
+A declared type does not prove data ownership. A package index does not prove execution. A call across a Project/platform boundary proves only the local handoff unless provider behavior is inspected.
+
+Repository-local `file:`, workspace, source, or native bridge dependencies are owned local boundaries, not external packages.
+
+## Entry points and public surfaces
+
+Inventory and explain:
+
+- abilities, extensions, routes/pages, services, commands, jobs, lifecycle hooks;
+- package exports, inner kits, APIs, callbacks, events, schemas, native bridges;
+- internal facades/shared symbols and known bypass paths;
+- known consumers and compatibility expectations.
+
+Capture signatures/contracts when they matter to change safety. Do not dump every exported symbol; prioritize surfaces with consumers or behavioral significance.
+
+## Runtime, lifecycle, and state flows
+
+Trace representative flows that explain value delivery, initialization, navigation/callbacks, persistence/cache behavior, external/native calls, asynchronous ordering, or notable failure/recovery.
+
+For each flow identify:
+
+- trigger and entry symbol;
+- orchestration owner;
+- decision/state transitions;
+- cross-module/project/platform handoffs;
+- data effects and ordering;
+- terminal outcome/error;
+- relevant concurrency, thread/process, or lifecycle context.
+
+Verify exact constants/branches/effects in defining source/config. A directory tree never proves a runtime flow.
+
+## Data architecture
+
+For each material data domain capture:
+
+- source of truth and owner;
+- entities/value objects and important relationships;
+- read/write paths and transformations;
+- cache/freshness/invalidation;
+- transaction/ordering/consistency constraints;
+- migrations/schema/versioning;
+- privacy/security/retention behavior when evidenced;
+- failure/recovery and cross-device/process behavior.
+
+Explain why a new feature must use the existing owner rather than create parallel state.
+
+## Dependencies and integrations
+
+Keep distinct:
+
+- owned module/build unit;
+- sibling Project/local workspace package;
+- repository-local native component;
+- external package;
+- platform API/service;
+- external system.
+
+List direct dependencies and known consumers. Mention transitive dependencies only when they impose runtime, deployment, security, compatibility, or resource constraints.
+
+In diagrams/tables use one declared direction consistently: `consumer depends on provider` or `provider used by consumer`. Co-location or a demonstration relationship is not a dependency.
+
+## Companion governance registry
+
+While analyzing Architecture, collect candidate constraints, limitations, and change checks, but write them only to the applicable `constraints-and-limitations.md`:
+
+- workspace registry for rules affecting multiple Projects;
+- Project registry for Project, module/build-unit, contract, data-domain, and native-boundary scope.
+
+Architecture files carry a governance link, not copied rule prose. Use stable IDs in traceability only when it materially helps navigation. Follow `references/constraints-and-limitations.md` for basis, limitation category, verification, deduplication, and manual-content rules.
+
+## Extension and Modification Points
+
+Explain:
+
+- where to add a new feature/route/operation/provider;
+- which facade/interface/base type/registration point to extend;
+- reference implementations and reusable utilities;
+- configuration/resource/localization/test files that normally change together;
+- seams that appear extensible but are not safe to bypass.
+
+This is As-Is change guidance, not a future design proposal.
+
+## Build, test, CI, and operations
+
+Document only commands/checks evidenced by wrappers, build files, READMEs, test config, and the complete relevant CI workflow set. Prefer repository wrappers. Include native/build-flavor/device constraints. Say “CI not evaluated” when the search was incomplete; do not claim no CI exists.
+
+## Findings and evidence
+
+Classify findings as observed inconsistency, architecture concern, or implementation risk. State impact and evidence without inventing remediation.
+
+End every standalone Architecture document with precise `path#symbol-or-key` evidence. Parent documents link down and retain only cross-boundary evidence.

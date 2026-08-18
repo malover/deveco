@@ -1,0 +1,14 @@
+interface:
+  display_name: ProjectSpec Hierarchy v7
+  short_description: Generate substantive drift-safe project specifications
+  default_prompt: Use $generate-projectspec-hierarchy-v7 to document this repository
+    as substantive As-Is Business, Architecture, and scoped governance specifications.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

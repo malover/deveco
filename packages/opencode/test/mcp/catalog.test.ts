@@ -8,11 +8,17 @@ describe("MCP tool names", () => {
     expect(McpCatalog.toolKey("github", "search")).toBe("github_search")
   })
 
-  test("scopes the HomeGraph surface by agent role", () => {
-    expect(homeGraphToolAllowed("goal", "homegraph_callers")).toBe(true)
-    expect(homeGraphToolAllowed("goal", "homegraph_spec_match")).toBe(true)
-    expect(homeGraphToolAllowed("build", "homegraph_callers")).toBe(false)
-    expect(homeGraphToolAllowed("build", "homegraph_node")).toBe(true)
+  test("exposes the complete HomeGraph surface to every agent", () => {
+    for (const agent of ["goal", "build", "plan"]) {
+      expect(homeGraphToolAllowed(agent, "homegraph_status")).toBe(true)
+      expect(homeGraphToolAllowed(agent, "homegraph_files")).toBe(true)
+      expect(homeGraphToolAllowed(agent, "homegraph_search")).toBe(true)
+      expect(homeGraphToolAllowed(agent, "homegraph_callers")).toBe(true)
+      expect(homeGraphToolAllowed(agent, "homegraph_callees")).toBe(true)
+      expect(homeGraphToolAllowed(agent, "homegraph_spec_match")).toBe(true)
+      expect(homeGraphToolAllowed(agent, "homegraph_impact")).toBe(true)
+    }
+    expect(homeGraphToolAllowed("build", "homegraph_unknown")).toBe(false)
     expect(homeGraphToolAllowed("build", "github_search")).toBe(true)
   })
 })
