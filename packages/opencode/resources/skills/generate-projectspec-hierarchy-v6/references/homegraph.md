@@ -28,7 +28,19 @@ Use the installed equivalent of this progression:
 
 Homegraph installations may expose different tool names. Match by capability; do not assume a `trace_calls` or `find_path` tool exists.
 
+Use actual installed bounds. For Homegraph 1.5.x:
+
+- pass `projectPath` for the frozen Project root;
+- pass `maxFiles: 2-3` for local responsibility/state questions and no more than `5` for an end-to-end representative flow;
+- use `search.limit`, `callers.limit`, `callees.limit`, and `node.offset/limit` when those tools are needed;
+- put exact descriptor-derived filenames, routes, abilities, or symbols in every `explore` query;
+- exclude vendor/generated/build areas through indexing defaults and never seed queries with their symbols unless they are the explicit boundary under study.
+
+Do not ask broad prompts such as “modules, entry points, and responsibilities” without anchors. First obtain anchors from `workspace-inventory.json`, route/profile descriptors, or a bounded file/symbol search.
+
 Do not mechanically decompose every exploration packet into redundant follow-up calls. Reuse returned source, call-path, and impact evidence.
+
+If a response reports a process-memory budget, do not repeat the unchanged query. Reduce to one or two exact symbols/files, lower `maxFiles`, or switch to a bounded `node`/`callers` query. A generic busy/deadline response may be retried once according to installed tool guidance; a memory-budget response requires a tighter query.
 
 ## Project and module passes
 

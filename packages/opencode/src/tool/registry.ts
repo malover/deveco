@@ -61,6 +61,7 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { DebugExitTool } from "./debug-exit"
 import { SessionDebugState } from "@/session/debug-state"
+import { ProjectSpecAnalyzeTool } from "./project-spec-analyze"
 
 export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }) {
   return providerID === ProviderV2.ID.opencode || flags.exa || flags.parallel
@@ -122,6 +123,7 @@ export const layer = Layer.effect(
     const ohknowledge = yield* OhKnowledgeTool
     const arktscheck = yield* ArktsCheckTool
     const debugexit = yield* DebugExitTool
+    const projectspecanalyze = yield* ProjectSpecAnalyzeTool
     const verifyui = yield* VerifyUiTool
     const getuilog = yield* GetUiVerificationLogTool
     const saveuiscreenshot = yield* SaveUiScreenshotTool
@@ -248,6 +250,7 @@ export const layer = Layer.effect(
           get_ui_verification_log: Tool.init(getuilog),
           save_ui_screenshot: Tool.init(saveuiscreenshot),
           debugexit: Tool.init(debugexit),
+          project_spec_analyze: Tool.init(projectspecanalyze),
         })
 
         return {
@@ -278,6 +281,7 @@ export const layer = Layer.effect(
             tool.get_ui_verification_log,
             tool.save_ui_screenshot,
             tool.debugexit,
+            tool.project_spec_analyze,
             ...(ohknowledgeEnabled ? [tool.ohknowledge] : []),
           ],
           task: tool.task,

@@ -59,7 +59,7 @@ Stop when additional evidence repeats established facts or cannot change the pla
 
 ## Large repository execution
 
-Treat a repository as large when it has about 20+ Projects, 100+ modules/build units, or cannot fit compact summaries in one context.
+Treat a repository as large when any applies: about 250k+ owned source LoC, 3k+ owned source files, 20+ Projects, 100+ modules/build units, or compact summaries cannot fit in one context. Treat about 1M+ LoC, 10k+ source files, 50+ Projects, or 300+ modules as very large.
 
 For large repositories:
 
@@ -69,6 +69,9 @@ For large repositories:
 - write `docs/.projectspec/state.json` atomically after each Project;
 - resume from completed Project IDs after rechecking hierarchy fingerprints;
 - bound diagrams and split dense maps by subsystem/capability.
+- target a warm-index wall time below 8-10 minutes for roughly 500k LoC; treat a slower run as a profiling signal, not permission to omit required evidence;
+- keep direct implementation reads below 15-20 on the first pass across the run, then exceed only for named exact claims;
+- allow at most one Documentation Plan revision after it is frozen unless hierarchy evidence changes.
 
 Suggested checkpoint fields:
 
@@ -87,6 +90,10 @@ Suggested checkpoint fields:
 ```
 
 Do not store raw source, secrets, full graph packets, or large prose drafts in the checkpoint.
+
+## Run telemetry
+
+For large runs, write `docs/.projectspec/run-report.json` with phase durations, graph calls, direct reads, bytes/characters returned, retries, truncations, and final document counts. Telemetry is diagnostic and machine-oriented; do not link it from `docs/index.md` or turn it into product findings.
 
 ## Findings
 

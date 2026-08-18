@@ -15,7 +15,11 @@
 | ID | Capability/outcome | Participating modules | Detail |
 |---|---|---|---|
 
-## As-Is processes and operations
+Every major row must link to a detailed section below or to one Module/Capability Business owner.
+
+## Detailed owned capabilities and As-Is processes
+
+For every capability owned here include value, actors, trigger, preconditions, main flow, terminal outcome/outcome evidence, alternatives/failures, states, rules, data/external systems, participating units, and unknowns.
 
 ## Observable states, rules, and failures
 

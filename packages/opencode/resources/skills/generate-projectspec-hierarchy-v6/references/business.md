@@ -26,6 +26,15 @@ For each major capability answer:
 6. What exact rules constrain behavior?
 7. Which Project/modules implement or support it?
 
+Before choosing Business documents, create a Business Coverage Matrix with one row per candidate capability:
+
+| ID | Value | Actors/consumers | Trigger | Preconditions | Main flow | Alternatives/failures | States | Rules | Data/external systems | Participating units | Terminal outcomes | Evidence | Unknowns | Detailed owner |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+
+Do not collapse distinct user goals into one row merely because they share a screen or module. Typical separate capabilities include browse/search, select/share, edit/save, service-card launch, cleanup, privacy/permission handling, and API consumption when each has a distinct trigger and outcome.
+
+The matrix is planning state stored in `documentation-plan.json`, not user-facing prose. A capability is major when it is a primary entry surface, independently triggered user/system operation, externally consumed contract, or cross-module process with a distinct terminal outcome.
+
 ## UX-first analysis
 
 For direct UX or UX-participating modules, inspect:
@@ -69,6 +78,8 @@ Use concise sections:
 **Alternatives/failures:** ...
 ```
 
+For every major capability, include at least one complete main flow and the material observable branch/failure set. If exact persistence, delivery, callback, or return semantics cannot be observed, write `Outcome evidence: Unavailable — <missing source/runtime/external contract>` instead of stating the expected product result as fact.
+
 Include a Mermaid flow/state diagram only when it communicates branching or cross-project handoffs better than the numbered flow.
 
 ## Rules and data
@@ -93,3 +104,13 @@ Do not invent:
 - separate “business domains” for every physical module.
 
 If an important business fact is unavailable, say what evidence would be needed instead of guessing.
+
+## Claim evidence gate
+
+Before writing an observed business claim, require one of:
+
+- UX/state evidence that reaches the visible state;
+- public contract evidence that defines the returned result;
+- runtime/graph plus defining source/config evidence that reaches the terminal effect.
+
+Names, comments, README purpose, the start of a flow, or a call into an unavailable native/external boundary do not prove the terminal outcome. Describe the verified handoff and mark the downstream result unavailable.

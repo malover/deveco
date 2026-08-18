@@ -14,6 +14,8 @@ Optimize for **coverage per document**, not document count. A physical module al
 | Module/build unit | Conditional | Conditional |
 | GN target | None by default | Row/group by default |
 
+Distributed capabilities may receive `projects/<project>/capabilities/<capability-id>/business.md` when no module truthfully owns the end-to-end process and the Project Business file would otherwise contain several dense flows. A capability document is semantic detail, never a physical Project/module.
+
 ## Standalone Architecture gate
 
 Create a Module Architecture file when any applies:
@@ -48,6 +50,8 @@ Every major capability must have exactly one detailed Business owner:
 1. the owning Module Business file when one module cleanly owns it;
 2. the Project Business file when behavior spans modules;
 3. the high-level Business file when behavior genuinely spans Projects.
+
+“Detailed” means the owner contains capability value, actors/consumers, trigger, preconditions, main steps, at least one terminal outcome, material alternatives/failures, states, rules, data/external systems, participating units, evidence, and explicit unknowns. A portfolio row or 1-3 step summary is not a detailed owner.
 
 Child documents may describe their contribution and link upward; parent documents summarize and link downward. Do not duplicate the full flow.
 

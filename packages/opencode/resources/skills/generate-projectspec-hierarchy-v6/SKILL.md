@@ -26,6 +26,8 @@ Generate **As-Is** documentation. Do not invent future requirements, owners, roa
 8. Process one project and one documentation unit at a time; checkpoint large runs.
 9. Preserve manual content outside ProjectSpec generated markers during updates.
 10. Validate links, placeholders, markers, hierarchy coverage, and Mermaid fences before completion.
+11. Freeze `workspace-inventory.json` and `documentation-plan.json`; do not repeatedly rediscover descriptors or reconsider output paths.
+12. Treat a terminal outcome as observed only when evidence reaches it; otherwise mark it `Unavailable` and name the missing evidence.
 
 ## Output layouts
 
@@ -36,6 +38,7 @@ docs/
 ├── index.md
 ├── high-level-business.md
 ├── high-level-architecture.md
+├── capabilities/<capability-id>/business.md  # distributed capability, when useful
 └── modules/<module-id>/
     ├── architecture.md              # only when standalone adds value
     └── business.md                  # only for a distinct business capability/contract
@@ -53,6 +56,7 @@ docs/
 ├── projects/<project-relative-path>/
 │   ├── business.md
 │   ├── architecture.md
+│   ├── capabilities/<capability-id>/business.md  # distributed capability, when useful
 │   └── modules/<module-id>/
 │       ├── architecture.md          # significance-based
 │       └── business.md              # significance-based
@@ -79,6 +83,7 @@ Never preload all references or templates. Never load more than one template at 
 ## Tool policy
 
 - Use manifests and build/package descriptors for hierarchy and ownership.
+- When `project_spec_analyze` is available, call it once before semantic analysis and use its compact response plus `docs/.projectspec/workspace-inventory.json`; do not reread every descriptor individually.
 - Use Homegraph as the preferred semantic index when available and queryable.
 - If Homegraph is absent or unusable, use targeted symbol/text search and the smallest relevant source reads. Do not silently replace it with a recursive source-tree dump.
 - Use source/config to verify exact externally meaningful constants, branches, state outcomes, contracts, and failure behavior.
@@ -94,4 +99,4 @@ Finish only when:
 - every important cross-project edge has provider, consumer, direction, and evidence;
 - every standalone document is linked from `docs/index.md` and its parent document;
 - no generated document contains unsupported certainty, empty boilerplate, or unresolved template placeholders;
-- `scripts/validate_docs.py <docs-root>` passes, with any intentionally unresolved evidence gap stated in the relevant document.
+- `scripts/validate_docs.py <docs-root> --inventory <workspace-inventory.json> --plan <documentation-plan.json>` passes, with any intentionally unresolved evidence gap stated in the relevant document.

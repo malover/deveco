@@ -17,7 +17,7 @@
 
 ## Core As-Is processes
 
-Include only end-to-end Project/workspace processes. Link to child detail.
+Include only end-to-end Project/workspace processes. For each capability owned here include trigger, preconditions, terminal outcome/outcome evidence, alternatives/failures, participating Projects, and unknowns. Otherwise summarize and link to child detail.
 
 ## Domain concepts and business data
 

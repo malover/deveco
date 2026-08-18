@@ -19,7 +19,7 @@ Omit this section in single-project mode and use a compact Module inventory inst
 
 ## Detailed documentation
 
-List every generated standalone document grouped by Project and module. Mark grouped units as `Grouped in parent` rather than creating dead links.
+List every generated standalone document grouped by Project, capability, and module. Mark grouped units as `Grouped in parent` rather than creating dead links.
 
 ## Evidence and limitations
 

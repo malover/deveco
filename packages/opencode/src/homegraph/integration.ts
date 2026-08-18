@@ -62,8 +62,10 @@ export const HOMEGRAPH_INSTRUCTIONS = `
 DevEco starts the built-in persistent MCP server without creating or refreshing an index. Repository indexing is explicit: \`/init\` owns manual initialization, while the documentation skill invoked by Goal Step 0 owns any indexing required to generate project knowledge. When HomeGraph is connected and indexed, use it before grep/find or broad file reading for code discovery:
 
 - **General coding**: use \`homegraph_explore\` for a targeted path, \`homegraph_node\` for one known symbol/file, and \`homegraph_impact\` before changing shared symbols.
-- **Goal documentation**: the Goal agent additionally receives status, files, search, callers, callees, and Commit4Spec tools for project-knowledge generation and targeted follow-up.
+- **Goal documentation**: run \`project_spec_analyze\` once for deterministic hierarchy/statistics, then use HomeGraph only for semantic questions anchored by exact Project paths, files, routes, abilities, or symbols. Pass \`projectPath\`, keep \`maxFiles\` at 2-3 for local questions (up to 5 for one representative flow), and use the limit/offset inputs exposed by targeted tools.
 - **History**: Commit4Spec provides supporting history only; current graph/source evidence always wins.
+
+Do not retry a process-memory-budget response unchanged: tighten to one or two exact anchors, lower \`maxFiles\`, or use a bounded node/caller query. Do not assume nonexistent tools such as \`trace_calls\`.
 
 HomeGraph stores repository-local data under \`.homegraph/\` and supports ArkTS/HarmonyOS projects.
 `.trim()

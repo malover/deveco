@@ -34,6 +34,9 @@ For existing documents:
 - Important alternative/error states are covered.
 - Exact rules are verified.
 - Technical-only units do not receive invented business narratives.
+- Every planned major capability has a Detailed Business owner, not only a portfolio row.
+- Every detailed owner covers trigger, preconditions, terminal outcome or explicit unavailable-outcome marker, alternatives/failures, participating units, evidence, and unknowns.
+- Observed terminal outcomes have evidence reaching that outcome; handoffs across unavailable native/external boundaries are not promoted to certainty.
 
 ### Architecture
 
@@ -61,4 +64,4 @@ Run `scripts/validate_docs.py` against the output root. Fix:
 - unresolved template tokens/TODOs;
 - duplicate generated document titles.
 
-Then manually review hierarchy coverage and capability coverage, which require the frozen plan and cannot be proven from Markdown alone.
+Pass `--inventory` and `--plan` so the validator can check physical-unit coverage, planned documents, capability owners, traceability IDs, outcome/unknown markers, and evidence classes. Manually review narrative truthfulness and abstraction level.
