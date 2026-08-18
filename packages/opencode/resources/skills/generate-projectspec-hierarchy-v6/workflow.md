@@ -6,8 +6,10 @@
 2. Inspect existing `docs/index.md` and ProjectSpec markers. If prior generated metadata identifies a revision, use it to plan an incremental update.
 3. For a very large run, create or resume `docs/.projectspec/state.json`. Keep it machine-oriented and exclude it from `docs/index.md`.
 4. Do not overwrite user-authored text outside generated markers.
-5. When `project_spec_analyze` is available, call it once with the resolved root and baseline. Freeze its artifact at `docs/.projectspec/workspace-inventory.json`. If unavailable, perform one equivalent descriptor-only pass and write the same normalized artifact yourself.
-6. For large runs, start `docs/.projectspec/run-report.json` and record phase time/tool/read counters without storing source text.
+5. Ensure `docs/` and `docs/.projectspec/` exist. When `project_spec_analyze` is available, call it once with the resolved root and baseline. Freeze its artifact at `docs/.projectspec/workspace-inventory.json`.
+6. If the analyzer is unavailable, returns an error, omits its artifact, or depends on a missing executable such as `rg`, treat only the analyzer as unavailable. Do not install tools or retry unchanged. Use available directory listing/glob and file-read tools for one bounded descriptor-first pass, then write the same normalized `workspace-inventory.json` yourself. Cover root/build manifests, nested project descriptors, module/build-unit descriptors, ownership, and declared dependency candidates; do not recursively read source files.
+7. Verify that `workspace-inventory.json` exists and parses as JSON before Step 1. Never substitute an in-memory inventory. If writing fails, report that concrete filesystem blocker; otherwise continue normally.
+8. For large runs, start `docs/.projectspec/run-report.json` and record phase time/tool/read counters without storing source text.
 
 ## 1. Freeze hierarchy
 
@@ -71,6 +73,8 @@ cross_project_edges:
     consumer: project-id
     evidence: descriptor-or-contract
 ```
+
+Create the parent directory and file when absent. Before Step 3, verify that `documentation-plan.json` exists, parses as JSON, and contains the frozen project/module worklists and every planned document path. Do not continue using only an in-memory plan.
 
 Apply these gates:
 

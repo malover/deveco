@@ -28,6 +28,7 @@ Generate **As-Is** documentation. Do not invent future requirements, owners, roa
 10. Validate links, placeholders, markers, hierarchy coverage, and Mermaid fences before completion.
 11. Freeze `workspace-inventory.json` and `documentation-plan.json`; do not repeatedly rediscover descriptors or reconsider output paths.
 12. Treat a terminal outcome as observed only when evidence reaches it; otherwise mark it `Unavailable` and name the missing evidence.
+13. Treat required ProjectSpec directories and metadata as skill outputs: create them when absent, even when an optional analyzer, search binary, or graph tool fails.
 
 ## Output layouts
 
@@ -84,6 +85,8 @@ Never preload all references or templates. Never load more than one template at 
 
 - Use manifests and build/package descriptors for hierarchy and ownership.
 - When `project_spec_analyze` is available, call it once before semantic analysis and use its compact response plus `docs/.projectspec/workspace-inventory.json`; do not reread every descriptor individually.
+- If the analyzer fails for any reason—including a missing executable such as `rg`—do not install dependencies, retry unchanged, or stop. Immediately create `docs/.projectspec/`, perform the workflow's portable descriptor-first fallback with available file/list/read tools, and write the required inventory yourself.
+- Before consuming either metadata file, verify it exists and is valid JSON. Create or repair `workspace-inventory.json` and `documentation-plan.json` from evidence already collected rather than continuing with in-memory-only substitutes.
 - Use Homegraph as the preferred semantic index when available and queryable.
 - If Homegraph is absent or unusable, use targeted symbol/text search and the smallest relevant source reads. Do not silently replace it with a recursive source-tree dump.
 - Use source/config to verify exact externally meaningful constants, branches, state outcomes, contracts, and failure behavior.
