@@ -1,191 +1,196 @@
 # Generation Workflow
 
-## 0. Establish scope and update mode
+## 0. Bootstrap before analysis
 
-1. Resolve the analyzed root, requested revision, output root, and whether the user wants tracked-revision or working-tree documentation.
-2. Inspect existing `docs/index.md` and ProjectSpec markers. If prior generated metadata identifies a revision, use it to plan an incremental update.
-3. For a very large run, create or resume `docs/.projectspec/state.json`. Keep it machine-oriented and exclude it from `docs/index.md`.
-4. Do not overwrite user-authored text outside generated markers.
-5. Ensure `docs/` and `docs/.projectspec/` exist. When `project_spec_analyze` is available, call it once with the resolved root and baseline. Freeze its artifact at `docs/.projectspec/workspace-inventory.json`.
-6. If the analyzer is unavailable, returns an error, omits its artifact, or depends on a missing executable such as `rg`, treat only the analyzer as unavailable. Do not install tools or retry unchanged. Use available directory listing/glob and file-read tools for one bounded descriptor-first pass, then write the same normalized `workspace-inventory.json` yourself. Cover root/build manifests, nested project descriptors, module/build-unit descriptors, ownership, and declared dependency candidates; do not recursively read source files.
-7. Verify that `workspace-inventory.json` exists and parses as JSON before Step 1. Never substitute an in-memory inventory. If writing fails, report that concrete filesystem blocker; otherwise continue normally.
-8. For large runs, start `docs/.projectspec/run-report.json` and record phase time/tool/read counters without storing source text.
+1. Resolve repository root, selected revision/working-tree policy, output root, and update mode.
+2. Run `scripts/bootstrap_projectspec.mjs` immediately. This is the first repository analysis action and must create both metadata files.
+3. Read the compact result and the two JSON artifacts. Do not reread every descriptor.
+4. Verify:
+   - every explicit manifest Project and coherent build root is represented;
+   - nested ArkTS module roots remain owned by their declaring Project;
+   - local `file:`/workspace dependencies are not external;
+   - every physical module/build unit has a stable ID and path;
+   - `documentation-plan.json` contains all mandatory structural documents.
+5. Correct only ambiguous/incorrect descriptor records. Do not replace deterministic data with prose.
+6. Inspect existing generated markers and prior baseline. Preserve manual content. For large runs create/resume `state.json` and start `run-report.json`.
 
-## 1. Freeze hierarchy
+The bootstrap plan is intentionally provisional for Business semantics. Do not begin writing yet.
+
+## 1. Freeze physical hierarchy
 
 Read `references/hierarchy.md`.
 
-1. Read the frozen inventory instead of opening each descriptor again.
-2. Verify only ambiguous ownership records against their cited descriptor.
-3. Detect the workspace root Project, if any; its internal ID is `_root` and its output slug comes from descriptor name or `root`.
-4. Resolve nested candidates against enclosing-project module ownership.
-5. Freeze the Project and physical Module/Build-unit worklists.
-6. Determine mode only now: one Project means single-project; more than one means multi-project.
-7. Record coarse cross-project dependency candidates without implementation traversal.
+1. Freeze Workspace/System -> optional Subsystem -> Project -> Module/Build-unit.
+2. Resolve root Project versus multi-project mode only from build/ownership evidence.
+3. Record declared dependency direction as consumer -> provider, plus contract and evidence.
+4. Distinguish owned local/native code, sibling Projects, platform APIs, and external packages.
+5. Preserve every physical unit in the Architecture worklist, including grouped units.
 
-Do not let later capability grouping erase or create physical Projects.
+Change a frozen boundary only when direct ownership/build evidence contradicts it; record the correction.
 
-## 2. Discover capabilities and freeze the Documentation Plan
+## 2. Build semantic coverage before selecting final files
 
-Read `references/document-model.md` and, for large repositories, `references/evidence-and-performance.md`.
+Read `references/document-model.md`, `references/business.md`, and for large repositories `references/evidence-and-performance.md`.
 
-Before choosing files, read `references/business.md` and create the Business Coverage Matrix. Use descriptor-derived abilities/extensions/routes/public packages as anchors, then issue only bounded Homegraph queries with exact names to identify distinct triggers and terminal outcomes. Do not fully trace every capability yet.
+### 2.1 Build the capability coverage matrix
 
-Create `docs/.projectspec/documentation-plan.json` with:
+Start from every deterministic `capabilityCandidate`, then add source-evidenced candidates from:
 
-```yaml
-workspace_mode: single-project | multi-project
-documents:
-  - path: index.md
-    kind: index
-  - path: high-level-business.md
-    kind: business
-  - path: high-level-architecture.md
-    kind: architecture
-projects:
-  - id: stable-relative-path
-    path: relative/path
-    kind: arkts | openharmony-component | mixed | other
-    modules:
-      - id: stable-module-id
-        path: relative/path
-        architecture: standalone | grouped
-        business: standalone | grouped | none
-        rationale: short evidence-based reason
-capabilities:
-  - id: stable-capability-id
-    major: true | false
-    owner_document: path/to/business.md
-    participating_units: [project/module]
-    value: short outcome
-    actors: [actor-or-consumer]
-    trigger: short trigger
-    preconditions: [condition]
-    terminal_outcomes: [outcome]
-    alternatives_failures: [branch]
-    states: [state]
-    rules: [RULE-id]
-    data_external_systems: [concept-or-system]
-    evidence: [path#symbol-or-key]
-    unknowns: [missing evidence]
-cross_project_edges:
-  - provider: project-id
-    consumer: project-id
-    evidence: descriptor-or-contract
+- abilities, extensions, services, routes, pages, dialogs, cards, widgets, commands, and public APIs;
+- state enums/conditional rendering and primary controllers/view models;
+- representative tests named for user/system operations;
+- public package exports and cross-Project contracts;
+- persistence/integration owners that implement independently triggered behavior.
+
+Classify every candidate as:
+
+- `major`: independently triggered value with a distinct terminal outcome;
+- `sub-capability`: meaningful behavior owned by a major capability;
+- `technical-support`: necessary implementation behavior without its own business outcome;
+- `excluded`: duplicate, generated, obsolete only when proven, or non-behavioral—with reason.
+
+Do not infer a capability solely from a directory or filename. Tests and names are anchors that require representative source/contract confirmation.
+
+### 2.2 Trace representative behavior
+
+For every major capability trace one end-to-end path:
+
+1. real trigger/caller and preconditions;
+2. entry point and orchestration owner;
+3. state transitions/decision branches;
+4. data reads/writes/cache/transformations;
+5. external/platform/native handoffs;
+6. observed local terminal outcome or exact external callback/contract;
+7. material cancel, error, empty, offline, permission, retry, and recovery branches;
+8. one representative test when present.
+
+For GUI behavior, also inventory screens/states, component-to-action mapping, conditional rendering, back/dismiss behavior, visible data, localization, and accessibility evidence. For non-GUI behavior, reconstruct an equivalent caller/system/API journey with input, decisions, state/effects, output, and failure recovery.
+
+### 2.3 Enrich the documentation plan exactly once
+
+Update the deterministic plan with:
+
+```json
+{
+  "capabilities": [{
+    "id": "CAP-example",
+    "classification": "major",
+    "owner_document": "path/to/business.md",
+    "participating_units": ["project/module"],
+    "trigger": "observed trigger",
+    "terminal_outcomes": ["observed outcome or exact handoff"],
+    "states": ["meaningful state"],
+    "rules": ["RULE-id"],
+    "evidence": ["path#symbol-or-key"],
+    "unknowns": []
+  }],
+  "excluded_capability_candidates": [{
+    "id": "candidate-id",
+    "reason": "evidence-based reason"
+  }]
+}
 ```
 
-Create the parent directory and file when absent. Before Step 3, verify that `documentation-plan.json` exists, parses as JSON, and contains the frozen project/module worklists and every planned document path. Do not continue using only an in-memory plan.
+Apply standalone gates only after tracing. Remove shallow deterministic candidates when their substance belongs in a parent. Add capability documents only when a distributed process would make its Project/Workspace Business document dense. Freeze final paths before writing.
 
-Apply these gates:
+## 3. Analyze and write one Project at a time
 
-- Generate Project Business + Architecture for every independent Project in multi-project mode.
-- Generate standalone Module Architecture when the module has meaningful unique structure, public/shared API, state/data ownership, integration ownership, complex runtime behavior, unusual build/runtime constraints, or a local finding.
-- Generate standalone Module Business only when the module owns a distinct user/system/API-facing capability or a substantial, independently explainable part of a process.
-- Group thin adapters, variants, utilities, and GN targets into the owning Project Architecture unless a gate above applies.
-- Put distributed capability detail in the narrowest parent Business document that can describe the end-to-end behavior truthfully. Do not invent a synthetic physical module.
-- Create a capability Business document when a distributed major capability needs substantial detail and putting several such flows in Project Business would make it dense.
-- Freeze all expected output paths now. Revise the plan at most once unless later evidence changes hierarchy.
+Read `references/homegraph.md` before graph use. Keep queries serial and anchored.
 
-## 3. Analyze one Project just in time
+For the current Project:
 
-For the current Project only:
+1. Establish Homegraph queryability. If unavailable, use bounded exact-symbol search/source reads.
+2. Ask one focused overview question anchored by deterministic entries/surfaces.
+3. Create a Verification Queue for claims requiring exact values, branches, contracts, or outcomes.
+4. Analyze planned standalone owners and representative flows; gather compact facts for grouped units.
+5. Inspect real controllers/state owners/callbacks/persistence/native bridges/tests—not only indexes.
+6. Resolve every local `Unavailable` by inspection or relabel it `Not inspected`; only outside-scope/missing evidence is `Unavailable`.
 
-1. Read `references/homegraph.md` and establish a queryable Homegraph index when available. Use the Project root, not the whole multi-repo container.
-2. Perform bounded explorations anchored by exact ability, route, extension, public API, or entry symbols from the inventory/coverage matrix. Use `maxFiles: 2-3`; allow up to `5` only for a representative end-to-end flow.
-3. Confirm descriptor-derived modules and refine the Documentation Plan without changing frozen Project boundaries.
-4. Create a Verification Queue containing only unresolved claims that require exact source/config evidence.
-5. Analyze standalone units first; collect compact grouped-unit facts without full-depth exploration.
-6. Do not retry a Homegraph memory-budget response unchanged. Tighten to exact symbols/files or use a bounded node/caller query.
+### 3.1 Write substantive Business owners
 
-For each standalone Module Architecture:
+For each Project, Module, or capability Business owner:
 
-1. Read `references/architecture.md`.
-2. Trace only important flows.
-3. Verify queued exact claims using the smallest source surface.
-4. Load `templates/module-architecture.md`.
-5. Write directly, then collapse raw evidence to a compact module summary.
+1. Load its Business template.
+2. Explain purpose, scope, actors/consumers, capabilities, and observable value.
+3. If UX exists, document the UX flow/state model and user-visible data. If it does not, document the reconstructed system/API/operational journey.
+4. Write at least one complete main process per major capability and material alternate/failure/recovery paths.
+5. Add use cases, decision/rule tables, domain concepts/data, external systems, observable quality/privacy/localization behavior, and architecture traceability when evidenced.
+6. End with evidence, assumptions/inferences, unknowns, and limitations.
 
-For each standalone Module Business:
+Do not satisfy a section with one generic sentence, a file list, or `N/A`. Omit truly inapplicable conditional subsections; never omit the capability/process/rule/evidence core.
 
-1. Read `references/business.md`.
-2. Reuse architecture evidence; add only UX/state/caller evidence needed for observable behavior.
-3. Verify terminal outcomes and exact business rules.
-4. Load `templates/module-business.md`.
-5. Write directly, then retain only capability, flow, rule, and evidence summaries.
+### 3.2 Write drift-prevention Architecture owners
 
-For each planned capability Business document:
+For each Architecture document:
 
-1. Reuse the Business Coverage Matrix and participating module architecture evidence.
-2. Trace the representative trigger-to-terminal-outcome path; verify exact observable rules and branches.
-3. Load `templates/capability-business.md`.
-4. Write one detailed owner without copying module internals or the Project summary.
+1. Load its Architecture template.
+2. Explain scope/boundary, responsibilities, entry/public surfaces, consumers/dependencies, internal structure, runtime/lifecycle flows, data/state ownership, integrations, and build/test/CI posture.
+3. Add an explicit source-tree/ownership map at the correct zoom.
+4. Write **Architectural Constraints and Invariants** as evidence-backed rules:
+   - ownership/source-of-truth boundaries;
+   - allowed dependency direction and forbidden bypasses/cycles;
+   - lifecycle/thread/process/state-order requirements;
+   - API/ABI/schema/serialization compatibility;
+   - security/permission/data-handling restrictions;
+   - platform/device/build/native/resource constraints;
+   - performance/resource constraints only when observed.
+5. Write **Extension and Modification Points**: where new behavior belongs, reusable seams, and existing patterns to follow.
+6. Write **Known Limitations and Evidence Gaps**: current constraints, unsupported cases, fragile boundaries, and genuinely unavailable evidence.
+7. Write **Change Guardrails**: pre-change impact checks, consumers/contracts to preserve, tests/commands to run, and documentation links to update.
 
-## 4. Synthesize the current Project
+Constraints must be actionable and local. “Follow clean architecture” is not a constraint. If no constraint is proven for a category, say `No additional <category> constraint was evidenced` only after inspection; do not invent one.
 
-In multi-project mode:
+Write each document immediately, retain a compact summary, checkpoint, and release detailed Project context.
 
-1. Write Project Architecture from module summaries, grouped-unit facts, descriptors, and Project graph evidence using `templates/project-architecture.md`.
-2. Write Project Business from capabilities and end-to-end behavior using `templates/project-business.md`.
-3. Validate that every physical module appears in the Project Architecture inventory.
-4. Validate that every major Project capability has one detailed Business owner satisfying every required coverage field, not merely a table row.
-5. Save a compact Project Summary and checkpoint `docs/.projectspec/state.json`.
-6. Release detailed context before moving to the next Project.
+## 4. Synthesize upward
 
-In single-project mode, retain the Project Summary for high-level synthesis and skip wrapper documents.
+### Multi-project
 
-## 5. Optional logical OpenHarmony subsystem roll-up
+For each Project:
 
-Generate `docs/subsystems/<subsystem>/architecture.md` only when all are true:
+- Project Business owns complete Project-wide capabilities not better owned below.
+- Project Architecture inventories every module/build unit and aggregates local drift guardrails.
+- Child documents link to the Project pair; Project documents link to children and the root.
 
-- the checkout represents an OpenHarmony system or sizeable subsystem set;
-- `subsystem_config.json`, `bundle.json`, or equivalent evidence provides a reliable component-to-subsystem mapping;
-- at least two documented components make the roll-up useful.
+### Optional OpenHarmony subsystem
 
-Treat a subsystem as a logical group, not a repository. Do not generate a subsystem Business document unless independent business ownership and behavior are explicitly evidenced.
+Generate a subsystem Architecture roll-up only when authoritative component/subsystem mapping exists and at least two components make it useful. Include aggregated dependency direction, shared constraints, limitations, and change guardrails. Do not invent a subsystem Business owner.
 
-## 6. Synthesize high-level documents
+### High level
 
-After all Project Summaries exist:
+After all Project summaries:
 
-1. Write `docs/high-level-architecture.md` from Project Summaries, root manifests/config, and resolved cross-project edges. Do not replay module internals.
-2. Write `docs/high-level-business.md` from the capability portfolio, actors, cross-project processes, domain terms, observable rules, and failures.
-3. Write `docs/index.md` last so it reflects the actual output set.
-4. In single-project mode, use the same templates but interpret “Project inventory” as “Module inventory.”
+1. Write high-level Architecture from Project boundaries, cross-Project contracts, shared data/integration/lifecycle concerns, and the constraints whose blast radius crosses Projects.
+2. Write high-level Business from the capability portfolio and complete cross-Project journeys. Do not reduce it to links.
+3. Write `index.md` last as a concise access map; substance remains in Business/Architecture documents.
 
-## 7. Review and patch
+In single-project mode, high-level documents also serve as the Project documents and must retain full Project-level substance.
+
+## 5. Review for truth, depth, and drift prevention
 
 Read `references/update-and-validation.md`.
 
-Review generated docs before reopening source:
+Review every generated document before reopening source:
 
-- hierarchy and ownership;
-- Business/Architecture separation and traceability;
-- cross-level deduplication;
-- capability and physical-unit coverage;
-- evidence labels and uncertainty;
-- diagrams at the correct zoom level;
-- parent/back links and local file links.
+- Can a person narrate the primary value flow, decisions, states, failures, and outcomes?
+- Can an agent identify where to implement a feature, which boundaries it must not cross, and what contracts/tests it must preserve?
+- Does every runtime/ownership claim have symbol/config/contract evidence rather than a directory name?
+- Does every major capability reach a terminal outcome/handoff?
+- Are local native code and local packages classified as owned?
+- Are dependency arrows explicitly `depends on` or `used by`?
+- Are constraints concrete, limitations honest, and guardrails actionable?
+- Is content duplicated, or are there shallow standalone files to consolidate?
 
-Patch only affected documents. Reopen graph/source evidence only for a concrete failed check.
+Patch only affected documents. Reopen evidence only for a named failed check.
 
-Run:
+Run the bundled validator with inventory and plan, then perform a manual semantic audit. A passing script confirms mechanics and required sections, not factual truth.
 
-```bash
-python3 <skill-dir>/scripts/validate_docs.py <repository>/docs \
-  --inventory <repository>/docs/.projectspec/workspace-inventory.json \
-  --plan <repository>/docs/.projectspec/documentation-plan.json
-```
+## Incremental update
 
-On success, remove only `docs/.projectspec/state.json` unless the user asked to keep resumable state. Keep inventory, plan, and large-run telemetry as machine-readable update inputs; do not link them from the index.
+1. Rerun deterministic bootstrap for the selected revision.
+2. Compare hierarchy/descriptors, capability anchors, public surfaces, and prior plan.
+3. Reanalyze changed owners, impacted flows/consumers, and inherited constraints.
+4. Regenerate affected regions plus ancestor summaries, guardrails, traceability, and index links.
+5. Run full coverage/semantic review even for partial regeneration.
 
-## Incremental update path
-
-When prior metadata and revision history are available:
-
-1. Find changed descriptors, docs, symbols/files, and Project boundaries since the documented revision.
-2. Map each change to its owning module, Project, capability, and ancestor documents.
-3. Reanalyze only affected standalone/grouped units and cross-boundary flows.
-4. Regenerate affected generated regions plus their parent summaries and `docs/index.md`.
-5. Run full hierarchy/link/coverage validation even when content regeneration is partial.
-
-Fall back to a full hierarchy rediscovery when manifests, project roots, module descriptors, or ownership mappings changed.
+Fall back to full semantic planning when project boundaries, module ownership, public contracts, state models, or major capability triggers change.

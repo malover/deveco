@@ -1,104 +1,90 @@
 # Document Model and Selection
 
-## Selection principle
+## Structural baseline versus semantic plan
 
-Optimize for **coverage per document**, not document count. A physical module always receives an inventory entry, but a standalone file must add unique navigational or behavioral value.
+`bootstrap_projectspec.mjs` deterministically creates the initial inventory and plan from manifests, descriptors, declared surfaces, local dependency references, source counts, and file signals. This eliminates repeated LLM hierarchy/path planning.
+
+The baseline cannot prove business ownership, runtime complexity, terminal outcomes, or architectural constraints. Enrich it once after representative semantic tracing. Every changed standalone decision must keep its evidence-based reason.
 
 ## Mandatory outputs
 
 | Scope | Business | Architecture |
 |---|---|---|
-| Workspace/System | Always | Always |
-| Project in multi-project mode | Always; concise if technical-only | Always |
+| Workspace/System or the sole Project | Always, substantive | Always, substantive |
+| Independent Project in multi-project mode | Always; technical-only Projects may be concise but useful | Always |
 | Logical OpenHarmony subsystem | Normally none | Conditional roll-up |
 | Module/build unit | Conditional | Conditional |
-| GN target | None by default | Row/group by default |
+| GN target | None by default | Inventory row by default |
 
-Distributed capabilities may receive `projects/<project>/capabilities/<capability-id>/business.md` when no module truthfully owns the end-to-end process and the Project Business file would otherwise contain several dense flows. A capability document is semantic detail, never a physical Project/module.
+Every physical unit appears in an Architecture inventory. This does not imply one file per unit.
 
 ## Standalone Architecture gate
 
-Create a Module Architecture file when any applies:
+Keep/create a Module Architecture document only when evidence shows one or more:
 
-- meaningful public/shared surface or multiple consumers;
-- owns data/state/persistence or an external integration;
-- contains a non-trivial runtime, lifecycle, state, or error flow;
-- has distinct layers/responsibilities worth navigating;
-- has unusual build/runtime/deployment constraints;
-- has a local finding requiring evidence and context;
-- is large enough that the parent Project Architecture would become dense.
+- public/shared API, inner kit, native bridge, or multiple consumers;
+- ownership of state, persistence, cache, schema, or external integration;
+- non-trivial lifecycle/runtime/state/error behavior;
+- distinct internal layers/responsibilities and modification seams;
+- unusual build/device/product/native/security/resource constraints;
+- change blast radius or local architectural finding needing detail;
+- enough unique substance that the parent’s constraints/flows would become dense.
 
-Otherwise group it under an architectural area in Project/high-level Architecture with name, kind, path, responsibility, dependencies, and consumers.
+A large file count is only a candidate signal. Descriptor metadata and directory listings alone do not justify a standalone document.
 
 ## Standalone Business gate
 
-Create a Module Business file when it owns a distinct:
+Keep/create a Module Business document only when the module cleanly owns:
 
-- user-facing flow or UX state machine;
-- OS/framework-facing behavior with observable outcomes;
-- independently consumed API/library contract;
-- business rule set or substantial subprocess.
+- a distinct user-facing UX/state journey;
+- OS/framework/system behavior with observable outcomes;
+- an independently consumed API/library contract;
+- a substantial subprocess or coherent rule set.
 
-Use `grouped` when it supports a wider capability but has no independently useful narrative. Use `none` only when it has no material observable contribution; still list its technical role in Architecture.
+Distributed capabilities belong in the narrowest parent or a capability document. Utilities, DTO-only modules, build glue, variants, generated code, and low-level targets remain Architecture inventory/group content unless behavior proves otherwise.
 
-Do not write a fake mini-product description for utilities, build glue, variants, DTO-only modules, generated code, or low-level GN targets.
+## Capability document gate
 
-## Capability coverage
+Create a dedicated capability Business file only when:
 
-Every major capability must have exactly one detailed Business owner:
+- the capability spans multiple modules/Projects;
+- it has a complete independent journey and substantial rules/state/failure detail;
+- embedding it with several other major flows would make the parent hard to use.
 
-1. the owning Module Business file when one module cleanly owns it;
-2. the Project Business file when behavior spans modules;
-3. the high-level Business file when behavior genuinely spans Projects.
+Semantic documents never become physical Projects/modules.
 
-“Detailed” means the owner contains capability value, actors/consumers, trigger, preconditions, main steps, at least one terminal outcome, material alternatives/failures, states, rules, data/external systems, participating units, evidence, and explicit unknowns. A portfolio row or 1-3 step summary is not a detailed owner.
+## Substance gate
 
-Child documents may describe their contribution and link upward; parent documents summarize and link downward. Do not duplicate the full flow.
+A standalone file must contain more than metadata/navigation. Before retaining it, confirm it can materially fill:
+
+- Business: value, actor/caller, UX/system journey, complete flow, states, rules, data/systems, failures/recovery, terminal outcome, traceability, evidence/limitations.
+- Architecture: boundary/responsibility, source ownership map, entry/public surfaces, consumers/dependencies, runtime/data flows, build/test posture, architectural constraints/invariants, extension points, limitations, and change guardrails.
+
+If not, consolidate into the parent and mark the unit `Grouped`.
+
+## Capability ownership and traceability
+
+Every major `CAP-*` has exactly one detailed Business owner. Every flow/rule maps to Architecture owners and representative evidence/tests when present. Child documents explain local contribution; parents synthesize cross-boundary behavior.
+
+The final plan must account for all deterministic capability candidates as major, sub-capability, technical-support, or excluded with reason. This gives coverage without creating files per route/test/module.
 
 ## Required navigation
 
-`docs/index.md` must contain:
+`docs/index.md` includes scope/revision, Business/Architecture start links, Project/module inventory, and links to every standalone document. It remains concise.
 
-- scope and selected revision;
-- “Start here” links for Business and Architecture;
-- Project inventory in multi-project mode;
-- links to every generated standalone document;
-- a short evidence/limitations note.
+Every child links to parent and index. Every parent inventory links to children and labels grouped units. Navigation must never replace substantive content in Business/Architecture documents.
 
-Every child document links to its parent and `docs/index.md`. Every parent inventory links to existing children and shows `Grouped` when no child file exists.
+## Density and duplication
 
-## Cross-document traceability
-
-Use stable IDs only where they help:
-
-- `CAP-<slug>` for major capabilities;
-- `FLOW-<slug>` for important processes;
-- `RULE-<slug>` for observable rules;
-- `ARC-<slug>` for important architecture areas/flows.
-
-Business documents map capabilities/flows/rules to owning Projects/modules. Architecture documents map those IDs to entry points, components, data/integration ownership, and validation evidence. Avoid heavyweight requirement matrices when the repository contains no requirements/test evidence.
-
-## Density rules
-
-- Prefer 4-7 architectural areas per Project/module view.
-- Use tables only for repeated comparable records.
-- Use prose for rationale and behavior.
-- Omit empty conditional sections instead of writing “N/A” repeatedly.
-- Keep inventories compact; put detailed flows in the owning document.
-- Split a diagram when it needs more than about 15 nodes or crosses more than two hierarchy levels.
+- Prefer 4-7 architectural areas per view.
+- Use tables for comparable records, prose for behavior/implications, numbered steps for flows, and diagrams for relationships/state.
+- Put detail once at the lowest useful owner; parent summaries must explain implications, not repeat the child.
+- Consolidate documents with repeated template language or fewer than two unique behavioral/architectural findings.
+- Split diagrams above roughly 15 nodes or two hierarchy levels.
 
 ## Document control
 
-At the top of every generated file include a compact metadata block:
-
-```markdown
-> Scope: `<relative path>`  
-> Baseline: `<revision or working tree>`  
-> Evidence: Observed / Declared / Inferred / Unavailable as noted  
-> Parent: [Documentation index](relative-link)
-```
-
-Wrap generated content:
+Each generated file starts with scope, baseline, evidence policy, parent links, and coverage notes. Wrap one generated region in:
 
 ```html
 <!-- PROJECTSPEC:GENERATED:START -->
@@ -106,4 +92,4 @@ Wrap generated content:
 <!-- PROJECTSPEC:GENERATED:END -->
 ```
 
-Keep user-owned content outside the markers.
+Preserve all user-owned content outside markers.

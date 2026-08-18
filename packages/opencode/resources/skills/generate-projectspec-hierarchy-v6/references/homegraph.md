@@ -40,7 +40,7 @@ Do not ask broad prompts such as â€œmodules, entry points, and responsibilitiesâ
 
 Do not mechanically decompose every exploration packet into redundant follow-up calls. Reuse returned source, call-path, and impact evidence.
 
-If a response reports a process-memory budget, do not repeat the unchanged query. Reduce to one or two exact symbols/files, lower `maxFiles`, or switch to a bounded `node`/`callers` query. A generic busy/deadline response may be retried once according to installed tool guidance; a memory-budget response requires a tighter query.
+Run Project explorations serially. Never launch parallel `explore` calls into the same Homegraph process/index. If a response reports a process-memory budget, stop `explore` for that Project rather than retrying inside the same unhealthy process. Use bounded `search`/`node`/`callers` capability when still healthy, otherwise switch to exact source reads. A generic busy/deadline response may be retried once according to installed tool guidance.
 
 ## Project and module passes
 
@@ -57,6 +57,8 @@ For a standalone module or cross-module capability:
 3. add exact unresolved semantics to the Verification Queue;
 4. verify those semantics from the smallest source/config surface;
 5. stop when further graph calls repeat established relationships.
+
+For every major capability, the stopping condition includes one terminal state/effect or exact external handoff. A graph result that only finds entry wiring, package exports, or directory candidates is not enough to write the behavioral owner.
 
 Grouped/thin units normally need descriptor evidence plus no more than one focused exploration unless a cross-unit flow or finding requires more.
 

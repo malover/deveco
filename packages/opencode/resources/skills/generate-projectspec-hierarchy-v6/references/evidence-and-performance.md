@@ -41,13 +41,13 @@ Use Homegraph per Project when queryable:
 
 Maintain a Verification Queue. Every source read must answer a named question and use the smallest symbol/file expected to resolve it.
 
-Default ceilings are heuristics, not correctness limits:
+Default starting budgets are heuristics, not correctness limits:
 
 - grouped/thin unit: descriptor facts plus at most one focused semantic query;
-- standalone module: roughly 2-4 focused queries and up to 4 source files on the first pass;
+- standalone module: roughly 2-4 focused queries and the representative entry/orchestrator/state/data/integration/test sources needed to establish its unique substance;
 - major flow: one trace packet plus the minimum defining source for exact semantics.
 
-Stop when additional evidence repeats established facts or cannot change the planned document.
+Do not stop merely because a numeric budget was reached. Stop when the trigger-to-terminal path, material branches, architectural constraints, and change guardrails are supported; or when additional evidence repeats established facts/cannot change the document.
 
 ## Fallback without Homegraph
 
@@ -70,7 +70,7 @@ For large repositories:
 - resume from completed Project IDs after rechecking hierarchy fingerprints;
 - bound diagrams and split dense maps by subsystem/capability.
 - target a warm-index wall time below 8-10 minutes for roughly 500k LoC; treat a slower run as a profiling signal, not permission to omit required evidence;
-- keep direct implementation reads below 15-20 on the first pass across the run, then exceed only for named exact claims;
+- bound reads per Project and capability rather than imposing one tiny workspace-wide ceiling; spend the saved hierarchy/planning time on representative behavior, constraints, tests, and native/platform boundaries;
 - allow at most one Documentation Plan revision after it is frozen unless hierarchy evidence changes.
 
 Suggested checkpoint fields:

@@ -4,34 +4,87 @@
 > Scope: `<project path>`  
 > Baseline: `<revision>`  
 > Evidence: Observed / Declared / Inferred / Unavailable as noted  
-> Parent: [Documentation index](<relative link>)
+> Parent: [High-Level Architecture](<relative link>) · [Documentation index](<relative link>)  
+> Change-safety scope: <Project-wide constraints>
 
-## Boundary and build model
+## Architecture summary and Project boundary
 
-## Module / build-unit inventory
+Explain the Project’s runtime/build role, major architectural pattern as observed, public contract, and safest place to begin feature work.
 
-| Unit | Kind | Path | Architectural area | Responsibility | Dependencies/consumers | Detail |
+## Build model and physical module inventory
+
+| Module/build unit | Kind | Path | Responsibility | Area | Dependencies/consumers | Detail |
 |---|---|---|---|---|---|---|
 
-Include every physical unit. Use `Grouped in this document` when no child file exists.
+Include every physical unit. Group only units without unique standalone substance.
 
-## Architectural areas and relationships
+## Source-tree and ownership map
 
-## Entry points and public/shared surfaces
+Annotate entry/lifecycle, feature/UI, state/orchestration, domain/data, integration/native, shared/public, resources/locales, tests, and build/config roots.
 
-## Data and state ownership
+## Architectural areas and dependency direction
 
-## Integrations and cross-Project boundaries
+Explain 4-7 areas, allowed direction, collaboration mechanism, and known bypass/cycle risks. Include a labeled diagram when useful.
 
-## Key runtime flows
+## Entry points, lifecycle hooks, and public/shared surfaces
 
-## Build, run, test, and CI
+| Surface | Owning module/symbol | Caller/consumer | Contract/lifecycle | Evidence |
+|---|---|---|---|---|
 
-## Observed patterns and constraints
+## Runtime, lifecycle, state, and error flows
+
+Trace representative bootstrap and capability paths with ordering, decisions, handoffs, terminal effects, and recovery.
+
+## Data, state, persistence, and consistency
+
+Identify source-of-truth/mutation owners, stores/caches, transformations, invalidation, transaction/order rules, schema/version behavior, and failure recovery.
+
+## Integrations and cross-Project/native/platform boundaries
+
+Classify each boundary accurately; document inputs/outputs, callbacks/events, permissions, error mapping, and consumer/provider ownership.
+
+## Technology, build, run, test, CI, and deployment
+
+Document evidenced commands/tooling, module/variant/device/native build wiring, tests and fixtures, CI workflow coverage, generated code, and environment limitations.
+
+## Security, privacy, localization, accessibility, and resources
+
+Capture current enforcement/ownership and coupled resources where relevant.
+
+## Architectural Constraints and Invariants
+
+| ID | Constraint/invariant | Why it matters | Affected modules/consumers | Evidence |
+|---|---|---|---|---|
+
+Cover source-of-truth ownership, dependency direction, lifecycle/state/concurrency, public/schema/native compatibility, security/data handling, and build/platform/resource rules.
+
+## Extension and Modification Points
+
+| Feature/change | Correct seam/owner | Existing pattern to follow | Coupled artifacts |
+|---|---|---|---|
+
+## Known Limitations and Evidence Gaps
+
+Document verified limitations, fragile coupling, unsupported variants, incomplete tests, and exact external evidence gaps. Resolve local uninspected evidence for major flows.
+
+## Change Guardrails
+
+- Locate the capability/data/public owner before adding code.
+- Inspect callers/consumers and cross-Project/native blast radius.
+- Preserve dependency direction, lifecycle ordering, state ownership, and contracts above.
+- Update coupled build/profile/resources/locales/schemas/exports.
+- Exercise relevant happy/error/cancel/offline/permission/device paths.
+- Run evidenced checks and update linked specifications.
+
+## Capability-to-architecture-and-test traceability
+
+| Capability/flow/rule | Entry/orchestrator | State/data/integration owner | Representative test/evidence |
+|---|---|---|---|
 
 ## Project findings
 
-## Capability-to-architecture map
+## Evidence register
 
-## Evidence and limitations
+| Claim area | Evidence anchor | Class | What it proves |
+|---|---|---|---|
 <!-- PROJECTSPEC:GENERATED:END -->

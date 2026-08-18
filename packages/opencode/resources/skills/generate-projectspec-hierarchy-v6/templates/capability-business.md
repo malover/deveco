@@ -1,43 +1,80 @@
 <!-- PROJECTSPEC:GENERATED:START -->
 # Capability Business Specification — <capability>
 
-> Scope: `<project and capability>`
-> Baseline: `<revision>`
-> Evidence: Observed / Declared / Inferred / Unavailable as noted
-> Parent: [Project Business](<relative link>) · [Documentation index](<relative link>)
+> Scope: `<Project(s), modules, and capability>`  
+> Baseline: `<revision>`  
+> Evidence: Observed / Declared / Inferred / Unavailable as noted  
+> Parent: [Project/High-Level Business](<relative link>) · [Documentation index](<relative link>)  
+> Coverage: <major capability and sub-capabilities>
 
-## CAP-<slug> — Value and outcome
+## CAP-<slug> — Purpose, value, and outcome
 
-## Actors and consumers
+Explain the end-to-end value and why the capability is independently meaningful.
 
-## Trigger and preconditions
+## Scope, actors, callers, and participating surfaces
 
-**Trigger:**
+| Actor/caller | Goal | Entry surface | Terminal outcome |
+|---|---|---|---|
+
+## Capability decomposition
+
+| Sub-capability/operation | Trigger | Contribution | Owning unit |
+|---|---|---|---|
+
+## UX flow or system/API journey
+
+Include the canonical state/flow diagram. For UX, map screens/states, interactions, conditional rendering, visible data, back/cancel/dismiss/retry, and loading/empty/error/offline/permission/success. Without UX, map caller/request states, decisions, effects, callbacks/results, errors, and recovery.
+
+## FLOW-<slug> — Primary As-Is process
+
+**Goal/value:**  
+**Primary actor/caller:**  
+**Trigger:**  
 **Preconditions:**
 
-## FLOW-<slug> — Main As-Is flow
+1. Complete trigger-to-outcome steps across participating boundaries.
 
-1. Trigger-to-outcome steps in domain language.
+**Postconditions:**  
+**Terminal outcome:**  
+**Outcome evidence:** Observed at `<path#symbol-or-key>` | External handoff defined by `<contract>`
 
-**Terminal outcome:**
-**Outcome evidence:** Observed at `<path#symbol-or-key>` | Unavailable — `<missing evidence>`
+## Alternate, exception, cancel, and recovery paths
 
-## Alternatives, failures, and recovery
+| Condition/state | Decision/action | Observable result | Recovery | Evidence |
+|---|---|---|---|---|
 
-## Observable states
+## Use cases and scenarios
 
-## Observable rules
+Include preconditions, main path, exceptions, and postconditions.
 
-## Domain data and external systems
+## State and transition model
 
-## Participating Projects/modules
+| State | Business meaning | Required data | Trigger | Allowed next states |
+|---|---|---|---|---|
 
-| Unit | Contribution | Architecture detail |
-|---|---|---|
+## Business rules and decision logic
 
-## Business-to-architecture traceability
+| Rule ID | Testable rule | Condition | Outcome | Evidence |
+|---|---|---|---|---|
 
-## Evidence and unknowns
+## Domain concepts, business data, and external systems
 
-Separate observed evidence from declared/inferred context. Name every material unknown.
+## Observable quality, privacy, localization, and accessibility
+
+## Participating Projects/modules and handoffs
+
+| Unit | Contribution/ownership | Input/output contract | Architecture detail |
+|---|---|---|---|
+
+## Business-to-architecture-and-test traceability
+
+| Capability/flow/rule | Entry/orchestrator | State/data/integration owner | Representative test/evidence |
+|---|---|---|---|
+
+## Assumptions, unknowns, and limitations
+
+## Evidence register
+
+| Claim area | Evidence anchor | Class | What it proves |
+|---|---|---|---|
 <!-- PROJECTSPEC:GENERATED:END -->

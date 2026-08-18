@@ -1,33 +1,84 @@
 <!-- PROJECTSPEC:GENERATED:START -->
 # High-Level Business Specification
 
-> Scope: `<workspace or project>`  
+> Scope: `<workspace or sole project>`  
 > Baseline: `<revision or working tree>`  
 > Evidence: Observed / Declared / Inferred / Unavailable as noted  
-> Parent: [Documentation index](index.md)
+> Parent: [Documentation index](index.md)  
+> Coverage: <major capabilities and evidence limits>
 
-## Purpose and value
+## Executive summary
 
-## Actors and consumers
+Explain the current product/system value, primary consumers, and the most important observable outcomes in business language.
+
+## Purpose, scope, and current boundaries
+
+State what the analyzed system currently does, what is delegated to external/platform systems, and what was outside the selected evidence scope. Do not create a To-Be section.
+
+## Actors, callers, and consumers
+
+| Actor/caller | Goal | Entry surface | Observable outcome |
+|---|---|---|---|
 
 ## Capability portfolio
 
-| ID | Capability | Outcome | Owning Project/module | Detailed document |
+| ID | Capability and value | Classification | Owner | Trigger | Terminal outcome | Detail |
+|---|---|---|---|---|---|---|
+
+Account for sub-capabilities and excluded candidates in concise coverage notes so the portfolio is auditable.
+
+## End-to-end As-Is business journeys
+
+For every major capability owned at this level, provide a full `FLOW-*` from trigger through decisions/handoffs to terminal outcome, including alternatives/failures/recovery. For child-owned capabilities, explain the cross-capability sequence and link to detail.
+
+## UX and interaction model
+
+When any UI participates, include:
+
+- primary screen/state journey and a Mermaid state/flow diagram;
+- interaction-to-state/result mapping;
+- loading, empty, error, offline, permission, success, cancel, retry, back/dismiss behavior;
+- user-visible data, localization, and accessibility behavior when evidenced.
+
+When no UI exists, replace this with **System/API/Operational Journey**: caller states, request lifecycle, decisions, results, errors, retries, and callbacks.
+
+## Use cases and scenarios
+
+For each primary actor goal, summarize preconditions, main flow, alternatives/exceptions, and postconditions. Link to the detailed owner rather than duplicating full child flows.
+
+## Business rules and decision points
+
+| Rule ID | Testable rule | Condition/decision | Observable effect | Evidence |
 |---|---|---|---|---|
 
-## Core As-Is processes
+## Domain concepts, business data, and glossary
 
-Include only end-to-end Project/workspace processes. For each capability owned here include trigger, preconditions, terminal outcome/outcome evidence, alternatives/failures, participating Projects, and unknowns. Otherwise summarize and link to child detail.
+Explain core concepts, required inputs, produced outputs, visible persistence/freshness semantics, and ambiguous terms.
 
-## Domain concepts and business data
+## External systems and business dependencies
 
-## Observable rules
+| System/contract | Why it is needed | Data exchanged | Failure/business impact | Evidence |
+|---|---|---|---|---|
 
-## Failure and alternative behavior
+## Observable quality, privacy, and operational behavior
 
-## Capability traceability
+Cover permission/authentication, privacy, offline/cache, cancellation/retry, localization/accessibility, compatibility, and operator-visible behavior only when evidenced.
 
-Map capabilities/flows to architectural owners without implementation walkthroughs.
+## Alternative, failure, and recovery summary
 
-## Evidence and limitations
+Provide a decision-oriented summary across major journeys; do not merely list exception classes.
+
+## Capability-to-architecture-and-test traceability
+
+| Capability/flow/rule | Architecture owner/entry | Data/integration owner | Representative test/evidence |
+|---|---|---|---|
+
+## Assumptions, unknowns, and limitations
+
+Separate Declared/Inferred context from unavailable external evidence. Local evidence not inspected must be resolved before calling a major capability complete.
+
+## Evidence register
+
+| Claim area | Evidence anchor | Class | What it proves |
+|---|---|---|---|
 <!-- PROJECTSPEC:GENERATED:END -->

@@ -1,6 +1,6 @@
 # Diagram Rules
 
-Use Mermaid only when relationships, branching, state changes, or execution order are materially clearer than prose or a table.
+Use Mermaid when relationships, branching, state changes, or execution order are materially clearer than prose or a table. A major UI capability must include one canonical UX journey/state diagram in its detailed Business owner. A non-UI major capability should include an equivalent caller/system flow when it has branching or multiple handoffs.
 
 ## Choose the smallest useful view
 
@@ -24,7 +24,7 @@ Do not repeat equivalent diagrams at multiple levels.
 
 ## Business diagrams
 
-Show actors, business states/steps, decisions, outcomes, and Project/capability handoffs. Hide classes, repositories, and low-level calls.
+Show actors, business states/steps, decisions, outcomes, recovery, and Project/capability handoffs. For UX include loading, empty, error, offline/permission when present, cancel/back/dismiss behavior, and the terminal visible/caller result. Hide classes, repositories, and low-level calls; map the same transitions to symbols in traceability tables.
 
 ## Architecture diagrams
 

@@ -22,6 +22,28 @@ PLACEHOLDER_RE = re.compile(
     re.I,
 )
 CAP_HEADING_RE = re.compile(r"^#{2,6}\s+.*\b(CAP-[A-Za-z0-9._-]+)\b", re.MULTILINE | re.I)
+ARCHITECTURE_REQUIRED = {
+    "architectural constraints and invariants": r"^##\s+Architectural Constraints and Invariants\s*$",
+    "known limitations and evidence gaps": r"^##\s+Known Limitations and Evidence Gaps\s*$",
+    "change guardrails": r"^##\s+Change Guardrails\s*$",
+}
+BUSINESS_REQUIRED = {
+    "capability coverage": r"^##\s+.*Capabilit",
+    "process/flow": r"^##\s+.*(?:Process|Flow|Journey)",
+    "UX or system journey": r"^##\s+.*(?:UX|Interaction|System/API/Operational|System Journey)",
+    "rules/decisions": r"^##\s+.*(?:Rules|Decision)",
+    "unknowns/limitations": r"^##\s+.*(?:Unknowns|Limitations)",
+    "evidence": r"^##\s+.*Evidence",
+}
+
+
+def section_body(text: str, heading_pattern: str) -> str | None:
+    match = re.search(heading_pattern, text, re.MULTILINE | re.I)
+    if not match:
+        return None
+    rest = text[match.end():]
+    end = re.search(r"^##\s+", rest, re.MULTILINE)
+    return (rest[: end.start()] if end else rest).strip()
 
 
 def read_json(path: Path, label: str) -> tuple[dict[str, Any] | None, list[str]]:
@@ -69,6 +91,24 @@ def validate_file(path: Path, docs_root: Path) -> tuple[list[str], str | None]:
         if re.match(r"Observed\b", line, re.I) and not re.search(r"[`/]\S+|\bat\s+`?[^`\s]+[#:]", line, re.I):
             errors.append(f"{rel}: observed terminal outcome lacks a path/symbol evidence anchor")
 
+    if "architecture" in path.name.casefold():
+        minimums = {
+            "architectural constraints and invariants": 120,
+            "known limitations and evidence gaps": 60,
+            "change guardrails": 100,
+        }
+        for label, pattern in ARCHITECTURE_REQUIRED.items():
+            body = section_body(text, pattern)
+            if body is None:
+                errors.append(f"{rel}: missing mandatory Architecture section: {label}")
+            elif len(re.sub(r"[\s|#*`-]+", "", body)) < minimums[label]:
+                errors.append(f"{rel}: Architecture section is too thin: {label}")
+
+    if "business" in path.name.casefold():
+        for label, pattern in BUSINESS_REQUIRED.items():
+            if not re.search(pattern, text, re.MULTILINE | re.I):
+                errors.append(f"{rel}: missing substantive Business section: {label}")
+
     title = TITLE_RE.search(text)
     if not title:
         errors.append(f"{rel}: missing H1 title")
@@ -109,6 +149,8 @@ def validate_inventory(docs_root: Path, inventory: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     combined = "\n".join(architecture_texts(docs_root).values()).casefold()
     projects = inventory.get("projects", [])
+    if not isinstance(inventory.get("generatedBy"), str):
+        errors.append("inventory: generatedBy is required for reproducibility")
     if not isinstance(projects, list):
         return ["inventory: projects must be an array"]
     for project in projects:
@@ -134,6 +176,8 @@ def validate_inventory(docs_root: Path, inventory: dict[str, Any]) -> list[str]:
 def validate_plan(docs_root: Path, plan: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     documents = planned_documents(plan)
+    if plan.get("phase") == "structural-baseline" and plan.get("requiresSemanticEnrichment") is True:
+        errors.append("plan: structural baseline was not semantically enriched before documentation completion")
     if not documents:
         errors.append("plan: documents must list every expected standalone output path")
     for relative in documents:
@@ -146,6 +190,18 @@ def validate_plan(docs_root: Path, plan: dict[str, Any]) -> list[str]:
     capabilities = plan.get("capabilities", [])
     if not isinstance(capabilities, list):
         return errors + ["plan: capabilities must be an array"]
+
+    candidates = plan.get("capabilityCandidates", [])
+    excluded = plan.get("excluded_capability_candidates", [])
+    classified_ids = {
+        str(item.get("candidate_id", item.get("id")))
+        for item in capabilities + (excluded if isinstance(excluded, list) else [])
+        if isinstance(item, dict) and item.get("candidate_id", item.get("id"))
+    }
+    if isinstance(candidates, list):
+        for candidate in candidates:
+            if isinstance(candidate, dict) and candidate.get("id") and str(candidate["id"]) not in classified_ids:
+                errors.append(f"plan: capability candidate {candidate['id']} is not classified or excluded")
 
     for capability in capabilities:
         if not isinstance(capability, dict) or capability.get("major") is not True:
@@ -234,13 +290,21 @@ def self_test() -> int:
             common.format(title="Index") + "\n[Architecture](high-level-architecture.md)\n", encoding="utf-8"
         )
         (root / "high-level-business.md").write_text(
-            f"{START}\n# Business\n\n## CAP-browse — Browse\nTrigger Preconditions Terminal outcome Outcome evidence: Unavailable Alternatives Participating Evidence Unknowns\n{END}\n",
+            f"{START}\n# Business\n\n## Capability portfolio\n## UX and interaction journey\n## FLOW-browse — Process\nTrigger Preconditions Terminal outcome Outcome evidence: Unavailable Alternatives Participating\n## Business rules and decisions\n## Unknowns and limitations\n## Evidence register\nCAP-browse Evidence Unknowns\n{END}\n",
             encoding="utf-8",
         )
         (root / "high-level-architecture.md").write_text(
-            f"{START}\n# Architecture\n\nentry@entry CAP-browse\n{END}\n", encoding="utf-8"
+            f"{START}\n# Architecture\n\nentry@entry CAP-browse\n"
+            "## Architectural Constraints and Invariants\n"
+            "The entry module owns routing and state mutation. Consumers depend on its public contract and must not bypass the owning facade. Evidence: `entry/Index.ets#Entry`.\n"
+            "## Known Limitations and Evidence Gaps\n"
+            "External platform rendering behavior remains outside this fixture and is explicitly unavailable.\n"
+            "## Change Guardrails\n"
+            "Inspect consumers before changing the entry contract, preserve the state owner and dependency direction, then run the representative route and error checks.\n"
+            f"{END}\n", encoding="utf-8"
         )
         inventory = {
+            "generatedBy": "self-test",
             "projects": [{"id": "_root", "modules": [{"id": "entry@entry", "name": "entry", "path": "entry"}]}]
         }
         plan = {

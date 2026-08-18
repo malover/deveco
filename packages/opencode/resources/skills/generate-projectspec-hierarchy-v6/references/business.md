@@ -1,116 +1,190 @@
 # Business Documentation
 
-## Purpose and language
+## Purpose
 
-Explain what value the observed system delivers, to whom, through which process, under which observable rules and failure conditions. Write for product, business, operations, support, and engineering readers. Translate implementation names into domain language; retain symbols only in traceability/evidence.
+Explain the current system in language useful to product, operations, support, engineering, and new contributors: what value exists, who/what invokes it, how the process reaches an outcome, what decisions and data govern it, and what happens outside the happy path.
+
+Business is not a UI inventory or a paraphrased README. Architecture/code supplies precision; UX supplies the observable narrative. Preserve symbols only in traceability/evidence.
+
+## Required depth at every level
+
+Every Business document must contain substantive, scope-appropriate coverage of:
+
+1. purpose, value, scope, and current boundaries;
+2. actors/callers/consumers and their goals;
+3. capability portfolio and ownership;
+4. complete As-Is process flows from trigger to terminal outcome/handoff;
+5. UX/interaction journey when any UI participates, otherwise an equivalent system/API/operational journey;
+6. observable states, transitions, conditional outcomes, and recovery;
+7. use cases with preconditions, main path, alternatives, exceptions, and postconditions;
+8. explicit business/behavior rules and decision points;
+9. domain concepts, data inputs/outputs, persistence-visible effects, and external systems;
+10. observable quality, privacy/permission, localization/accessibility, or operational behavior when evidenced;
+11. business-to-architecture and capability-to-test traceability;
+12. evidence classes, assumptions/inferences, unknowns, and limitations.
+
+At a parent level, synthesize cross-child behavior and implications; do not merely list links. At a child level, fully explain the owned contribution without duplicating the parent portfolio.
 
 ## Evidence order
 
 Use a hybrid method:
 
-1. UX/state/navigation evidence for the user narrative and visible outcomes.
+1. UX/state/navigation evidence for visible narrative and outcomes.
 2. Public API/system contracts for caller-facing behavior.
-3. Architecture/graph flows for sequencing and boundaries.
-4. Source/config for exact rules, thresholds, validation, persistence, and failures.
-5. README/design prose for declared purpose, clearly distinguished from observed behavior.
+3. Runtime/graph paths for sequence and ownership.
+4. Defining source/config for exact rules, thresholds, validation, persistence, permissions, and failures.
+5. Representative tests for outcomes, branches, and semantics.
+6. README/design prose for declared purpose only; label it `Declared`.
 
-## Minimum complete capability
+A directory, filename, test name, export index, or start of a call chain is an anchor—not proof of behavior.
 
-For each major capability answer:
+## Capability coverage matrix
 
-1. What value/outcome does it provide?
-2. Who or what triggers it?
-3. What are the main steps from trigger to outcome?
-4. What states, alternatives, and failures are observable?
-5. What domain data and external systems are involved?
-6. What exact rules constrain behavior?
-7. Which Project/modules implement or support it?
+Before final document selection, account for every candidate:
 
-Before choosing Business documents, create a Business Coverage Matrix with one row per candidate capability:
+| Field | Required meaning |
+|---|---|
+| ID/classification | major, sub-capability, technical-support, or excluded |
+| Value | observable outcome, not implementation responsibility |
+| Actor/caller | human, requesting app, OS service, scheduled trigger, or consumer |
+| Trigger/preconditions | event and state/contract required to start |
+| Main flow | complete trigger-to-outcome sequence |
+| Alternatives/failures | decisions, cancel, empty, error, offline, retry, recovery |
+| States | business/UI/system states and transitions |
+| Rules | stable `RULE-*` statements with defining evidence |
+| Data/systems | domain data and external/platform dependencies |
+| Participating units | implementation and supporting owners |
+| Terminal outcome | observed effect or exact handoff/callback |
+| Evidence/unknowns | precise anchors and unresolved facts |
+| Detailed owner | exactly one Business document for each major capability |
 
-| ID | Value | Actors/consumers | Trigger | Preconditions | Main flow | Alternatives/failures | States | Rules | Data/external systems | Participating units | Terminal outcomes | Evidence | Unknowns | Detailed owner |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+Do not collapse distinct goals because they share a screen/module. Do not split minor variants into separate capabilities when one process can cover them.
 
-Do not collapse distinct user goals into one row merely because they share a screen or module. Typical separate capabilities include browse/search, select/share, edit/save, service-card launch, cleanup, privacy/permission handling, and API consumption when each has a distinct trigger and outcome.
+## UX-first reconstruction
 
-The matrix is planning state stored in `documentation-plan.json`, not user-facing prose. A capability is major when it is a primary entry surface, independently triggered user/system operation, externally consumed contract, or cross-module process with a distinct terminal outcome.
+When UI exists, do not make UX optional. Build a compact UX flow inside the owning Business document.
 
-## UX-first analysis
+### 1. Inventory observable surfaces
 
-For direct UX or UX-participating modules, inspect:
+Identify routes/pages, dialogs, sheets, cards/widgets, abilities/extensions, menus, notifications, and caller-return surfaces. Record the user/system goal of each, not its visual layout.
 
-- pages, dialogs, cards, abilities, and shared visual surfaces;
-- routes, ViewState/state enums, reactive state, and conditional rendering;
-- tap/select/scroll/swipe/confirm/cancel/back/dismiss/retry interactions;
-- loading, empty, error, offline, permission, progress, success, and return-to-caller states;
-- terminal observable outcomes.
+### 2. Reconstruct the state model
 
-Map UI state to business meaning. Do not equate a screen component tree with a business process. Shared UI modules can participate materially without owning a route.
+Map state enums/reactive state/conditional rendering into business meaning:
 
-## Code/API/system-first analysis
+- ready/idle;
+- loading/progress;
+- results/content;
+- selected/detail/editing;
+- empty/no-result;
+- success/completed/returned;
+- permission/authentication;
+- offline/stale;
+- error/retry;
+- cancelled/dismissed.
 
-For libraries, services, extensions, and technical modules, identify:
+Distinguish UI state from domain state. Document which data is visible/required in each state and which transition causes it.
 
-- caller/consumer;
-- trigger/input and preconditions;
-- operation at one abstraction level above implementation;
-- output, effect, or contract;
-- state/data lifecycle effects;
-- validation, failure, and fallback;
-- user/system capability depending on it.
+### 3. Map interactions
 
-Do not fabricate a human actor for an internal API. “Requesting application”, “OS service”, or “consumer module” may be the truthful actor.
+For every material action capture:
 
-## Process format
+| Action | Surface/component | Trigger/gesture | Orchestrator | State/data effect | Visible result |
+|---|---|---|---|---|---|
 
-Use concise sections:
+Include confirm/cancel/back/dismiss/retry and context-dependent navigation. Capture conditional rendering and user-visible validation.
+
+### 4. Trace value and failure
+
+Trace the primary journey plus material alternate, empty, offline, permission, error, cancellation, and recovery paths. Reach the rendered/result/callback/persisted terminal effect; do not stop at navigation registration.
+
+### 5. Cross-check implementation
+
+UX tells **what happens when**. Source/runtime evidence tells exact thresholds, cache decisions, concurrency, persistence ordering, callbacks, native/platform boundaries, and error categories. Combine them.
+
+## Reconstruction without UX
+
+For a service/library/API/CLI or missing UX evidence:
+
+1. Identify domain entities and state from schemas/models/storage.
+2. Map external/public contracts and their callers.
+3. Trace one representative invocation through orchestration, decisions, data effects, and output.
+4. Extract rules from constants, validation, branches, ordering, and error mapping.
+5. Reconstruct bootstrap/lifecycle behavior separately.
+6. Translate calls into business/system steps.
+7. Treat the caller/system states as the interaction journey:
+   `request accepted -> validation -> processing -> result/error -> retry/recovery`.
+
+Do not fabricate a human actor. “Requesting application”, “OS service”, “consumer module”, or “scheduled task” may be correct.
+
+## Process and use-case format
+
+For each major process:
 
 ```markdown
 ### FLOW-<slug> — <name>
 
-**Trigger:** ...  
+**Goal/value:** ...
+**Primary actor/caller:** ...
+**Trigger:** ...
 **Preconditions:** ...
 
-1. ...
-2. ...
+1. Actor/system step and observable state/effect.
+2. Decision or handoff.
+3. Terminal result.
 
-**Outcome:** ...  
-**Alternatives/failures:** ...
+**Postconditions:** ...
+**Terminal outcome:** ...
+**Outcome evidence:** Observed at `path#symbol-or-key` | External handoff defined by `contract`
+**Alternatives/failures/recovery:** ...
 ```
 
-For every major capability, include at least one complete main flow and the material observable branch/failure set. If exact persistence, delivery, callback, or return semantics cannot be observed, write `Outcome evidence: Unavailable — <missing source/runtime/external contract>` instead of stating the expected product result as fact.
+Use a Mermaid flow/state diagram for the canonical journey when it materially clarifies branching. A list of files or method calls is not a business process.
 
-Include a Mermaid flow/state diagram only when it communicates branching or cross-project handoffs better than the numbered flow.
+## Rules and decision tables
 
-## Rules and data
-
-Write rules as testable statements, for example:
+Write rules as testable statements:
 
 - `RULE-cache-freshness`: Data older than 15 minutes triggers refresh.
-- `RULE-selection-limit`: A caller may select at most N items.
+- `RULE-selection-limit`: The caller may select at most N items.
+- `RULE-cancel-result`: Cancellation returns no selected item and does not persist a change.
 
-Verify exact values from source/config. Keep internal optimizations in Architecture unless they affect observable timing, consistency, availability, or returned results.
+Verify exact values and branch semantics. Use a decision table when conditions combine:
 
-Describe domain concepts and data needs, not DTO/class/table inventories. Link to Architecture for storage, cache, schema, and mapper detail.
+| Condition | Decision/action | Observable result | Evidence |
+|---|---|---|---|
+
+Internal optimizations belong in Architecture unless they change availability, consistency, timing, ordering, or returned results.
+
+## Domain data and glossary
+
+Explain domain concepts, required inputs, produced outputs, ownership-visible effects, freshness/retention rules, and external data. Do not dump DTO/class/table inventories. Link to Architecture for storage/schema/cache detail.
+
+Include a glossary when repository terminology is non-obvious or inconsistent.
+
+## Observable non-functional behavior
+
+Document only what the As-Is evidence supports:
+
+- permission/authentication and privacy behavior;
+- accessibility and localization behavior;
+- offline/cache/fallback behavior;
+- caller compatibility/version behavior;
+- progress, timeout, retry, cancellation, or resource-limit behavior;
+- logging/audit/notification visible to operators or users.
+
+Do not invent targets, KPIs, legal obligations, or quality guarantees.
+
+## Evidence and truth gates
+
+- `Observed`: executable/configured behavior reaches the stated effect.
+- `Declared`: human-authored intent.
+- `Inferred`: reasoned interpretation; state the chain.
+- `Unavailable`: evidence is outside scope or missing.
+- `Not inspected`: local evidence exists but was not analyzed. This is a work item, not an acceptable completion state for a major capability.
+
+An observed terminal outcome requires evidence at the terminal state/effect. Platform/native calls prove only a handoff unless their contract or local implementation is inspected.
 
 ## Prohibited content
 
-Do not invent:
-
-- stakeholders, owners, roadmap, release cadence, priorities, KPIs, future To-Be flows;
-- pain points or gap analysis without evidence;
-- compliance obligations from a permission/API name alone;
-- benefits or business rationale not stated or observable;
-- separate “business domains” for every physical module.
-
-If an important business fact is unavailable, say what evidence would be needed instead of guessing.
-
-## Claim evidence gate
-
-Before writing an observed business claim, require one of:
-
-- UX/state evidence that reaches the visible state;
-- public contract evidence that defines the returned result;
-- runtime/graph plus defining source/config evidence that reaches the terminal effect.
-
-Names, comments, README purpose, the start of a flow, or a call into an unavailable native/external boundary do not prove the terminal outcome. Describe the verified handoff and mark the downstream result unavailable.
+Do not invent owners, stakeholder names, roadmaps, release cadence, priorities, To-Be processes, acceptance criteria, pain points, benefits, compliance obligations, or rationale. Do not label code deprecated/placeholder without a marker or complete consumer/build-reference evidence. Do not create a “business domain” for every physical module.

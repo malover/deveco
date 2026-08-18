@@ -4,32 +4,84 @@
 > Scope: `<project/module path>`  
 > Baseline: `<revision>`  
 > Evidence: Observed / Declared / Inferred / Unavailable as noted  
-> Parent: [Project Architecture](<relative link>) · [Documentation index](<relative link>)
+> Parent: [Project Architecture](<relative link>) · [Documentation index](<relative link>)  
+> Change-safety scope: <module-owned behavior/contracts>
 
-## Responsibility and boundary
+## Responsibility, boundary, and why this module is standalone
 
-## Module metadata
+State owned behavior/data/contracts and what remains outside. If unique substance is absent, group this module in Project Architecture.
 
-## Internal architectural areas
+## Module metadata and build/runtime role
 
-## Entry points and public/shared surface
+Include kind, descriptor/build target, products/device variants, generated/native/resource participation, and independently relevant build facts.
 
-## Direct dependencies and consumers
+## Source-tree and ownership map
 
-## Data and state ownership
+| Area/path | Responsibility | Key entry/owner | Change significance |
+|---|---|---|---|
 
-## Integrations
+## Internal architecture and collaboration
 
-## Key runtime flows
+Explain 4-7 responsibilities/layers, dependency direction, orchestration, and reusable patterns.
 
-## Build and test notes
+## Entry points, exports, lifecycle hooks, and known consumers
 
-## Observed patterns, constraints, and local findings
+| Surface/symbol | Type/contract | Caller/consumer | Effect/lifecycle | Evidence |
+|---|---|---|---|---|
 
-## Business capability traceability
+## Direct dependencies and integration boundaries
 
-## Evidence and limitations
+Classify owned sibling module, sibling Project/local package, local native, external package, platform API, and external system. State direction and contract.
 
-| Claim area | Evidence | Class |
-|---|---|---|
+## Runtime, lifecycle, state, and error flows
+
+Trace important paths from entry through state/data/integration decisions to terminal effect/error/recovery.
+
+## Data, state, persistence, cache, and consistency
+
+Identify source of truth, mutation owner, data lifecycle, transformations, ordering/transactions, invalidation, schema/versioning, and recovery.
+
+## Native, platform, permissions, and external integrations
+
+Document bridge/API contract, threading/process context, callbacks/events, permission/enforcement point, errors, and ownership.
+
+## Build, tests, resources, localization, and CI
+
+Include actual commands/config and tests where evidenced, plus resources/locales/build files that change with behavior.
+
+## Architectural Constraints and Invariants
+
+| ID | Constraint/invariant | Why it matters | Scope/consumer impact | Evidence |
+|---|---|---|---|---|
+
+Cover ownership, dependency direction, lifecycle/state/concurrency, contract/schema/native compatibility, security/data handling, and build/platform/resource constraints.
+
+## Extension and Modification Points
+
+| Change type | Correct seam/symbol | Pattern/reference | Coupled artifacts |
+|---|---|---|---|
+
+## Known Limitations and Evidence Gaps
+
+Separate verified limitations/fragility/test gaps from unavailable external evidence. Local code not inspected is not unavailable.
+
+## Change Guardrails
+
+- Verify callers/consumers and impact before changing exports/contracts/state.
+- Preserve ownership, dependency direction, lifecycle/order, schema/native/API constraints.
+- Follow listed extension seams rather than bypassing facades.
+- Update coupled resources/config/locales/build/tests.
+- Exercise scope-specific success and failure scenarios.
+
+## Business capability and test traceability
+
+| Capability/flow/rule | Module contribution | Entry/data/integration symbol | Test/evidence |
+|---|---|---|---|
+
+## Local findings and contributor gotchas
+
+## Evidence register
+
+| Claim area | Evidence anchor | Class | What it proves |
+|---|---|---|---|
 <!-- PROJECTSPEC:GENERATED:END -->
