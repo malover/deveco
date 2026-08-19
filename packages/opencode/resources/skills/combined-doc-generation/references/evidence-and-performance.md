@@ -2,113 +2,105 @@
 
 ## Evidence classes
 
-Use four classes internally and where useful in evidence tables:
+Use these classes internally where useful:
 
 | Class | Meaning | Typical source |
 |---|---|---|
 | Observed | Current executable/configured behavior | source, config, HomeGraph relationship |
 | Declared | Human-authored intent/description | README, design doc, comments |
-| Inferred | Reasoned synthesis not directly proven | combined structural/runtime evidence |
-| Unavailable | Needed evidence exists outside repository/tool boundary | external platform/repo/contract |
+| Inferred | Reasoned synthesis from several facts | structural/runtime evidence |
+| Unavailable | Needed evidence is genuinely outside repository/tool boundary | external platform/repo/contract |
 
-Prefer Observed for implementation claims. Do not call something Unavailable merely because it was not inspected yet.
+Do not label something `Unavailable` because it was simply not inspected.
 
 ## Evidence anchors
 
-Prefer repository-relative path + symbol/descriptor key rather than unstable line-only citations.
-
-Good:
+Prefer repository-relative `path#symbol-or-key` anchors:
 
 ```text
 entry/src/main/ets/pages/GalleryPage.ets#build
-entry/src/main/module.json5
 media/src/main/ets/MediaRepository.ets#queryAlbums
+entry/src/main/module.json5
 ```
 
-Keep evidence compact in published Markdown. Internal `.projectspec/analysis` may retain a few more anchors.
+Important modules should usually expose several connected anchors that support ownership, flow, state/data, and extension claims. Often this is roughly 5-10 for a deep module, but **never pad to a count**. Small focused modules may need only a few.
+
+Do not publish exhaustive inventories.
 
 ## Deterministic scan budget
 
-Hierarchy discovery is metadata-first and should remain cheap:
+Hierarchy bootstrap remains cheap and metadata-first:
 
-- explicit repo/workspace manifests;
-- known build descriptors;
+- repo/workspace manifests;
+- build/package descriptors;
 - declared module lists;
 - local dependency declarations;
-- bounded source counts/signals.
+- bounded source/significance signals.
 
-Do not semantically read the repository to decide the initial candidate hierarchy.
+Do not semantically read the whole repository to form initial Project candidates.
 
 ## Semantic analysis budget
 
-HomeGraph is primary. Optimize by question, not by arbitrary file count.
+Spend semantic budget where it lowers implementation uncertainty.
 
-For a module:
+### Deep module
 
-1. one anchored deep overview;
-2. targeted relationship/data/UX follow-ups for concrete gaps;
-3. exact source reads only for unresolved details;
-4. one related/reference-pattern search;
-5. stop when the documents cannot materially improve from another call.
+Typical pattern:
 
-Representative direct-read targets include:
+1. ownership/runtime HomeGraph pass;
+2. second enrichment/reference pass;
+3. targeted callers/callees/state/data follow-ups;
+4. exact source/config/test reads for unresolved claims;
+5. stop once the analysis-completion contract is satisfied.
 
-- entry/ability/page/controller/view model;
-- state/data owner;
-- repository/persistence/integration owner;
-- platform/native bridge;
-- representative tests;
-- exact build/config/permission/schema source.
+### Standard module
 
-Do not bulk-read every file as the old exhaustive deep-dive did.
+One strong overview, concrete gap follow-ups, and a related/reference search when Extension Guidance would otherwise be generic.
 
-## HomeGraph failure handling
+### Focused module
 
-Do not switch away from HomeGraph on one bad query.
+One bounded overview plus exact verification when required.
 
-For oversized results or memory/context errors, progressively:
+Do not bulk-read every file as the old exhaustive deep mode did.
 
-- narrow path;
-- narrow symbol/flow;
-- reduce returned files/limits;
-- split the question;
-- use node/callers/callees instead of broad explore;
-- retry serially.
+## Query failure handling
 
-Only an unrecoverable repository-wide graph failure stops V1.
+Do not switch away from HomeGraph on one failed query. Narrow, split, reduce, change tool shape, and retry serially. If the repository graph itself becomes unhealthy, recover/reindex and probe again.
 
-## Large repositories
+## Sequential execution
 
-Process sequentially by Project, then module. After one Project:
+Process Project by Project and module by module.
 
-- write all outputs;
-- write compact `.projectspec/analysis/<project>.json`;
-- keep only Project summary, output paths, cross-Project edges, and repository-level findings in active context;
-- continue with the next Project.
+After each module:
 
-Do not launch parallel HomeGraph exploration against the same repository index when it risks memory/deadline contention.
+- persist its compact analysis packet;
+- write its docs immediately;
+- retain only a short summary in active context.
 
-## Internal metadata size
+After each Project:
 
-`.projectspec` should support generation, not become another documentation product.
+- synthesize Project docs/governance from the compact Project analysis JSON;
+- keep Project summary/output paths/cross-Project relationships;
+- release detailed module context.
 
-Store:
+This avoids the failure mode where one huge discovery pass happens at the beginning and later files are written from stale/shallow context.
 
-- verified hierarchy;
+## Internal metadata
+
+`.projectspec` supports generation and indexing. Store:
+
+- verified hierarchy and Project intelligence;
+- analysis depth/pass records;
 - semantic classifications;
-- compact flow/dependency summaries;
-- evidence anchors;
+- compact flows/dependency/state summaries;
+- reference patterns;
+- conditional-section/diagram decisions;
 - constraint candidates;
-- validation state.
+- evidence anchors;
+- completion/unknown state.
 
-Do not store:
-
-- full source;
-- raw HomeGraph packets;
-- exhaustive per-file prose;
-- secrets/credentials/personal data;
-- large document drafts.
+Do not store raw graph responses, full source, huge prose drafts, secrets, credentials, or personal data.
 
 ## Selected revision
 
-Document tracked repository behavior at the selected revision/working-tree policy. Do not turn HomeGraph cache state or local tool artifacts into product claims.
+Document tracked repository behavior at the selected revision/working-tree policy. Do not treat HomeGraph cache/tool artifacts as product behavior.

@@ -25,10 +25,13 @@ High-value categories:
 - module/source-of-truth ownership;
 - public/shared contract boundaries;
 - persistence/schema/migration ownership;
-- lifecycle/state/concurrency ordering;
-- platform/native compatibility;
+- lifecycle/state-machine/concurrency ordering;
+- extension/ability/handler registration patterns that must stay centralized;
+- platform/native handoff ownership and compatibility;
 - permissions/security/data handling;
 - build/product/device/resource constraints.
+
+Deep module analysis should actively contribute candidates here. In particular, compare state/data owners, reference patterns, callers/consumers, registration points, and native/platform boundaries rather than deriving governance only from the initial repository discovery pass.
 
 Use universal wording (`must`, `never`) only when evidence supports it. If the rule is only an observed dominant convention, calibrate language/basis accordingly.
 

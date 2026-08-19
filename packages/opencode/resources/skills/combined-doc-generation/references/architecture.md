@@ -1,133 +1,136 @@
 # Architecture Documentation
 
-## Primary purpose: prevent architecture drift
+## Primary purpose: enable safe implementation and prevent drift
 
 Architecture should let an implementation agent answer:
 
 - Which module owns this concern?
-- Which direction may dependencies point?
-- Where is the source of truth/state/persistence owner?
-- What existing path/pattern should a new feature extend?
-- Which public/integration boundary must remain stable?
-- Which Project `ARC-*`/`CHK-*` entries apply?
+- Which way may dependencies point?
+- Where is state/data/persistence owned?
+- How does a representative request/UX action move through this module?
+- Which existing repository pattern should a new feature follow?
+- Which public/native/platform boundary must remain stable?
+- Which Project `ARC-*`/`CHK-*` rules apply?
 
-Do this without turning every module file into a giant governance manual.
+Do this without turning each file into a giant governance manual.
 
 ## Module Architecture core
 
-Every module Architecture contains a compact mandatory core:
+Every module Architecture has:
 
-1. **Purpose and Responsibilities** — what the module owns and deliberately does not own.
-2. **Architecture and Dependencies** — internal shape, direct dependencies, known consumers, dependency direction.
-3. **Runtime and Data Flow** — 1-3 representative flows sufficient to explain how the module actually works.
-4. **Extension Guidance** — roughly 1-3 highly relevant implementation seams/reference patterns.
-5. **Source Evidence** — small high-value anchor set.
+1. **Purpose and Responsibilities** — ownership and deliberate non-ownership.
+2. **Architecture and Dependencies** — internal shape, direct dependencies, known consumers, direction.
+3. **Runtime and Data Flow** — representative entry-to-effect paths; use more than one where complexity warrants it.
+4. **Extension Guidance** — a few concrete seams/reference patterns/coupled artifacts.
+5. **Source Evidence** — connected high-value anchors.
 
-Conditional sections may be added when substantial:
+## Conditional sections: include when implementation-impacting
 
-- State and Data Ownership
-- Persistence and Consistency
-- UI / Navigation Architecture
-- External / Platform / Native Integrations
-- Concurrency / Background Processing
-- Testing / Build Patterns
+Use the module analysis packet's `conditionalSections`.
 
-Omit a conditional section if it would contain one generic sentence.
+Supported headings:
+
+- `State and Data Ownership`
+- `Persistence and Consistency`
+- `UI / Navigation Architecture`
+- `External / Platform / Native Integrations`
+- `Concurrency / Background Processing`
+- `Testing / Build Patterns`
+
+Do not suppress a section merely because it could be summarized in a sentence elsewhere. If a feature agent must understand the topic to choose the right owner/path, the section is useful.
+
+Examples:
+
+- several FSM/state managers -> explain responsibility split and transitions in `State and Data Ownership`;
+- editor native bridge + save lifecycle -> `External / Platform / Native Integrations` and/or `Persistence and Consistency`;
+- ability/page loaders/navigation -> `UI / Navigation Architecture`;
+- shared data source/cache/invalidation -> `State and Data Ownership`/`Persistence and Consistency`.
 
 ## Dependency direction
 
-Every meaningful module Architecture should make direction explicit, for example:
+Make direction explicit:
 
 ```text
 Depends on:
 - media-data — repository/query contract
-- common-ui — reusable visual primitives
 
 Used by:
-- entry — gallery/browse flow
-
-Must not depend on:
-- editor — would reverse the observed feature dependency
+- entry — gallery flow
 ```
 
-Only write `Must not depend on` when governance evidence supports it. Promote durable prohibition to `constraints-and-limitations.md`; module Architecture can link the relevant `ARC-*`.
+Use `Must not depend on` only when an evidenced governance rule supports it; link the `ARC-*` instead of copying the full rule.
 
 ## Runtime/data flow
 
-Trace representative paths from real entry to effect:
+Trace real paths:
 
 ```text
 Ability/Page/Export
-  -> ViewModel/Controller
-  -> Domain/Repository/Service
-  -> Persistence/Platform/External boundary
+  -> Controller/ViewModel
+  -> State/Domain/Repository/Service
+  -> Persistence/Platform/Native boundary
   -> State/callback/result
 ```
 
-Explain important decisions, ownership changes, and error/recovery behavior. Do not enumerate internal helper calls unless they explain the architecture.
+For important modules, cover the distinct flows needed to explain architecture, including lifecycle/save/refresh/error handoffs where they materially differ. Do not stop at one happy path just to remain short.
 
-## State and data ownership
+## State/data ownership
 
-When applicable, identify:
+When applicable explain:
 
 - source of truth;
 - mutation owner;
-- transient versus persisted state;
-- consumers/subscribers;
-- transformation/mapping boundary;
+- state-machine responsibilities/transitions;
+- transient vs persisted data;
+- subscribers/reactive propagation;
 - cache/invalidation/version behavior;
-- transaction/order/concurrency semantics when evidenced.
+- lifecycle reset/resume/reload;
+- ordering/concurrency assumptions.
 
-Durable cross-module ownership rules belong as `ARC-*` entries in Project governance.
+Promote durable cross-module ownership rules to Project governance.
 
 ## Project Architecture
 
 Project Architecture is compositional. It should answer:
 
-- what the Project is at runtime/build level;
+- Project runtime/build boundary and main entry points;
 - which modules exist and why;
-- responsibility/dependency direction among modules;
+- dependency/ownership direction;
 - major cross-module runtime/data/state flows;
-- external/platform/native boundaries;
-- where an agent should begin for common change areas.
+- important platform/native/external boundaries;
+- where an agent should start for common change areas.
 
-Do not retell each module's internals.
+Do not retell module internals.
 
-Usually include one module/dependency Mermaid view. Add more only for a different architectural question that prose cannot explain compactly.
+Usually include one module/dependency Mermaid diagram. Add another only when it explains a distinct architectural question.
 
 ## Extension Guidance
 
-This is a first-class drift-prevention mechanism, but keep it short.
+Keep it short but concrete. Prefer a few high-value items:
 
-For a module, choose only the highest-value items, typically 1-3:
-
-- correct owner/seam for a common new behavior;
-- existing reference implementation/pattern elsewhere;
-- coupled artifacts that normally change together;
-- local public/state/data boundary to preserve.
+- correct owner/seam for a common change;
+- analogous implementation/shared base/repository path found in the explicit reference search;
+- coupled artifacts or registrations that normally change together;
+- local public/state/data/native boundary to preserve.
 
 Example:
 
-> New media filtering should enter through `MediaRepository` and follow the existing album-query path used by `<reference>`, rather than issuing persistence queries from ArkUI pages.
+> Add media filtering through `MediaRepository` and follow the existing album-query path used by `<reference>`, rather than querying persistence from an ArkUI page.
 
-Do not add generic “use clean architecture” advice.
+Never use generic advice such as “follow clean architecture.”
+
+## Architecture Mermaid
+
+When `diagramDecision.architecture=required`, include a compact Mermaid diagram for the non-obvious module relationship/runtime/state question. Quote all human-readable labels using `references/diagrams.md`.
+
+Complex/deep modules with multiple state owners or native/module handoffs usually benefit from one.
 
 ## Constraints stay separate
 
-Architecture links Project `constraints-and-limitations.md`. Do not duplicate full:
-
-- `ARC-*` invariants;
-- `CHK-*` pre/post-change checks;
-- `LIM-*` limitations.
-
-A short local implication/link is fine when it is necessary to understand the module.
+Architecture links Project `constraints-and-limitations.md`. Do not duplicate the full `ARC-*`, `CHK-*`, or `LIM-*` registry.
 
 ## Evidence
 
-Prefer path + symbol/descriptor anchors. Examples:
+Evidence should support the important claims discovered by analysis, not merely list three files.
 
-- `entry/src/main/ets/pages/GalleryPage.ets#build`
-- `data/src/main/ets/repository/MediaRepository.ets#query`
-- `entry/src/main/module.json5`
-
-Use exact source reads for claims HomeGraph does not establish precisely.
+Prefer path + symbol/descriptor anchors and explain what each establishes. Deep modules often require several connected anchors covering entries, state/data, flow, integration, and extension patterns; keep the published set curated.

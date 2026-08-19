@@ -4,112 +4,111 @@ HomeGraph is the primary semantic evidence layer and a strict V1 prerequisite.
 
 ## One repository-wide graph
 
-Use the repository root as `projectPath` for all HomeGraph calls. Do **not** initialize a separate graph for each Project.
+Use repository root as `projectPath` for all HomeGraph calls. Do not initialize one graph per Project.
 
-Why:
-
-- cross-Project and cross-module consumers remain visible;
-- reference implementations elsewhere in the repository are discoverable;
-- repeated initialization is avoided;
-- one dependency/impact view can corroborate deterministic boundaries.
-
-Project/module analysis is scoped by paths and anchors inside the same repository-wide graph.
+This preserves cross-Project/module callers, shared patterns, and impact relationships while avoiding repeated indexing.
 
 ## Readiness lifecycle
 
 1. Call `homegraph_status` for repository root.
-2. If missing, run the installed initialization path, normally:
+2. If no usable index exists, run the installed initialization path, normally:
 
 ```bash
 homegraph init -i <repository-root>
 ```
 
-3. If present, perform the installed incremental sync/update when status/revision indicates it is needed.
+3. If an index exists, synchronize/update it when status/revision indicates staleness.
 4. Call `homegraph_files` and verify expected descriptors/source areas are indexed.
 5. Run one anchored `homegraph_explore` using a real descriptor, ability, page, entry symbol, or module path.
-6. Only after the anchored query succeeds is HomeGraph ready for semantic generation.
+6. Only after this succeeds is HomeGraph ready.
 
-Initialization can take roughly a minute or more on a large repository. Wait for the operation to complete rather than treating latency as failure.
+Large repositories may take roughly a minute or more to initialize. Wait for completion instead of treating normal indexing latency as failure.
 
-## Failure recovery — keep HomeGraph
+## Query failure recovery — never silently drop HomeGraph
 
-A failed query does not downgrade the run.
+A context overflow, memory-budget response, truncation, timeout, or overly broad result is a **query-shaping problem** until proven otherwise.
 
-For context overflow, memory budget, truncation, timeout, or overly broad result:
+Recover progressively:
 
-1. reduce the question to one Project/module/flow;
-2. use exact path/symbol/ability/page anchors;
-3. reduce `maxFiles`, result limits, source ranges, or relationship depth;
-4. split “architecture + UX + data + integrations” into separate bounded questions;
-5. use `homegraph_search` to locate candidates, then `homegraph_node` for exact source;
-6. use `homegraph_callers` / `homegraph_callees` for one direction instead of asking for an unconstrained graph;
-7. retry serially.
+1. scope to one Project/module/path;
+2. anchor to an exact symbol/ability/page/descriptor;
+3. split architecture, UX, data/state, and integration questions;
+4. reduce returned files/result limits/relationship depth;
+5. use `homegraph_search` only to locate candidates;
+6. use `homegraph_node` for one precise symbol;
+7. use `homegraph_callers` / `homegraph_callees` for explicit direction rather than broad exploration;
+8. retry serially.
 
-If the underlying process/index is unhealthy, use the installed recovery/reindex operation and re-probe readiness.
+If the graph process/index itself is unhealthy, use the installed recovery/reindex operation and re-probe readiness.
 
-In V1, stop/fail only when the graph itself cannot be made operational. Do not silently continue with a source-only fallback.
+V1 fails only when repository-wide HomeGraph cannot be made operational. Do not automatically continue with source-only inspection.
 
-## Explore first, expand only gaps
+## Repository intelligence pass
 
-Default progression:
+After bootstrap, use a small number of anchored questions only to verify:
+
+- candidate Project boundaries;
+- module ownership;
+- Project type/technology/entry anchors;
+- cross-Project/local package relationships;
+- obvious shared architectural hotspots.
+
+Write `.projectspec/repository-intelligence.json` and freeze hierarchy.
+
+This pass must remain compact. It does **not** replace later module discovery.
+
+## Just-in-time module pass
+
+Immediately before a module is documented, run a fresh module-scoped exploration using anchors from inventory/repository intelligence.
+
+Pass 1 should resolve responsibility, entries, dependencies/consumers, representative runtime/UX path, state/data topics, and Business classification.
+
+For `deep` modules, Pass 2 must target unresolved detail and related code outside the module, for example:
+
+- state/data ownership and lifecycle;
+- FSM/state-manager responsibility split;
+- persistence/cache/native/platform handoffs;
+- error/cancel/recovery branches;
+- analogous implementations/shared bases/tests;
+- callers/impact for extension blast radius.
+
+Do not simply repeat Pass 1 with a broader prompt.
+
+## Useful tool progression
 
 ```text
 status
   -> files
   -> anchored explore
-  -> search (only missing anchors)
-  -> node (exact source/relationships)
-  -> callers/callees (explicit direction)
+  -> targeted explore for gaps
+  -> search (missing anchor only)
+  -> node (precise symbol)
+  -> callers/callees (direction)
   -> impact (only when blast radius matters)
 ```
 
-`homegraph_explore` is the primary investigation packet. Reuse returned source/call relationships instead of mechanically replaying them through every other tool.
+Reuse returned evidence. Do not replay every symbol through every tool.
 
-Do not assume CodeToGraph-only tools such as `trace_calls`, `find_path`, or HTML export exist.
+Do not assume CodeToGraph-only tools such as `trace_calls` or `find_path` exist.
 
-## Repository intelligence pass
+## Reference-pattern search
 
-After deterministic bootstrap, use a small number of anchored repository questions to verify:
+For important modules, explicitly search outside the current module after the main path is understood. Prefer a few strong references:
 
-- candidate Project boundaries;
-- module ownership;
-- major application/component entry surfaces;
-- cross-Project/local package relationships;
-- unusual shared architectural hotspots.
+- analogous feature/page/service;
+- shared base/controller/facade;
+- established repository/data/state path;
+- registration/extension pattern;
+- representative tests.
 
-This pass should correct mistakes, not semantically analyze every module.
-
-## Module deep-analysis pass
-
-For a module, start with one question such as:
-
-> Within `<module path>`, explain the module's responsibility, real entry/public surfaces, important state/data owners, direct dependencies/consumers, representative runtime/UX flow, and 1-3 related implementations elsewhere worth following. Anchor the answer in `<descriptor/symbol>` and keep returned source bounded.
-
-Then expand only unresolved questions.
-
-Useful targeted follow-ups:
-
-- callers of a public surface to identify consumers;
-- callees of a real entry/orchestrator to trace trigger -> effect;
-- state/model owners consumed by the UI;
-- persistence/integration calls on the representative flow;
-- related symbols outside the module for reference patterns;
-- impact only when a shared contract/owner affects drift rules.
+Record `referenceSearchPerformed` and selected `referencePatterns` in analysis metadata. If none are useful, record the search outcome instead of inventing a pattern.
 
 ## Stopping condition
 
-Stop graph exploration for a module when further calls cannot materially change its documents and you have enough evidence for:
+Stop only when the module analysis-completion gate is met and another graph call is unlikely to materially improve implementation guidance.
 
-- responsibility/boundary;
-- dependency direction;
-- at least one representative runtime/data flow when the module executes behavior;
-- state/data/integration ownership where applicable;
-- Business classification evidence;
-- one or a few useful extension/reference patterns;
-- constraint candidates and evidence anchors.
-
-Do not maximize graph-call count. Maximize useful implementation understanding per call.
+A plausible summary is not a stopping condition for a deep module. Deep modules still require their distinct enrichment/reference pass.
 
 ## Cross-Project results
 
-Because the graph is repository-wide, a Project query may return symbols owned by another verified Project. Use them to document the boundary/contract and reference relationship, but do not copy the provider's internals into the consumer's Architecture. Analyze provider internals when processing that Project.
+Repository-wide queries can return another verified Project. Use those results to document the consumer/provider contract and cross-Project relationship; defer provider internals until that Project is processed.

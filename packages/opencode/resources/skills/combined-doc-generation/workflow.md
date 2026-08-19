@@ -1,288 +1,241 @@
-# Combined Generation Workflow
+# Combined Documentation Workflow
 
-## 0. Make repository HomeGraph ready
+## 0. Deterministic bootstrap
 
-HomeGraph is a hard V1 prerequisite and uses **one repository-wide index**.
+1. Resolve repository root, selected revision/working-tree policy, and `docs/` output root.
+2. Run `scripts/bootstrap_projectspec.mjs` immediately.
+3. Confirm both deterministic artifacts parse:
+   - `.projectspec/workspace-inventory.json`
+   - `.projectspec/documentation-plan.json`
+4. Do not semantically crawl the repository during this phase.
 
-1. Resolve repository root, selected revision/working-tree policy, and output root.
-2. Call `homegraph_status` for the repository root.
-3. If the graph is absent/uninitialized, run the installed HomeGraph initialization command (normally `homegraph init -i <repository-root>`).
-4. If an index exists, run the installed incremental update/synchronization path when needed.
-5. Prove readiness with:
-   - `homegraph_status`;
-   - `homegraph_files` at repository scope;
-   - one anchored `homegraph_explore` using a real descriptor/source anchor.
-6. If an explore/read fails because the request is too broad, context is too large, the result is truncated, or a memory/deadline error occurs:
-   - keep HomeGraph as the required provider;
-   - narrow Project/module/path scope;
-   - split one large question into independent questions;
-   - reduce `maxFiles`, depth, limits, or returned source;
-   - switch from broad `explore` to precise `search`/`node`/`callers`/`callees` where appropriate;
-   - retry serially.
-7. Fail the run only when the repository graph itself cannot be made operational after bounded recovery. Do not silently drop to a non-graph generation mode in V1.
+The bootstrap produces **candidates and significance hints**, not final semantic knowledge.
 
-Do not create product findings from `.homegraph/`, graph logs, index warnings, or initialization time.
+## 1. Establish repository-wide HomeGraph and verify hierarchy
 
-## 1. Deterministic repository scan, then graph verification
+Read `references/homegraph.md` and `references/hierarchy.md`.
 
-Run `scripts/bootstrap_projectspec.mjs` immediately after HomeGraph readiness if it has not already been run. Read `references/hierarchy.md`.
+1. Use repository root for one HomeGraph index.
+2. Initialize if absent; synchronize/update if present and stale.
+3. Prove readiness with `homegraph_status`, `homegraph_files`, and one anchored `homegraph_explore`.
+4. If a query overflows/times out/truncates, narrow/split/reduce and retry. Do not abandon HomeGraph because one read failed.
+5. Verify deterministic Project/module candidates using build ownership plus graph relationships. Correct only evidenced mistakes.
+6. Freeze boundaries after this correction pass.
+7. Write `.projectspec/repository-intelligence.json` with:
+   - repository/workspace type and concise summary;
+   - verified Project identities/types/technology/build systems;
+   - Project entry/key anchors;
+   - verified module list/kinds;
+   - boundary corrections;
+   - cross-Project relationships/contracts.
+8. Update plan Project `boundaryStatus` to `verified` or `corrected-and-verified` and clear `requiresHomeGraphVerification`.
 
-The bootstrap performs the cheap deterministic part:
+Repository intelligence is intentionally shallow. **Do not use it as a substitute for the per-module deep pass.**
 
-- explicit repository/workspace topology;
-- ArkTS/DevEco build roots and declared modules;
-- OpenHarmony `bundle.json` component roots and GN build units;
-- package/workspace/local dependency hints;
-- descriptors, source counts, and declared UI/ability surfaces;
-- candidate Project/module hierarchy and output paths.
+## 2. Process one Project at a time
 
-Treat this as **candidate discovery**, not an invitation for the LLM to rebuild the tree.
+Create the Project analysis JSON at the deterministic `analysisDocument` path from the plan. Keep it compact and update it as each module finishes.
 
-### 1.1 Verify candidate boundaries
+Before module docs, make only a small Project-level semantic pass sufficient to understand:
 
-Use HomeGraph and build/runtime evidence only to detect actual classification problems.
+- main runtime/product boundary;
+- major entry surfaces;
+- rough module composition/dependency direction;
+- likely cross-module journeys;
+- initial governance candidates.
 
-For each candidate Project, ask a focused question anchored by its descriptors/entry surfaces:
+Do not pre-analyze every module in one giant repository discovery prompt.
 
-- does it behave as one application/component/library/build ownership boundary?
-- are any nested candidate Projects actually declared modules of this Project?
-- do sibling candidates represent independent applications/components/services/packages, or only layers/modules of one application?
-- are cross-candidate relationships build/package contracts or ordinary internal module dependencies?
+## 3. Analyze and write modules sequentially
 
-Boundary evidence priority:
+Read `references/deep-analysis.md` before the first module. For each module:
 
-1. authoritative repo/build manifests;
-2. application/component build roots and packaging;
-3. independently meaningful runtime/entry lifecycle;
-4. local package/component contract;
-5. HomeGraph cross-boundary calls/consumers as corroboration.
+### 3.1 Choose analysis depth
 
-Do not promote a directory because of its name. Multiple `module.json5` files alone never create multi-Project mode.
+Start from deterministic `analysisPriorityHint`, then adjust with HomeGraph evidence.
 
-Freeze the verified hierarchy. Update every Project record in `documentation-plan.json` to `boundaryStatus: "verified"` (or `"corrected-and-verified"`) and set `requiresHomeGraphVerification: false` after the repository-wide verification pass.
+Use:
 
-Write `docs/.projectspec/repository-intelligence.json` containing only compact facts:
+- `deep` — behavior owner; Project entry/orchestrator; state/data/persistence foundation; native/platform/integration boundary; high fan-in/fan-out/shared hotspot; or otherwise architecture-critical.
+- `standard` — supporting behavior or a non-trivial technical module with meaningful flows/dependencies.
+- `focused` — small architecture-only helper/adapter with narrow responsibility and little architectural blast radius.
+
+A module may be promoted after the first graph pass. Do not demote merely to save tokens when its ownership/state/consumer impact is broad.
+
+### 3.2 Pass 1 — ownership/runtime discovery
+
+Use anchored HomeGraph exploration inside the module path and record:
+
+- responsibility and deliberate non-responsibilities;
+- real entry/public/lifecycle surfaces;
+- dependencies and known consumers;
+- representative runtime/data/UX paths;
+- detected state/data/persistence/UI/native/integration/background/testing topics;
+- preliminary Business role/detail;
+- unresolved questions.
+
+For GUI modules, trace pages/abilities/components -> actions -> state/controller/service -> effect -> visible result. For non-GUI modules, trace caller -> decisions -> state/data/integration effect -> result/handoff.
+
+### 3.3 Pass 2 — targeted enrichment for important modules
+
+For every `deep` module, perform a **second bounded HomeGraph pass** after Pass 1. It must not simply repeat the overview.
+
+Target at least these concerns as applicable:
+
+1. **Reference implementations / related paths** outside the module: shared bases, analogous feature/page/service, established repository/repository-state pattern, representative tests.
+2. **State/data/lifecycle ownership**: source of truth, mutation owner, persistence/cache/invalidation, reset/lifecycle, state-machine division of responsibility.
+3. **Flow richness**: meaningful branches such as loading/empty/error/permission/cancel/retry/back or external/native handoff.
+4. **Extension blast radius**: callers/consumers/coupled artifacts and candidate `ARC-*`/`CHK-*` rules.
+
+If a HomeGraph call fails, narrow/split/reduce and retry. Only an unrecoverable repository graph failure ends V1.
+
+`standard` modules receive targeted follow-ups for concrete gaps and a related/reference search when extension guidance would otherwise be generic. `focused` modules may stop after one strong pass plus exact verification.
+
+### 3.4 Exact verification
+
+Use bounded source/config/test reads only for named unresolved claims:
+
+- exact branch/return/callback behavior;
+- permission/security checks;
+- schema/persistence semantics;
+- native/platform boundary;
+- product/device variants;
+- representative test expectations.
+
+### 3.5 Complete the module analysis packet before writing
+
+Update `.projectspec/analysis/<project>.json`. A module packet should include:
 
 ```json
 {
-  "workspaceMode": "single-project | multi-project",
-  "projects": [
-    {
-      "id": "...",
-      "path": "...",
-      "type": "arkts-application | openharmony-component | ...",
-      "technology": ["ArkTS", "ArkUI"],
-      "frameworkBuild": ["hvigor", "..."],
-      "entryAnchors": ["path#symbol"],
-      "modules": [{"id": "...", "path": "...", "kind": "..."}],
-      "keyAnchors": ["path#symbol"],
-      "boundaryCorrections": []
-    }
+  "moduleId": "...",
+  "responsibility": "...",
+  "nonResponsibilities": ["..."],
+  "businessRole": "behavior-owner | supporting-behavior | architecture-only",
+  "businessDetail": "standalone | project-grouped | none",
+  "businessRationale": ["..."],
+  "analysisDepth": "focused | standard | deep",
+  "analysisPasses": [
+    {"kind": "ownership-runtime", "anchors": ["..."], "resolved": ["..."]},
+    {"kind": "enrichment", "anchors": ["..."], "resolved": ["..."]}
   ],
-  "crossProjectEdges": []
+  "entrySurfaces": [],
+  "dependencies": [],
+  "consumers": [],
+  "flows": [],
+  "detectedTopics": [],
+  "stateDataOwners": [],
+  "integrations": [],
+  "referenceSearchPerformed": true,
+  "referencePatterns": [],
+  "conditionalSections": [],
+  "diagramDecision": {
+    "architecture": "required | not-useful",
+    "business": "required | not-useful",
+    "reason": "..."
+  },
+  "constraintCandidates": [],
+  "evidence": [],
+  "completeness": {
+    "boundary": "complete",
+    "runtime": "complete | not-applicable",
+    "stateData": "complete | not-applicable",
+    "business": "complete | not-applicable",
+    "extension": "complete | not-applicable",
+    "evidence": "complete"
+  },
+  "unknowns": []
 }
 ```
 
-Collect technology/framework/build classification mostly from manifests/descriptors and HomeGraph. Use the LLM only to synthesize or resolve ambiguous project type/architecture style; do not ask it to rediscover deterministic paths/modules.
+Do not write raw source/HomeGraph dumps.
 
-Update `documentation-plan.json` when candidate corrections change ownership/output paths and to record verification status. Do not rewrite deterministic metadata into prose.
+**Writing gate:** every completeness field must be resolved; a `deep` module must have at least two analysis passes; behavioral modules need at least one traced flow; `conditionalSections` records implementation-impacting topics that deserve their own Architecture section.
 
-## 2. Process Projects sequentially
+### 3.6 Write module Architecture
 
-Do not analyze all Projects semantically at once.
+Load `templates/module-architecture.md`.
 
-For Project A, complete module analysis, module docs, Project synthesis, governance, and Project check. Collapse its details to a compact analysis summary before moving to Project B.
+- Keep the core compact but substantive.
+- Use `conditionalSections` from analysis. If state/data/persistence/UI/native/etc. was found to materially affect implementation decisions, include the corresponding section rather than squeezing it into one sentence elsewhere.
+- Explain 1-3+ representative flows as needed for complexity; important modules may need more than one flow.
+- Extension Guidance should be short but concrete, normally using repository reference patterns found during analysis.
+- Deep/complex modules should normally include a small Mermaid architecture/runtime/state diagram when `diagramDecision.architecture=required`.
+- Evidence should connect claims/symbols. Deep modules commonly need several high-value anchors (often ~5-10) but never pad to a count.
 
-Read `references/deep-analysis.md` and `references/evidence-and-performance.md`.
+### 3.7 Write module Business when justified
 
-## 3. Analyze and generate modules first
+Use UX + meaningful domain/data-model discovery as the primary V1 signal, following the older deep approach.
 
-For each physical module/build unit in the current Project:
+- `behavior-owner` -> standalone Business.
+- `supporting-behavior` -> standalone only if independently useful; otherwise `project-grouped`.
+- `architecture-only` -> no Business.
 
-### 3.1 Build a focused deep-analysis packet
+Load `templates/module-business.md` only for standalone Business.
 
-Start with descriptor-derived anchors and one focused `homegraph_explore` question covering:
+Trace important journeys beyond the happy path when the UI/domain model shows meaningful loading/empty/selection/state/permission/cancel/error/retry/back variants. Do not inventory every widget.
 
-- responsibility and ownership boundary;
-- real entry/public/lifecycle surfaces;
-- direct dependencies and known consumers;
-- important state/data/persistence ownership;
-- representative runtime/data flow(s);
-- UX/navigation participation when present;
-- platform/native/external integrations;
-- tests and related/reference implementations elsewhere in the repository.
+Write docs immediately after this module's analysis is complete. Then proceed to the next module.
 
-Then fill only concrete gaps with `homegraph_search`, `homegraph_node`, `homegraph_callers`, `homegraph_callees`, and precise source/config reads.
+## 4. Synthesize the Project after all modules
 
-Do **not** read every file. The older deep approach contributes its relationship/data-flow/reference-pattern depth, not its exhaustive Markdown file inventory.
+Only after every module packet/doc is complete:
 
-### 3.2 Decide module Business role
+1. Re-read the compact Project analysis JSON, not all source.
+2. Write Project `architecture.md` as compositional synthesis:
+   - module responsibilities/direction;
+   - major cross-module flows;
+   - external/platform/native boundaries;
+   - change-ownership map.
+3. Write Project `business.md` always:
+   - product/system purpose;
+   - main end-to-end journeys;
+   - domain concepts;
+   - meaningful states/failures;
+   - contributions from `project-grouped` modules.
+4. Derive Project governance candidates from all module packets plus Project composition and write `constraints-and-limitations.md`:
+   - high-value Project/module-scoped `ARC-*` invariants;
+   - actionable `CHK-*` change checks;
+   - evidence-only `LIM-*` gaps with implementation impact.
+5. Cross-check Project docs against governance and child docs. Do not duplicate module internals upward.
+6. Save a compact Project summary in its analysis JSON and release detailed active context.
 
-For V1, follow the old deep/full scan signals closely.
+## 5. Build repository index after every Project
 
-Strong Business signals:
+Write `docs/index.md` **last** using the bundled deterministic builder:
 
-- ArkUI/other UX entry surface with meaningful navigation/state/user flow;
-- an independently understandable domain workflow;
-- meaningful domain/data-model lifecycle with observable behavior outside storage mechanics;
-- meaningful business/service decision logic tied to a user/system outcome.
+```bash
+python <skill-dir>/scripts/build_index.py <docs-root> \
+  --plan <docs-root>/.projectspec/documentation-plan.json \
+  --intelligence <docs-root>/.projectspec/repository-intelligence.json
+```
 
-Weak/non-Business signals by themselves:
+The index intentionally surfaces useful metadata already gathered in JSON rather than asking an LLM to rediscover it:
 
-- DTO/entity/model definitions only;
-- database/repository plumbing only;
-- cache/logging/router/helper utility;
-- resources/build glue/generated code;
-- large file count or a folder named `feature`.
+- repository/workspace summary and selected revision;
+- Project type/summary/technology and links to Architecture, Business, and governance;
+- each module's responsibility, Business role, key entry surfaces, and Architecture/Business links;
+- cross-Project relationships when present.
 
-Classify:
+Keep it concise: no raw flow packets, evidence dumps, or governance duplication.
 
-- `behavior-owner` — owns substantial independent UX/domain behavior; standalone module Business is expected;
-- `supporting-behavior` — contributes meaningful behavior to a Project journey; create module Business only when that contribution is independently understandable and substantial, otherwise absorb it into Project Business;
-- `architecture-only` — technical module without a useful standalone Business narrative.
+## 6. Validate, repair once, validate again
 
-Record classification and rationale in the enriched plan before writing the module Business file. Apply these plan mutations explicitly:
+Read `references/update-and-validation.md`.
 
-- `behavior-owner` -> `businessDetail: "standalone"`; add `modules/<slug>/business.md` to `plan.documents` with kind `module-business`; set `businessOwnerDocument`.
-- `supporting-behavior` -> choose `businessDetail: "standalone"` only when independently substantial; otherwise `"project-grouped"` with no `businessOwnerDocument`. Add a module Business document only for `standalone`.
-- `architecture-only` -> `businessDetail: "none"`; no module Business document.
+Run the mechanical validator. Then perform the semantic audit, emphasizing richness/implementation usefulness:
 
-Store concise evidence anchors in `businessRationale`.
+- Is a complex module still just “purpose + one flow + three files” despite analysis evidence? If so, repair the named missing state/data/lifecycle/reference/branch detail.
+- Are conditional sections missing even though module analysis marked them for inclusion?
+- Did a deep module actually perform a separate enrichment/reference pass?
+- Are Business journeys limited to happy path when material states/branches were observed?
+- Does Extension Guidance identify concrete existing patterns/seams?
+- Are module-scoped drift risks represented in Project governance?
+- Are diagrams present where analysis marked them required and do they validate?
+- Does `index.md` link every Project and standalone module document and reflect analysis metadata?
 
-### 3.3 Write module Architecture
+Patch only concrete misses, rebuilding index if paths/classifications changed. Run validator once more and stop.
 
-Every module gets `modules/<id>/architecture.md`.
+## V1 update note
 
-Load `templates/module-architecture.md`. Keep the mandatory core small and add conditional sections only when they materially improve implementation understanding.
-
-The document must answer:
-
-- what this module owns and does not own;
-- how dependencies/consumers point;
-- how its important runtime/data flow works;
-- where a new feature/change should be attached;
-- one or a few existing patterns/reference implementations worth following;
-- which Project governance registry applies.
-
-Actively search for 1-3 high-value reference implementations/patterns when they exist. Do not produce a generic “best practices” list.
-
-### 3.4 Write module Business only when justified
-
-Load `templates/module-business.md` only for a justified standalone Business owner.
-
-If UX exists, reconstruct the important user journey from entry/navigation/state/action through observable outcome. If there is no UX, reconstruct the domain/system workflow instead.
-
-Use domain concepts, not DTO/class dumps. Keep technical evidence in a compact Source Evidence section.
-
-### 3.5 Save compact analysis summary
-
-Update `docs/.projectspec/analysis/<project-id>.json` with reusable facts for Project synthesis:
-
-- module role/responsibility;
-- Business role and rationale;
-- main flows and outcomes;
-- dependency direction;
-- state/data owners;
-- integrations;
-- reference patterns;
-- constraint candidates;
-- evidence anchors.
-
-Do not save raw HomeGraph packets or source dumps.
-
-## 4. Generate Project-level documents after modules
-
-After all modules in the current Project are covered, synthesize upward from their analysis packets plus cross-module HomeGraph evidence.
-
-### 4.1 Project Architecture
-
-Load `templates/project-architecture.md`.
-
-Keep it compositional rather than duplicating module documents. Explain:
-
-- Project boundary and runtime/build role;
-- module responsibility map;
-- allowed/observed dependency direction;
-- important cross-module runtime/data/state flows;
-- external/platform/native boundaries;
-- where an implementation agent should start for major change areas.
-
-Usually include one Mermaid module/dependency view, and additional diagrams only when they materially clarify separate questions.
-
-### 4.2 Project Business — always
-
-Load `templates/project-business.md`.
-
-Project Business has two jobs:
-
-1. explain the Project-level product/system purpose, actors, main end-to-end journeys, and domain concepts;
-2. absorb meaningful business contributions from modules that do not deserve their own Business file.
-
-Do not repeat child Business documents. Summarize child-owned behavior and explain how the pieces compose into Project journeys.
-
-For UX-heavy Projects, start with a small number of important flows rather than exhaustive screen-by-screen documentation. Increase depth only when evidence shows it is needed to understand the product behavior.
-
-If the rare distributed-capability gate from `references/document-model.md` is truly satisfied, write `capabilities/<id>/business.md` before finalizing Project Business, then summarize/link that detail from the Project journey. Do not create capability files for ordinary cross-module flows.
-
-### 4.3 Project constraints and limitations
-
-Constraint candidates may be collected throughout module analysis, but finalize the registry **after** Project Architecture and Business synthesis so cross-module invariants are visible.
-
-Load `templates/constraints-and-limitations.md`.
-
-Create concise scoped rules:
-
-- `ARC-*`: ownership, dependency direction, source-of-truth, lifecycle/state/concurrency, public contract/schema/native/platform/build constraints;
-- `CHK-*`: actionable inspections/tests/checks for changes that could violate architecture;
-- `LIM-*`: verified limitations or exact evidence gaps with implementation consequence.
-
-A limitation must have evidence and a concrete implementation consequence. Never add speculative “could improve testing” statements.
-
-Do not create module constraint files. Use scope fields such as `project`, `module:<id>`, or `modules:<a,b>`.
-
-Keep developer-maintained content outside generated markers untouched.
-
-## 5. Project check and repair
-
-Before moving to the next Project, check:
-
-- every module Architecture exists and contains unique useful substance;
-- standalone module Business files match their semantic roles;
-- Project Business covers important Project journeys including grouped/supporting behavior;
-- Project Architecture composes modules without re-documenting them;
-- dependency direction is explicit;
-- important flows reach an observed local outcome or exact external/platform handoff;
-- extension guidance points to actual repository patterns;
-- governance holds durable rules/checks/limitations instead of Architecture duplication;
-- important claims have useful evidence anchors;
-- Mermaid diagrams are useful and syntactically conservative.
-
-Repair concrete misses before collapsing Project context.
-
-## 6. Final repository validation
-
-After all Projects, set `documentation-plan.json` to `phase: "semantic-enriched"` and `requiresSemanticEnrichment: false` only when all module roles/details, final document paths, Project governance documents, and verified boundaries are resolved.
-
-Then:
-
-1. Read `references/update-and-validation.md`.
-2. Run the mechanical validator with inventory and enriched plan.
-3. Fix missing files, broken links/markers, unresolved placeholders, malformed governance IDs/fields, role/output mismatches, and Mermaid defects.
-4. Perform one semantic coverage audit:
-   - Can a person explain what each Project does and its main journeys?
-   - Can an agent identify the correct module/seam for a new feature?
-   - Can an agent see dependency direction and source-of-truth ownership?
-   - Are the highest-risk drift rules captured as `ARC-*`/`CHK-*` rather than repeated prose?
-   - Are module Business files justified rather than generated from module count?
-5. Perform targeted missing analysis/generation for any concrete semantic defect.
-6. Run the validator one final time.
-7. Stop. Do not recursively review the review.
-
-## Future iterative update compatibility
-
-V1 does not implement a full update planner. Preserve these foundations for later iterative updates:
-
-- one generated marker region per document;
-- developer-maintained content outside markers;
-- stable Project/module paths and governance IDs where meaning is unchanged;
-- compact `.projectspec` hierarchy/analysis metadata that can later drive impact-scoped regeneration.
+Future update mode will reanalyze changed/impacted modules and preserve valid docs iteratively. For now keep stable paths, generated markers, analysis JSON, and manual governance content so that future update work can build on this baseline.

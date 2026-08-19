@@ -7,11 +7,11 @@
 
 ## Purpose and Observable Boundary
 
-Explain what the Project does for users/callers/the surrounding system, what is in scope, and what outcome/value it provides today.
+Explain what the Project does for users/callers/the surrounding system, what is in scope, and what observable value/outcomes it provides today.
 
 ## Actors and Main Journeys
 
-Identify the primary actors/callers and describe the important end-to-end As-Is journeys. Project Business owns cross-module flows and also absorbs meaningful contributions from modules that do not justify their own Business file.
+Identify primary actors/callers and describe important end-to-end As-Is journeys. Project Business owns cross-module flows and absorbs meaningful contributions from modules that do not justify their own Business file.
 
 ### <Journey name>
 
@@ -20,27 +20,19 @@ Identify the primary actors/callers and describe the important end-to-end As-Is 
 
 1. <user/domain step and owning module>
 2. <state/decision/data handoff>
-3. <observable result or exact external/platform handoff>
+3. <next major stage>
+4. <observable result/exact external handoff>
 
-**Material alternatives / failures:** <...>
+**Material states / alternatives / failures:** <...>
 
-Usually include one primary Project journey diagram when useful:
-
-```mermaid
-flowchart LR
-    actor["User or caller"] -->|"starts"| entry["Entry flow"]
-    entry -->|"uses"| behavior["Domain behavior"]
-    behavior -->|"returns"| outcome["Observable outcome"]
-```
-
-Replace the example with evidence-backed labels/edges. Omit the diagram when it adds no value.
+Usually include one main Project journey Mermaid when useful; use additional diagrams only for distinct important journeys. Quote all human-readable labels.
 
 ## Module Contributions
 
 | Module | Business contribution | Standalone Business detail |
 |---|---|---|
 
-For modules with their own Business file, summarize and link. For `project-grouped` supporting behavior, explain enough here that the Project journey remains complete.
+For modules with standalone Business, summarize and link. For `project-grouped` behavior, explain enough here to keep the Project journey complete.
 
 ## Business Concepts and Data
 
@@ -49,7 +41,7 @@ For modules with their own Business file, summarize and link. For `project-group
 
 ## Rules, States, Failures, and Outcomes
 
-Capture the few cross-module/user-visible decisions and states needed to understand Project behavior. Avoid implementation-only guardrails; those belong in Architecture/Governance.
+Capture cross-module/user-visible decisions/states/failures needed to understand Project behavior. Avoid implementation-only guardrails.
 
 ## Source Evidence
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Business documentation explains the **As-Is product/domain behavior**: what the Project/module does, who/what triggers it, how important journeys proceed, what domain data matters, and what observable result or failure occurs.
+Business documentation explains **As-Is product/domain behavior**: what the Project/module does, who/what triggers it, how important journeys proceed, what data/states/decisions matter, and what observable result or failure occurs.
 
 It should be understandable without reading ArkTS implementation details.
 
@@ -20,54 +20,53 @@ Prefer:
 
 ## Project Business — always
 
-Project `business.md` should cover:
+Project `business.md` covers:
 
 - what the Project does and its observable boundary;
 - primary users/actors/callers;
 - main end-to-end journeys;
 - major domain concepts/data;
 - meaningful decisions/states/failure/recovery;
-- how modules participate;
-- grouped Business contributions from modules without standalone Business files;
-- a small evidence section.
+- module participation;
+- grouped Business contributions from modules without standalone Business;
+- compact evidence.
 
-It should not repeat module Business docs. Summarize the child-owned step and link to it.
+It should not repeat module Business. Summarize a child-owned step and link to the child.
 
 ## Module Business — only when justified
 
-A module Business document should normally contain this compact core:
+A standalone module Business normally contains:
 
-1. role in the product/domain and boundary;
+1. role in product/domain and boundary;
 2. important user/domain flows;
-3. business concepts/data;
-4. rules/states/outcomes that materially affect behavior;
-5. interaction with other modules only when needed to understand the journey;
+3. domain concepts/data;
+4. observable rules/states/outcomes;
+5. cross-module interaction only when needed for the journey;
 6. source evidence.
 
-Omit conditional sections instead of generating filler.
+Use UX + meaningful domain/data-model discovery as the primary V1 decision signal, following the older deep approach.
 
 ## UX-first reconstruction
 
-When UI participates, trace only important journeys initially.
+For each important journey answer:
 
-For each journey answer:
-
-- where the user enters;
-- visible starting state/data;
-- action/interaction;
+- entry screen/state;
+- visible starting data/state;
+- user action;
 - navigation/state transition;
 - business/service/data effect;
-- loading/empty/error/permission/retry/cancel/back behavior when material;
 - observable end state.
 
-A useful representation is:
+For deep UI modules, inspect meaningful variants and states discovered in analysis. Examples may include loading/empty, selection modes, permissions, back/cancel/dismiss, unsupported input, error/retry, save/refresh. Include only evidenced branches.
+
+A useful shape:
 
 ```text
 Page/State
   -> User action
   -> Business operation
   -> Data/platform effect
-  -> New state
+  -> State transition
   -> Visible outcome
 ```
 
@@ -75,7 +74,7 @@ Do not inventory every component/widget.
 
 ## Reconstruction without UX
 
-For a non-UI module/Project, use a caller/domain journey:
+Use a domain/caller journey:
 
 ```text
 Trigger/caller
@@ -85,66 +84,34 @@ Trigger/caller
   -> result/callback/handoff
 ```
 
-A storage or utility call by itself is not automatically Business. There should be a meaningful domain operation/outcome.
+Storage or utility calls alone do not create Business behavior.
 
-## Domain concepts versus technical models
+## Domain concepts vs technical models
 
-Business uses domain language:
+Business uses domain language (`Photo`, `Album`, `EditSession`, `ShareTarget`). Architecture may name `PhotoEntity`, `MediaViewModel`, repositories, DTO/schema mappings.
 
-- `Photo`
-- `Album`
-- `EditSession`
-- `ShareTarget`
+Do not dump decorators/fields/technical schema into Business.
 
-Architecture may name implementation types:
+## Flows and outcomes
 
-- `PhotoEntity`
-- `MediaViewModel`
-- `MediaRepository`
-- relational schema/DTO mapping.
-
-Do not dump class fields/decorators into Business.
-
-## Flows
-
-Use a short heading and numbered steps. Include material alternatives inline or in a compact table.
-
-A flow should reach either:
+A flow reaches either:
 
 - an observed local user/caller/state/persistence outcome; or
-- an exact platform/native/external handoff whose local contract is observed.
+- an exact external/platform/native handoff whose local contract is observed.
 
-Do not claim the downstream external result if it is outside repository evidence.
+Do not claim unobserved downstream behavior.
 
-## Rules and states
-
-Document only decisions that explain observable behavior. Avoid creating a `RULE-*` ID system for every condition in V1.
-
-Examples:
-
-- selection is disabled while media is loading;
-- edit confirmation persists a new revision;
-- a permission denial returns the user to an explanatory state.
-
-Keep implementation-only guards in Architecture/Governance unless they affect product behavior.
+Do not force every journey into exactly three steps. Use enough steps to explain the meaningful behavior without reproducing implementation call graphs.
 
 ## Business diagrams
 
-Use Mermaid when a journey has meaningful branching, state transitions, several actors, or module/platform handoffs. Project Business usually benefits from one primary end-to-end flow. Module Business gets a diagram only when the local journey is easier to understand visually.
+When `diagramDecision.business=required`, include a compact Mermaid flow/state diagram. Project Business usually benefits from one main end-to-end flow; module Business uses Mermaid when branching/state/handoffs are easier to understand visually.
 
-Do not generate call graphs as Business diagrams.
+Quote all labels conservatively.
 
 ## Evidence
 
-Use a compact table or bullets with important anchors:
-
-```text
-entry/src/.../GalleryPage.ets#build
-entry/src/.../GalleryViewModel.ets#loadAlbums
-data/src/.../MediaRepository.ets#queryAlbums
-```
-
-Important claims should be traceable, but the prose should not look like a citation report.
+Use a compact table/bullets with high-value anchors. Important claims should be traceable, but prose should remain a product/domain explanation rather than a citation report.
 
 ## Prohibited content
 
@@ -154,7 +121,7 @@ Do not add:
 - speculative user value;
 - exhaustive file/class inventories;
 - DTO/schema dumps;
-- generic best-practice advice;
+- generic best practices;
 - fake KPIs/SLAs;
-- one-sentence sections created only to satisfy a template;
-- a module Business document solely because the module exists.
+- filler headings;
+- module Business solely because a module exists.

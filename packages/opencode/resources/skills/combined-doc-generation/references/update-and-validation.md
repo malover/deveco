@@ -2,89 +2,104 @@
 
 ## V1 update stance
 
-V1 focuses on strong baseline generation. Full impact-scoped iterative updates come later.
+V1 focuses on strong baseline generation. Full impact-scoped iterative update behavior comes later.
 
-Keep update-friendly foundations now:
+Keep update-friendly foundations:
 
-- stable output paths;
-- one generated marker region per file;
-- stable `ARC-*`/`CHK-*`/`LIM-*` IDs when meaning/scope is unchanged;
-- developer content outside markers preserved;
-- compact `.projectspec` hierarchy/analysis metadata.
+- stable paths;
+- one generated marker region per Markdown file;
+- stable `ARC-*`/`CHK-*`/`LIM-*` IDs when meaning/scope remains unchanged;
+- compact `.projectspec` intelligence/analysis metadata;
+- developer content outside markers preserved.
 
 ## Preserve manual content
 
-For an existing generated file:
+For existing generated Markdown:
 
-1. locate exactly one `PROJECTSPEC:GENERATED:START` and one matching `END`;
+1. locate one generated start/end marker pair;
 2. replace only the generated region;
-3. preserve content outside markers byte-for-byte when practical;
+3. preserve outside content byte-for-byte where practical;
 4. never nest generated markers.
 
-For `constraints-and-limitations.md`, manual content outside markers is especially important. If it conflicts with regenerated evidence, flag the conflict instead of silently rewriting the manual rule.
+Manual content in `constraints-and-limitations.md` is especially important. If generated evidence conflicts with a manual rule, flag it rather than silently deleting/rephrasing the manual rule.
 
-## Mechanical content gates
+## Mechanical gates
 
-### Project structure
+### Metadata and analysis
 
-Every verified Project has:
+- `workspace-inventory.json`, `documentation-plan.json`, and `repository-intelligence.json` exist.
+- every Project has its planned `.projectspec/analysis/<project>.json`;
+- every planned module appears in its Project analysis packet;
+- every module has resolved `analysisDepth`, Business role/detail, completeness state, and diagram decision;
+- every `deep` module records at least two distinct analysis passes;
+- behavioral modules have at least one traced flow;
+- reference search outcome is recorded for deep modules.
 
-- `architecture.md`;
-- `business.md`;
-- `constraints-and-limitations.md`.
+### Structure
 
-Every physical module/build unit has `modules/<slug>/architecture.md`.
+- `docs/index.md` exists.
+- every verified Project has Architecture, Business, governance.
+- every physical module/build unit has module Architecture.
+- module Business exists only when plan role/detail justifies it.
+- no artificial root Business/Architecture layer is required for multi-Project mode.
 
-No root high-level/index document is required in multi-Project mode.
+### Index
+
+- repository overview reflects semantic metadata rather than raw descriptor dumping;
+- every Project Architecture/Business/governance document is linked;
+- every module Architecture and standalone module Business document is linked;
+- module responsibility/Business role/key entry surfaces come from analysis JSON;
+- cross-Project relationships appear when repository intelligence provides them.
 
 ### Business
 
-- Project Business exists and is substantive.
-- Module Business exists only when plan role/detail justifies it.
-- `architecture-only` modules never get Business.
-- `behavior-owner` modules should have standalone Business.
-- `supporting-behavior` may be standalone or `project-grouped`; Project Business must cover grouped contributions.
-- Important flows reach an observable result or exact handoff.
-- UI behavior includes meaningful UX/state path; non-UI behavior has an equivalent domain/system journey.
-- Domain concepts are separated from technical model dumps.
+- Project Business is substantive and absorbs `project-grouped` behavior.
+- `architecture-only` modules have no Business.
+- important flows reach an observable result/handoff.
+- deep UX/domain modules include material evidenced states/branches, not only happy path.
+- domain concepts remain separate from technical model dumps.
 
 ### Architecture
 
-- Module core headings are present.
-- Project Architecture explains module composition and dependency direction.
-- Extension Guidance contains repository-specific seams/reference patterns rather than generic advice.
-- Important evidence anchors exist.
-- Architecture does not contain full governance registries or copied `ARC-*` tables.
+- mandatory module/project core headings exist.
+- dependency direction is explicit.
+- deep/important modules include the implementation-impacting conditional sections listed in their analysis packet.
+- state machines/state owners are explained when analysis found them, not merely listed.
+- Extension Guidance names repository-specific seams/reference patterns where available.
+- important evidence anchors support ownership, flow, state/data/integration, and extension claims.
+- Architecture does not copy governance registries.
 
 ### Governance
 
-- `ARC-*`, `CHK-*`, and `LIM-*` IDs are unique within the Project registry.
-- Every ARC has scope, basis, impact, evidence, verification.
-- Every CHK has scope/applies-when/check steps and related rules where relevant.
-- Every LIM has scope, exact limitation/gap, evidence, implementation impact.
-- No speculative limitation prose.
+- `ARC-*`, `CHK-*`, and `LIM-*` IDs are unique per Project registry.
+- ARC has scope/basis/impact/evidence/verification.
+- CHK has scope/applies-when/actionable checks.
+- LIM is evidence-backed and has implementation impact.
+- final synthesis considered module-scoped invariants discovered during deep analysis, especially state/data ownership, registration, native/platform handoffs, and dependency rules.
 
 ### Mermaid
 
 - fences are balanced;
-- declaration is supported;
-- flowchart node/subgraph/edge labels use conservative quoted syntax;
-- no placeholder labels remain.
+- declaration supported;
+- flowchart node/decision/subgraph/edge labels are conservatively quoted;
+- no placeholder labels;
+- if analysis marks a module diagram `required`, the corresponding doc contains Mermaid.
 
-## Semantic audit
+## Semantic audit — richness and usefulness
 
-After mechanical validation, ask:
+Ask:
 
-1. Can a person explain the Project's main value/system journeys from Business?
-2. Can an agent choose the correct module for a new feature?
-3. Can an agent see dependency direction and source-of-truth ownership?
-4. Are 1-3 useful extension/reference patterns present where applicable?
-5. Are the most important drift risks represented in Project governance rather than duplicated in module docs?
-6. Did any module get Business merely because it exists?
-7. Did any meaningful small module behavior disappear instead of being absorbed into Project Business?
+1. Could an implementation agent make a real feature change from these docs without rediscovering the basic ownership/state/data path?
+2. Did a complex module end up as only a purpose paragraph + one flow + tiny evidence footer despite a rich analysis packet?
+3. Are state/data/lifecycle/FSM responsibilities explained where they affect extension decisions?
+4. Are there concrete reference implementations or an explicit no-useful-reference search result?
+5. Are UX/business flows rich enough to cover meaningful observed states/branches?
+6. Are the few extension points actually repository-specific?
+7. Are the highest-value drift risks represented in Project governance rather than duplicated everywhere?
 8. Are diagrams useful, evidence-backed, and render-safe?
+9. Does `index.md` provide a fast semantic map and working links to the detailed docs?
 
-Repair only concrete misses. Reopen source/HomeGraph only for a named failed question.
+Do **not** repair by padding word counts or creating filler headings. Reopen HomeGraph/source only for a named missing question, patch the affected docs/analysis, rebuild index if needed, and validate once more.
 
 ## Mechanical validator
 
@@ -96,6 +111,4 @@ python <skill-dir>/scripts/validate_docs.py <docs-root> \
   --plan <docs-root>/.projectspec/documentation-plan.json
 ```
 
-The validator checks planned files, markers, links, placeholders, Business-role consistency, core headings, governance records, and Mermaid safety. It does not prove narrative truth.
-
-After repair, run it one final time and stop.
+The validator checks structure/analysis/index/link/heading/governance/Mermaid consistency, not factual truth.

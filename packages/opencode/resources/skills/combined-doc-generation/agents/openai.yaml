@@ -1,7 +1,7 @@
 interface:
   display_name: Combined Doc Generation
   short_description: Generate deep, compact, drift-resistant ArkTS documentation
-  default_prompt: Use $combined-doc-generation to document this repository with repository-wide HomeGraph, module-first deep analysis, Project Business/Architecture synthesis, and architectural constraints/change checks.
+  default_prompt: Use $combined-doc-generation to document this repository with repository-wide HomeGraph, just-in-time depth-scaled module analysis, analysis-derived index navigation, Project Business/Architecture synthesis, and architectural constraints/change checks.
   icon_small: assets/icon.svg
   icon_large: assets/icon.svg
 policy:

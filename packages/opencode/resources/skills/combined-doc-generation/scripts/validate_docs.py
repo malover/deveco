@@ -19,11 +19,26 @@ END = "<!-- PROJECTSPEC:GENERATED:END -->"
 
 VALID_BUSINESS_ROLES = {"behavior-owner", "supporting-behavior", "architecture-only"}
 VALID_BUSINESS_DETAILS = {"standalone", "project-grouped", "none"}
+VALID_ANALYSIS_DEPTHS = {"focused", "standard", "deep"}
+VALID_COMPLETENESS = {"complete", "not-applicable"}
+VALID_DIAGRAM_DECISIONS = {"required", "not-useful"}
+ALLOWED_CONDITIONAL_SECTIONS = {
+    "State and Data Ownership",
+    "Persistence and Consistency",
+    "UI / Navigation Architecture",
+    "External / Platform / Native Integrations",
+    "Concurrency / Background Processing",
+    "Testing / Build Patterns",
+}
 SUPPORTED_MERMAID = {
     "flowchart", "graph", "stateDiagram-v2", "sequenceDiagram", "classDiagram", "erDiagram"
 }
 
 CORE_HEADINGS = {
+    "index": [
+        "Repository Overview",
+        "Projects",
+    ],
     "module-architecture": [
         "Purpose and Responsibilities",
         "Architecture and Dependencies",
@@ -374,6 +389,9 @@ def validate_plan(root: Path, inventory: dict[str, Any], plan: dict[str, Any]) -
         errors.append("plan: HomeGraph hierarchy verification is still pending")
 
     documents = plan_document_map(plan)
+    index_relative = plan.get("indexDocument") or "index.md"
+    if documents.get(index_relative) != "index":
+        errors.append(f"plan: index document must be listed as kind=index: {index_relative}")
     for relative in documents:
         if not (root / relative).is_file():
             errors.append(f"plan: planned document does not exist: {relative}")
@@ -416,9 +434,12 @@ def validate_plan(root: Path, inventory: dict[str, Any], plan: dict[str, Any]) -
             module_id = str(module.get("id", "<unknown>"))
             role = module.get("businessRole")
             detail = module.get("businessDetail")
+            depth = module.get("analysisDepth")
             arch_doc = module.get("architectureDocument")
             business_doc = module.get("businessOwnerDocument")
 
+            if depth not in VALID_ANALYSIS_DEPTHS:
+                errors.append(f"plan: module {module_id} has unresolved/invalid analysisDepth {depth!r}")
             if role not in VALID_BUSINESS_ROLES:
                 errors.append(f"plan: module {module_id} has unresolved/invalid businessRole {role!r}")
             if detail not in VALID_BUSINESS_DETAILS:
@@ -454,6 +475,181 @@ def validate_plan(root: Path, inventory: dict[str, Any], plan: dict[str, Any]) -
 
     return errors
 
+
+
+
+def _json_object(path: Path) -> tuple[dict[str, Any], str | None]:
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            value = json.load(handle)
+        if not isinstance(value, dict):
+            return {}, "expected JSON object"
+        return value, None
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return {}, str(exc)
+
+
+def _h2_titles(text: str) -> set[str]:
+    return {title for level, title in headings(generated_region(text)) if level == 2}
+
+
+def validate_analysis_packets(root: Path, plan: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    intelligence_rel = plan.get("repositoryIntelligenceDocument") or ".projectspec/repository-intelligence.json"
+    intelligence_path = root / str(intelligence_rel)
+    if not intelligence_path.is_file():
+        errors.append(f"analysis: repository intelligence missing: {intelligence_rel}")
+    else:
+        _, error = _json_object(intelligence_path)
+        if error:
+            errors.append(f"analysis: repository intelligence invalid: {intelligence_rel}: {error}")
+
+    required_completion = {"boundary", "runtime", "stateData", "business", "extension", "evidence"}
+
+    for project in [item for item in plan.get("projects", []) if isinstance(item, dict)]:
+        project_id = str(project.get("id", "<unknown>"))
+        analysis_rel = project.get("analysisDocument")
+        if not isinstance(analysis_rel, str) or not analysis_rel:
+            errors.append(f"analysis: Project {project_id} missing analysisDocument path")
+            continue
+        analysis_path = root / analysis_rel
+        if not analysis_path.is_file():
+            errors.append(f"analysis: Project {project_id} analysis file missing: {analysis_rel}")
+            continue
+        analysis, error = _json_object(analysis_path)
+        if error:
+            errors.append(f"analysis: invalid Project analysis {analysis_rel}: {error}")
+            continue
+
+        if analysis.get("projectId") not in {None, project.get("id")}:
+            errors.append(f"analysis: {analysis_rel} projectId does not match plan Project {project_id}")
+        if not isinstance(analysis.get("summary"), str) or not analysis.get("summary", "").strip():
+            errors.append(f"analysis: {analysis_rel} lacks a non-empty Project summary")
+
+        packets = {
+            str(item.get("moduleId")): item
+            for item in analysis.get("modules", [])
+            if isinstance(item, dict) and item.get("moduleId") is not None
+        }
+
+        for module in [item for item in project.get("modules", []) if isinstance(item, dict)]:
+            module_id = str(module.get("id", "<unknown>"))
+            packet = packets.get(module_id)
+            if packet is None:
+                errors.append(f"analysis: {analysis_rel} missing module packet {module_id}")
+                continue
+
+            depth = packet.get("analysisDepth")
+            if depth not in VALID_ANALYSIS_DEPTHS:
+                errors.append(f"analysis: module {module_id} has invalid analysisDepth {depth!r}")
+            if module.get("analysisDepth") in VALID_ANALYSIS_DEPTHS and depth != module.get("analysisDepth"):
+                errors.append(f"analysis: module {module_id} analysisDepth disagrees with enriched plan")
+
+            for field in ("responsibility",):
+                if not isinstance(packet.get(field), str) or not packet.get(field, "").strip():
+                    errors.append(f"analysis: module {module_id} missing non-empty {field}")
+
+            for field in (
+                "nonResponsibilities", "businessRationale", "analysisPasses", "entrySurfaces", "dependencies",
+                "consumers", "flows", "detectedTopics", "stateDataOwners", "integrations", "referencePatterns",
+                "conditionalSections", "constraintCandidates", "evidence", "unknowns",
+            ):
+                if not isinstance(packet.get(field), list):
+                    errors.append(f"analysis: module {module_id} field {field} must be a list")
+
+            if packet.get("businessRole") != module.get("businessRole"):
+                errors.append(f"analysis: module {module_id} businessRole disagrees with plan")
+            if packet.get("businessDetail") != module.get("businessDetail"):
+                errors.append(f"analysis: module {module_id} businessDetail disagrees with plan")
+
+            passes = packet.get("analysisPasses") if isinstance(packet.get("analysisPasses"), list) else []
+            pass_kinds = {
+                str(item.get("kind"))
+                for item in passes if isinstance(item, dict) and item.get("kind")
+            }
+            if not passes:
+                errors.append(f"analysis: module {module_id} records no analysis pass")
+            if depth == "deep" and (len(passes) < 2 or len(pass_kinds) < 2):
+                errors.append(f"analysis: deep module {module_id} requires at least two distinct analysis passes")
+            if depth == "deep" and packet.get("referenceSearchPerformed") is not True:
+                errors.append(f"analysis: deep module {module_id} must record referenceSearchPerformed=true")
+
+            role = packet.get("businessRole")
+            flows = packet.get("flows") if isinstance(packet.get("flows"), list) else []
+            if role == "behavior-owner" and not flows:
+                errors.append(f"analysis: behavior-owner module {module_id} must contain at least one traced flow")
+
+            completeness = packet.get("completeness")
+            if not isinstance(completeness, dict):
+                errors.append(f"analysis: module {module_id} missing completeness object")
+            else:
+                missing = required_completion - set(completeness)
+                for key in sorted(missing):
+                    errors.append(f"analysis: module {module_id} completeness missing {key}")
+                for key in required_completion & set(completeness):
+                    if completeness.get(key) not in VALID_COMPLETENESS:
+                        errors.append(f"analysis: module {module_id} completeness {key} unresolved/invalid: {completeness.get(key)!r}")
+
+            sections = packet.get("conditionalSections") if isinstance(packet.get("conditionalSections"), list) else []
+            invalid_sections = [item for item in sections if item not in ALLOWED_CONDITIONAL_SECTIONS]
+            for item in invalid_sections:
+                errors.append(f"analysis: module {module_id} has unsupported conditional section {item!r}")
+            arch_rel = module.get("architectureDocument")
+            if isinstance(arch_rel, str) and (root / arch_rel).is_file():
+                arch_text = (root / arch_rel).read_text(encoding="utf-8")
+                arch_titles = _h2_titles(arch_text)
+                for section in sections:
+                    if section in ALLOWED_CONDITIONAL_SECTIONS and section not in arch_titles:
+                        errors.append(f"{arch_rel}: analysis requires conditional section '## {section}' for module {module_id}")
+
+            decision = packet.get("diagramDecision")
+            if not isinstance(decision, dict):
+                errors.append(f"analysis: module {module_id} missing diagramDecision object")
+            else:
+                for target in ("architecture", "business"):
+                    value = decision.get(target)
+                    if value not in VALID_DIAGRAM_DECISIONS:
+                        errors.append(f"analysis: module {module_id} diagramDecision.{target} invalid: {value!r}")
+                if not isinstance(decision.get("reason"), str) or not decision.get("reason", "").strip():
+                    errors.append(f"analysis: module {module_id} diagramDecision requires a reason")
+                if decision.get("architecture") == "required" and isinstance(arch_rel, str) and (root / arch_rel).is_file():
+                    if not MERMAID_BLOCK_RE.search((root / arch_rel).read_text(encoding="utf-8")):
+                        errors.append(f"{arch_rel}: module {module_id} analysis marks architecture Mermaid required")
+                business_rel = module.get("businessOwnerDocument")
+                if decision.get("business") == "required":
+                    if not isinstance(business_rel, str) or not business_rel:
+                        errors.append(f"analysis: module {module_id} marks business Mermaid required but has no standalone Business document")
+                    elif (root / business_rel).is_file() and not MERMAID_BLOCK_RE.search((root / business_rel).read_text(encoding="utf-8")):
+                        errors.append(f"{business_rel}: module {module_id} analysis marks business Mermaid required")
+
+    return errors
+
+
+def validate_index_coverage(root: Path, plan: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    relative = str(plan.get("indexDocument") or "index.md")
+    path = root / relative
+    if not path.is_file():
+        return [f"index: missing {relative}"]
+    text = path.read_text(encoding="utf-8")
+
+    def has_link(target: Any) -> bool:
+        if not isinstance(target, str) or not target:
+            return True
+        normalized = target.replace("\\\\", "/")
+        return f"]({normalized})" in text
+
+    for project in [item for item in plan.get("projects", []) if isinstance(item, dict)]:
+        for field in ("architectureDocument", "businessDocument", "governanceDocument"):
+            target = project.get(field)
+            if not has_link(target):
+                errors.append(f"{relative}: missing link to Project {field}: {target}")
+        for module in [item for item in project.get("modules", []) if isinstance(item, dict)]:
+            for field in ("architectureDocument", "businessOwnerDocument"):
+                target = module.get(field)
+                if isinstance(target, str) and target and not has_link(target):
+                    errors.append(f"{relative}: missing link to module {module.get('id')} {field}: {target}")
+    return errors
 
 def validate_project_module_mentions(root: Path, plan: dict[str, Any]) -> list[str]:
     errors: list[str] = []
@@ -492,6 +688,9 @@ def validate(root: Path, inventory: dict[str, Any], plan: dict[str, Any]) -> lis
         return [f"docs root does not exist: {root}"]
 
     errors.extend(validate_plan(root, inventory, plan))
+    if plan:
+        errors.extend(validate_analysis_packets(root, plan))
+        errors.extend(validate_index_coverage(root, plan))
     document_map = plan_document_map(plan)
     for relative, kind in document_map.items():
         path = root / relative

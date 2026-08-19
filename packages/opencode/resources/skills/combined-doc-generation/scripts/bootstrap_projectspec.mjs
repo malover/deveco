@@ -182,6 +182,25 @@ function surfaceSignals(module, files) {
   }
 }
 
+
+function analysisPriorityHint(module) {
+  const signals = module.signals || {}
+  const surfaces = module.declaredSurfaces || { abilities: [], pages: [], permissions: [] }
+  const sourceFiles = Number(module.sourceFiles || 0)
+  const highSignals = [
+    signals.native, signals.stateCandidate, signals.domainModelCandidate, signals.repositoryCandidate,
+    signals.serviceCandidate, surfaces.abilities?.length > 0, surfaces.pages?.length > 0, sourceFiles >= 120,
+  ].filter(Boolean).length
+  if (highSignals >= 2 || signals.native || sourceFiles >= 300) return "deep-candidate"
+  if (highSignals >= 1 || signals.uxCandidate || signals.publicEntry || sourceFiles >= 25) return "standard-candidate"
+  return "focused-candidate"
+}
+
+function moduleDescriptorPriority(relative) {
+  if (/\/src\/main\/module\.json5$/i.test(relative)) return 0
+  if (/\/src\/(?:ohosTest|test|tests)\/module\.json5$/i.test(relative)) return 20
+  return 10
+}
 function moduleOutputSlugs(modules) {
   const counts = new Map()
   for (const module of modules) {
@@ -316,14 +335,23 @@ async function main() {
     }
   }
 
-  for (const descriptor of descriptors.filter((file) => file.endsWith("module.json5"))) {
+  const moduleDescriptors = descriptors
+    .filter((file) => file.endsWith("module.json5"))
+    .sort((left, right) => moduleDescriptorPriority(left) - moduleDescriptorPriority(right) || left.localeCompare(right))
+
+  for (const descriptor of moduleDescriptors) {
     const project = ownerFor(projects, descriptor)
     if (!project) continue
     const descriptorDir = normalize(path.posix.dirname(descriptor))
-    const existing = project.modules.find((module) => descriptorDir === module.path || descriptorDir.startsWith(`${module.path}/`))
+    const normalizedModuleRoot = normalize(descriptorDir.replace(/\/src\/(?:main|ohosTest|test|tests)$/, ""))
+    const existing = project.modules.find((module) =>
+      normalizedModuleRoot === module.path
+      || descriptorDir === module.path
+      || descriptorDir.startsWith(`${module.path}/`)
+    )
     const data = await readLooseJson(descriptor)
     const moduleData = isObject(data.module).name ? isObject(data.module) : data
-    const modulePath = existing?.path || normalize(descriptorDir.replace(/\/src\/main$/, ""))
+    const modulePath = existing?.path || normalizedModuleRoot
     const name = existing?.name || (typeof moduleData.name === "string" ? moduleData.name : path.posix.basename(modulePath))
     const abilities = [
       ...(Array.isArray(moduleData.abilities) ? moduleData.abilities : []),
@@ -343,9 +371,16 @@ async function main() {
       kind: typeof moduleData.type === "string" ? moduleData.type : "arkts-module",
       targets: [],
     }
-    target.descriptor = descriptor
-    target.kind = typeof moduleData.type === "string" ? moduleData.type : target.kind
-    target.declaredSurfaces = { abilities, pages, permissions }
+
+    // Prefer the production src/main descriptor. Test descriptors may add context but must not
+    // replace the authoritative runtime descriptor/surfaces for the same module.
+    const currentPriority = target.descriptor ? moduleDescriptorPriority(target.descriptor) : Number.POSITIVE_INFINITY
+    const nextPriority = moduleDescriptorPriority(descriptor)
+    if (nextPriority <= currentPriority) {
+      target.descriptor = descriptor
+      target.kind = typeof moduleData.type === "string" ? moduleData.type : target.kind
+      target.declaredSurfaces = { abilities, pages, permissions }
+    }
     if (!existing) project.modules.push(target)
   }
 
@@ -420,6 +455,8 @@ async function main() {
   const documents = []
   const capabilityCandidates = []
 
+  addDocument(documents, "index.md", "index", "workspace", "mandatory repository analysis-derived navigation")
+
   const plannedProjects = projects.map((project) => {
     const base = outputBase(project, multiple)
     addDocument(documents, documentPath(base, "architecture.md"), "project-architecture", project.id, "mandatory Project architecture")
@@ -457,6 +494,8 @@ async function main() {
         businessDetail: "pending",
         businessOwnerDocument: null,
         businessRationale: [],
+        analysisDepth: "pending",
+        analysisPriorityHint: analysisPriorityHint(module),
         candidateSignals: {
           sourceFiles: module.sourceFiles,
           ...module.signals,
@@ -467,6 +506,7 @@ async function main() {
       }
     })
 
+    const analysisSlug = slug(base || project.outputSlug || project.name || project.id)
     return {
       id: project.id,
       name: project.name,
@@ -475,6 +515,7 @@ async function main() {
       subsystem: project.subsystem,
       base,
       boundaryStatus: "candidate-needs-homegraph-verification",
+      analysisDocument: `.projectspec/analysis/${analysisSlug}.json`,
       architectureDocument: documentPath(base, "architecture.md"),
       businessDocument: documentPath(base, "business.md"),
       governanceDocument: documentPath(base, "constraints-and-limitations.md"),
@@ -483,13 +524,15 @@ async function main() {
   })
 
   const plan = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     generatedBy: "bootstrap_projectspec.mjs",
     phase: "structural-candidates",
     requiresHomeGraphVerification: true,
     requiresSemanticEnrichment: true,
     selectedRevision: revision,
     workspaceMode: inventory.workspaceMode,
+    indexDocument: "index.md",
+    repositoryIntelligenceDocument: ".projectspec/repository-intelligence.json",
     documents,
     projects: plannedProjects,
     capabilityCandidates,
@@ -504,10 +547,14 @@ async function main() {
         "classify business detail as standalone, project-grouped, or none",
         "add module Business documents only for standalone semantic owners",
         "ensure Project Business absorbs project-grouped behavior",
-        "trace representative UX/domain/data flows and outcomes",
-        "find repository-specific reference implementations for extension guidance",
+        "assign each module analysisDepth focused/standard/deep from significance plus HomeGraph evidence",
+        "perform just-in-time module analysis immediately before writing each module",
+        "require at least two distinct HomeGraph passes for deep modules",
+        "trace representative UX/domain/data flows including meaningful observed states/branches",
+        "perform repository-wide reference implementation search for important modules",
+        "record state/data/integration/conditional-section and Mermaid decisions in Project analysis JSON",
         "populate one Project governance registry with scoped ARC/CHK/LIM entries",
-        "record Mermaid decisions only where a diagram is useful",
+        "build index.md from repository intelligence plus Project analysis JSON after all Projects",
       ],
     },
   }

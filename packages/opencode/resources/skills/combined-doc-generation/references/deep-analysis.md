@@ -1,179 +1,273 @@
 # Deep Analysis Policy
 
-This reference carries forward the useful parts of the older deep/full-scan approach without its exhaustive file-by-file documentation.
+The older deep/full-scan approach was valuable because it traced behavior rather than stopping at directory structure. Keep that semantic depth while avoiding exhaustive file-by-file documentation.
 
-## Principle
+## Core principle
 
-**Discover deeply; publish selectively.**
+**Discover deeply just before writing; publish selectively.**
 
-The older approach was valuable because it did not stop at filenames. It traced relationships, data flow, UI/state behavior, integrations, and similar implementations. Preserve that depth. Drop the requirement to read and describe every file.
+Repository intelligence gives structural orientation. It is not enough to write every module from memory. Each module receives its own bounded HomeGraph analysis immediately before its docs are produced.
 
-## 1. Establish the module boundary
+## 1. Analysis depth
 
-Use deterministic inventory + `homegraph_files` scoped to the verified module path to understand what is physically owned.
+Choose one depth after combining deterministic signals with the first HomeGraph neighborhood.
 
-Capture only a compact internal inventory:
+### `deep`
 
-- descriptors/build target;
-- entry/public/lifecycle surfaces;
+Use for modules that are architecturally or behaviorally important, including:
+
+- `behavior-owner` modules;
+- Project entry/HAP/orchestration/ability composition;
+- shared state/data/persistence foundations;
+- native/platform/external integration boundaries;
+- state-machine-heavy modules;
+- high fan-in/fan-out shared modules;
+- large modules where many consumers or extension seams converge.
+
+A deep module requires **two or more distinct HomeGraph passes** before writing.
+
+### `standard`
+
+Use for substantial supporting behavior or technical modules with meaningful runtime/data relationships. Perform one strong overview plus targeted gap/reference searches.
+
+### `focused`
+
+Use only for narrow architecture-only helpers/adapters/build units with small blast radius. One bounded pass plus exact verification is usually enough.
+
+Do not equate file count with importance. A small public adapter may still be deep if it is an architectural seam.
+
+## 2. Pass 1 — ownership and runtime
+
+Use deterministic inventory + `homegraph_files`/anchored exploration to establish:
+
+- descriptors/build target and real public/entry/lifecycle surfaces;
+- responsibility and explicit non-responsibilities;
+- direct dependencies and consumers;
 - controllers/view models/state owners;
 - domain/data models;
-- persistence/repository/data-source owners;
+- persistence/repository/data-source ownership;
 - external/native/platform integration owners;
-- representative tests;
-- resources/config only when behaviorally relevant.
+- representative tests when useful;
+- one or more entry-to-effect runtime/UX paths.
 
-Do not emit this inventory verbatim into Markdown.
+Do not publish a full file inventory.
 
-## 2. Analyze relationships and data flow
+## 3. Pass 2 — enrichment for deep modules
 
-Use HomeGraph first to reconstruct the module's meaningful execution paths.
+A deep module must receive a second bounded pass that targets questions the first pass cannot answer richly enough.
 
-For each representative flow, identify:
+### 3.1 Reference implementations and related paths
 
-1. real trigger/caller;
-2. entry symbol/ability/page/service;
-3. orchestration steps;
-4. state reads/writes and transformations;
-5. persistence/cache access;
-6. events/callbacks/IPC/platform/external calls;
-7. local terminal effect or exact handoff;
-8. material error/cancel/retry/recovery behavior.
+Search outside the current module for:
 
-Record integration points when relevant:
+- analogous pages/features/services;
+- shared base classes/facades;
+- established repository/state/data access paths;
+- registration/extension patterns;
+- representative tests demonstrating the expected shape.
 
-- external/platform APIs;
-- sibling module APIs;
-- shared state;
-- events published/subscribed;
-- database/persistence ownership;
-- native bridge calls.
+Record a few useful patterns, not every similar symbol. If no useful reference exists, record that the search was performed and why no pattern was selected.
 
-Prefer one or a few representative flows over a call graph for every function.
+### 3.2 State, data, lifecycle, and state machines
 
-## 3. UX-first discovery when UI exists
+When detected, resolve:
 
-This is a primary V1 Business signal.
+- source of truth;
+- mutation owner;
+- subscribers/reactive propagation;
+- persisted vs transient state;
+- cache/invalidation/version semantics;
+- lifecycle reset/resume/reload behavior;
+- concurrency/order assumptions;
+- state-machine responsibility split and important transitions.
+
+A module with multiple state managers/FSMs should explain how their responsibilities divide rather than merely listing their names.
+
+### 3.3 Flow richness
+
+For representative behavior, go beyond nominal success when evidence exposes material variants:
+
+- loading/empty states;
+- selection/multi-select modes;
+- permission denied/granted;
+- cancel/back/dismiss;
+- invalid/unsupported input;
+- retry/recovery;
+- external/native handoff and return path;
+- save/persist/refresh lifecycle.
+
+Do not manufacture branches that are not evidenced.
+
+### 3.4 Blast radius and extension seams
+
+Use callers/impact/related symbols as needed to identify:
+
+- stable public contracts;
+- consumers affected by a change;
+- coupled artifacts that usually change together;
+- dependency directions that must remain intact;
+- module/project `ARC-*` and `CHK-*` candidates.
+
+## 4. UX-first discovery
+
+UX is a primary V1 Business signal.
 
 Identify:
 
-- ArkUI pages/components/abilities or equivalent user-facing entry surfaces;
-- navigation operations and back/dismiss/cancel paths;
-- state owners (`@State`, observed models, ViewModels, storage-backed state, etc.);
-- conditional rendering and loading/empty/error/permission/success states;
-- user actions -> state/business operation mapping;
-- data displayed/edited/selected;
-- observable result after each important journey.
+- ArkUI pages/components/abilities or equivalent entry surfaces;
+- navigation and back/dismiss/cancel behavior;
+- state owners and visible states;
+- user action -> controller/view model/service mapping;
+- displayed/edited/selected domain data;
+- loading/empty/error/permission/success states;
+- observable result of each important journey.
 
-Trace important journeys end to end:
+Trace important journeys:
 
 ```text
 screen/state
   -> user action
   -> controller/view model/service
   -> data/integration effect
-  -> state/result
+  -> state transition
   -> visible/caller outcome
 ```
 
-Do not document every widget. A UI-heavy module normally needs only its important journeys initially; deepen only where product behavior would otherwise be ambiguous.
+Do not document every widget. Deep UI modules may need several meaningful flows/states rather than one happy-path flow.
 
-## 4. Domain/data-model discovery
+## 5. Domain/data-model discovery
 
 This is the second primary V1 Business signal.
 
-Find models/entities/state objects that carry domain meaning, then determine:
+Find domain-significant models/entities/state objects and determine:
 
 - who creates/loads them;
 - who mutates them;
 - who consumes/displays them;
-- important relationships/lifecycles;
+- meaningful relationships/lifecycles;
 - persistence-visible effects;
 - decisions/rules based on them.
 
-Business docs use **domain concepts** (`Photo`, `Album`, `EditSession`), not implementation dumps (`PhotoEntity`, DTO fields, decorator syntax).
+Business uses domain concepts (`Photo`, `Album`, `EditSession`). Architecture may name implementation types (`PhotoEntity`, `MediaViewModel`, repositories, schemas) where they explain ownership.
 
-Architecture docs may name concrete entities/view models/repositories when needed to explain ownership and flow.
+Models/storage alone do not justify module Business.
 
-A module containing only DTO/entity/schema definitions or repository plumbing does not automatically deserve a Business document.
+## 6. Relationships and data flow
 
-## 5. State management
+For each representative technical flow identify:
 
-When applicable, identify:
+1. trigger/caller;
+2. entry symbol/ability/page/service;
+3. orchestration owner;
+4. state reads/writes/transformations;
+5. persistence/cache access;
+6. events/callbacks/IPC/platform/native calls;
+7. local terminal effect or exact handoff;
+8. material failure/cancel/retry/recovery behavior.
 
-- source of truth;
-- mutation owner;
-- reactive propagation/subscribers;
-- lifecycle/reset/invalidation behavior;
-- persisted versus transient state;
-- concurrency/order assumptions visible in code.
+Prefer a few explanatory paths over an exhaustive call graph.
 
-State ownership is often a high-value architecture-drift constraint. Promote durable cross-module ownership rules to the Project governance registry rather than repeating them in every Architecture file.
+## 7. Conditional Architecture topics
 
-## 6. Related code and reference implementations
+During analysis explicitly record implementation-impacting topics using the exact Architecture headings that should be included:
 
-Actively search **outside the current module** for similar or shared patterns.
+- `State and Data Ownership`
+- `Persistence and Consistency`
+- `UI / Navigation Architecture`
+- `External / Platform / Native Integrations`
+- `Concurrency / Background Processing`
+- `Testing / Build Patterns`
 
-Use:
+If a topic materially changes where/how an agent should implement a feature, include it. Do not omit it simply because a sentence could be folded into `Runtime and Data Flow`.
 
-- domain/symbol search from the current flow;
-- callers/callees that cross module boundaries;
-- shared base classes/facades/repositories/state patterns;
-- similar features/pages/services elsewhere;
-- representative tests that demonstrate the established approach.
+If the topic is genuinely irrelevant or trivial, leave it out.
 
-Select only 1-3 high-value references for module Extension Guidance, for example:
+## 8. Diagram decision
 
-> New media filtering should follow the existing `AlbumQuery -> MediaRepository -> DataSource` path used by `<reference>` rather than querying persistence from the UI.
+For each module record:
 
-Do not generate speculative “reuse opportunities” or generic design advice.
+```json
+{
+  "diagramDecision": {
+    "architecture": "required | not-useful",
+    "business": "required | not-useful",
+    "reason": "..."
+  }
+}
+```
 
-## 7. Tests and verification patterns
+Architecture Mermaid is usually useful for deep modules with multiple state owners, module/platform/native handoffs, or non-obvious runtime paths. Business Mermaid is useful for branching/stateful UX/domain flows.
 
-Find representative tests when they help establish:
+Use conservative quoted Mermaid syntax from `references/diagrams.md`.
 
-- observable outcomes;
-- state transitions;
-- error branches;
-- public contract behavior;
-- how a change in this area is normally verified.
+## 9. Tests and exact verification
 
-Do not create a standalone test-strategy document. Put only the locally useful testing pattern in Architecture/Change Checks.
+Find representative tests when they establish outcomes, transitions, contract behavior, or the normal verification path.
 
-## 8. Evidence verification
-
-Use precise source/config reads for claims HomeGraph cannot prove exactly, especially:
+Use exact source/config reads only for named unresolved questions such as:
 
 - constants/thresholds;
 - permission/security enforcement;
 - schema/serialization details;
-- exact return/callback behavior;
+- exact callbacks/returns;
 - error handling/recovery;
-- build flags/product variants;
-- platform/native boundaries.
+- product/device/build variants;
+- native/platform boundaries.
 
-Every direct read should answer a named unresolved question.
+Every direct read should answer a named question.
 
-## 9. Internal analysis packet
+## 10. Analysis-completion gate
 
-Keep a compact reusable packet per module in `.projectspec/analysis/<project>.json`:
+A module is ready to write only when its packet resolves:
+
+- **boundary** — responsibility/non-responsibility and entry/public surfaces;
+- **runtime** — representative entry-to-effect flow(s), or explicitly not applicable for a passive build unit;
+- **stateData** — state/data/lifecycle ownership where detected, otherwise not applicable;
+- **business** — Business role/detail and rationale;
+- **extension** — concrete seam/reference search outcome where meaningful;
+- **evidence** — enough anchors to substantiate important claims.
+
+A deep module also requires at least two distinct analysis passes.
+
+## 11. Compact analysis packet
+
+Store one record per module in `.projectspec/analysis/<project>.json`:
 
 ```json
 {
   "moduleId": "...",
   "responsibility": "...",
+  "nonResponsibilities": [],
   "businessRole": "behavior-owner | supporting-behavior | architecture-only",
-  "businessRationale": ["UX flow ...", "domain lifecycle ..."],
+  "businessDetail": "standalone | project-grouped | none",
+  "businessRationale": [],
+  "analysisDepth": "focused | standard | deep",
+  "analysisPasses": [
+    {"kind": "ownership-runtime", "anchors": [], "resolved": []}
+  ],
   "entrySurfaces": [],
   "dependencies": [],
   "consumers": [],
   "flows": [],
+  "detectedTopics": [],
   "stateDataOwners": [],
   "integrations": [],
+  "referenceSearchPerformed": true,
   "referencePatterns": [],
+  "conditionalSections": [],
+  "diagramDecision": {"architecture": "not-useful", "business": "not-useful", "reason": "..."},
   "constraintCandidates": [],
-  "evidence": []
+  "evidence": [],
+  "completeness": {
+    "boundary": "complete",
+    "runtime": "complete",
+    "stateData": "not-applicable",
+    "business": "complete",
+    "extension": "complete",
+    "evidence": "complete"
+  },
+  "unknowns": []
 }
 ```
 
-Do not store full source text, exhaustive per-file summaries, or raw HomeGraph response dumps.
+The packet is reusable generation state, not another prose product. Do not store full source, exhaustive per-file summaries, or raw graph packets.

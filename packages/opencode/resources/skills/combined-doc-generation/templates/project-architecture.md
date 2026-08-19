@@ -8,7 +8,7 @@
 
 ## Project Boundary and Architecture
 
-Explain what this Project is at runtime/build level, its architectural style as observed, its external/public boundary, and the safest high-level starting points for feature work.
+Explain what this Project is at runtime/build level, its observed architectural shape, important entry/public boundaries, and safest high-level starting points for feature work.
 
 ## Module Responsibilities and Dependency Direction
 
@@ -17,29 +17,22 @@ Explain what this Project is at runtime/build level, its architectural style as 
 
 Include every physical module/build unit and link its Architecture document.
 
-Normally include one compact Mermaid dependency view:
-
-```mermaid
-flowchart LR
-    entry["entry"] -->|"uses"| data["data"]
-```
-
-Replace the example with evidence-backed nodes/edges. Quote every node/edge/subgraph label.
+Normally include one compact Mermaid dependency/ownership view. Quote every human-readable node/edge/subgraph label.
 
 ## Cross-Module Runtime and Data Flows
 
-Describe 2-4 representative Project-level paths that explain how modules compose. Link to module Architecture for local detail rather than repeating internals.
+Describe the representative Project-level paths needed to understand module composition. For a large application, 2-4 is a starting point, not a hard ceiling; include another only when it explains a materially different ownership/data/native path.
 
 ## External, Platform, and Native Boundaries
 
-Include only materially important boundaries: platform services, native libraries, external systems, sibling Projects/local packages, public contracts.
+Include materially important platform services, native libraries, external systems, sibling Projects/local packages, or public contracts. Explain local ownership/handoff rather than listing dependencies.
 
 ## Change Ownership Map
 
 | Change area | Start in | Why | Related module docs / ARC-CHK IDs |
 |---|---|---|---|
 
-Keep this practical and compositional. Detailed extension patterns belong in module Architecture; durable rules/checks belong in governance.
+Keep this compositional. Detailed state/reference patterns remain in module Architecture; durable rules/checks remain in governance.
 
 ## Source Evidence
 
