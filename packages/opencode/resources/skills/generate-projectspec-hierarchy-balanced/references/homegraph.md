@@ -8,7 +8,8 @@ readiness chain per run; do not repeat status checks or overlap broad explores.
 
 1. Check whether `<repository-root>/.homegraph/` exists.
 2. If absent, run the installed `homegraph init -i <repository-root>` command.
-3. If present, compare indexed revision/scope with the selected revision and synchronize
+3. If present, use the tool-reported identity only; unavailable revision data is `not-exposed`.
+   Never inspect persisted HomeGraph storage. Synchronize
    with the installed HomeGraph update/index command. Never guess a provider-specific API.
 4. Prove readiness serially: `homegraph_status`, then `homegraph_files`, then one bounded
    anchored `homegraph_explore` using a real descriptor, module path, ability, page, route,

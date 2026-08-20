@@ -9,8 +9,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from validate_packet import load as load_packet
-from validate_packet import validate_packet
+from document_contract import extract_summary
 
 START = "<!-- PROJECTSPEC:GENERATED:START -->"
 END = "<!-- PROJECTSPEC:GENERATED:END -->"
@@ -57,8 +56,8 @@ def render(plan: dict[str, Any], inventory: dict[str, Any], report: dict[str, An
     projects = [item for item in plan.get("projects", []) if isinstance(item, dict)]
     stats = inventory.get("stats", {})
     graph = report.get("homegraph", {}) if isinstance(report.get("homegraph"), dict) else {}
-    overview = report.get("repositoryOverview") or "Repository overview retained from the LLM-primary and CSV-baseline scan; consult Project documents for evidence-backed detail."
-    lines = [START, "# Documentation Index", "", f"> Baseline: `{text(plan.get('selectedRevision', inventory.get('selectedRevision', 'unknown')))}` · Scan: `{text(plan.get('scanLevel', 'deep'))}` · HomeGraph: `{text(graph.get('readiness', 'pending'))}`", "", "## Repository Overview", "", text(overview), "", f"**Repository type:** `{text(report.get('repositoryType', 'mixed or unclassified'))}` · **Projects:** {len(projects)} · **Modules:** {stats.get('moduleCount', sum(len(item.get('modules', [])) for item in projects))} · **Technologies:** {list_text(report.get('technologies'), 5)} · **Architecture pattern:** {text(report.get('architecturePattern', 'evidence pending'))}", ""]
+    overview = report.get("repositoryOverview") or "See the validated Project documents for the repository overview and evidence-backed detail."
+    lines = [START, "# Documentation Index", "", f"> Baseline: `{text(plan.get('selectedRevision', inventory.get('selectedRevision', 'unknown')))}` · Scan: `{text(plan.get('scanLevel', 'deep'))}` · HomeGraph: `{text(graph.get('readiness', 'pending'))}`", "", "## Repository Overview", "", text(overview), "", f"**Repository type:** `{text(report.get('repositoryType', 'mixed or unclassified'))}` · **Projects:** {len(projects)} · **Modules:** {stats.get('moduleCount', sum(len(item.get('modules', [])) for item in projects))} · **Technologies:** {list_text(report.get('technologies'), 5)} · **Architecture pattern:** {text(report.get('architecturePattern', 'not recorded'))}", ""]
     root_governance = next((item.get("path") for item in planned(plan) if item.get("kind") == "constraints-and-limitations" and item.get("scope") == "workspace"), None)
     if root_governance:
         lines.extend(["## Repository Governance", "", link("Cross-Project constraints and limitations", root_governance), ""])
@@ -93,21 +92,16 @@ def main() -> int:
         inventory = load(args.inventory.resolve())
         report = load(args.scan_report.resolve()) if args.scan_report and args.scan_report.is_file() else {}
         report["docsRoot"] = str(root)
-        packet_paths = args.packet or sorted((root / ".projectspec" / "analysis").glob("*.json"))
-        if not packet_paths:
-            raise ValueError("no validated analysis packets found under .projectspec/analysis; document writing cannot consume an empty packet set")
         packets: dict[str, dict[str, Any]] = {}
-        for packet_path in packet_paths:
-            packet = load_packet(packet_path.resolve())
-            errors = validate_packet(packet, plan)
-            if errors:
-                raise ValueError("\n".join(errors))
-            for module in packet.get("modules", [packet]):
-                if isinstance(module, dict) and isinstance(module.get("moduleId"), str):
-                    packets[module["moduleId"]] = module
-        expected = {str(module.get("id")) for project in plan.get("projects", []) if isinstance(project, dict) for module in project.get("modules", []) if isinstance(module, dict)}
-        if expected - set(packets):
-            raise ValueError(f"missing validated packets for modules: {', '.join(sorted(expected - set(packets))) }")
+        for project in plan.get("projects", []):
+            for module in project.get("modules", []):
+                document = root / str(module.get("architectureDocument", ""))
+                if document.is_file():
+                    packets[str(module.get("id"))] = {
+                        "responsibility": extract_summary(document, document.read_text(encoding="utf-8")),
+                        "entrySurfaces": module.get("entrySurfaces", []),
+                        "businessRole": module.get("businessRole", "pending"),
+                    }
         destination = root / str(plan.get("indexDocument") or "index.md")
         destination.parent.mkdir(parents=True, exist_ok=True)
         current = destination.read_text(encoding="utf-8") if destination.is_file() else ""

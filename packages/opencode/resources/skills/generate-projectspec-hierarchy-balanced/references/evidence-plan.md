@@ -1,4 +1,4 @@
-# Evidence plan and packet boundary
+# Evidence plan and streaming ledger
 
 The bootstrap plan is structural metadata, not a prose handoff. Keep one compact module record
 per physical unit with selected depth (`focused`, `standard`, or `deep`), activated topics,
@@ -6,11 +6,13 @@ required evidence categories, anchors, and unresolved questions. `deep` remains 
 default; adaptive selection changes only per-module depth from deterministic scale and signal
 rules.
 
-The packet is the only handoff from evidence collection to document writing. A module claim is
+Schema-v3 has no packet-first handoff. Completed Markdown plus a tiny derived ledger is the
+handoff from evidence collection to document writing. A module claim is
 `{claim, status, anchor, scope}` and must use an allowed evidence status with a non-empty anchor.
-Packets retain ownership, lifecycle/contracts, dependencies, representative flows, state/data,
-integrations, tests, extension/blast-radius facts, ARC/LIM candidates, unknowns, and diagram
-decisions. They never contain raw source, graph responses, secrets, or repeated contract prose.
+The ledger retains only summaries, evidence anchors, governance IDs, and gaps; ownership,
+lifecycle/contracts, flows, state/data, integrations, tests, extension/blast-radius facts, and
+diagram decisions remain in completed Markdown. It never contains raw source, graph responses,
+secrets, or repeated contract prose.
 
-Run `scripts/validate_packet.py` before writing Markdown. Release detailed HomeGraph/source
-context after each validated packet and re-query only for an explicit unresolved packet gap.
+Run `projectspec.py check --scope module:<id>` immediately after writing Markdown. Release
+detailed HomeGraph/source context after each scope and re-query only for an explicit unresolved gap.

@@ -13,6 +13,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from validate_packet import load as load_packet
 from validate_packet import validate_packet
+from document_contract import HEADINGS as CONTRACT_HEADINGS, evidence_anchors, has_placeholder
 
 START = "<!-- PROJECTSPEC:GENERATED:START -->"
 END = "<!-- PROJECTSPEC:GENERATED:END -->"
@@ -188,8 +189,41 @@ def main() -> int:
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--scan-report", type=Path)
     parser.add_argument("--packet", type=Path, action="append")
+    parser.add_argument("--scope", help="schema-v3 scope: module:<id>, project:<id>, or workspace")
     args = parser.parse_args()
     root = args.docs_root.resolve(); inventory = load(args.inventory.resolve()); plan = load(args.plan.resolve())
+    if args.scope:
+        report_path = args.scan_report or root / ".projectspec" / "project-scan-report.json"
+        report = load(report_path.resolve()) if report_path.is_file() else {}
+        if report.get("schemaVersion") != 3:
+            print("ERROR: schema-v3 ledger is required for scoped validation", file=sys.stderr); return 1
+        wanted = args.scope
+        scopes = report.get("scopes", [])
+        item = next((scope for scope in scopes if (wanted == "workspace" and scope.get("kind") == "workspace") or wanted == f"{scope.get('kind')}:{scope.get('id')}"), None)
+        if wanted == "workspace":
+            documents = [entry for entry in planned(plan)]
+        elif item:
+            documents = [{"path": path, "kind": "constraints-and-limitations" if path.endswith("constraints-and-limitations.md") else "module-business" if (path.startswith("modules/") or "/modules/" in path) and path.endswith("business.md") else "project-business" if path.endswith("business.md") else "module-architecture" if (path.startswith("modules/") or "/modules/" in path) else "project-architecture"} for path in item.get("documents", [])]
+        else:
+            print(f"ERROR: unknown scope {wanted}", file=sys.stderr); return 1
+        scoped_errors = []
+        for entry in documents:
+            path = root / entry["path"]
+            if not path.is_file(): scoped_errors.append(f"missing document: {entry['path']}"); continue
+            text = path.read_text(encoding="utf-8")
+            if text.count(START) != 1 or text.count(END) != 1: scoped_errors.append(f"{entry['path']}: expected one balanced generated region")
+            scoped_errors.extend(f"{entry['path']}: missing required section ## {heading}" for heading in sorted(CONTRACT_HEADINGS.get(entry["kind"], set()) - h2(text)))
+            if entry["kind"] not in {"index", "constraints-and-limitations"} and not evidence_anchors(text): scoped_errors.append(f"{entry['path']}: Source Evidence lacks a concrete anchor")
+            if wanted == "workspace":
+                if has_placeholder(text): scoped_errors.append(f"{entry['path']}: unresolved placeholder")
+                scoped_errors.extend(validate_links(path, root) + validate_mermaid(path, text))
+                if entry["kind"] == "constraints-and-limitations": scoped_errors.extend(validate_governance(path, text))
+        if scoped_errors:
+            print("\n".join(f"ERROR: {error}" for error in scoped_errors), file=sys.stderr); return 1
+        if item: item["status"] = "complete"
+        report["validationStatus"] = "complete" if wanted == "workspace" else "in-progress"
+        report_path.parent.mkdir(parents=True, exist_ok=True); report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        print(f"Validated {wanted}"); return 0
     errors = validate_plan(root, inventory, plan)
     packet_paths = args.packet or sorted((root / ".projectspec" / "analysis").glob("*.json"))
     if not packet_paths:

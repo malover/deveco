@@ -24,7 +24,7 @@
 - **Category:** `<tooling | evidence gap | external boundary | runtime limitation>`
 - **Limitation / evidence gap:** <exact verified fact; never speculation>
 - **Implementation impact / blast radius:** <concrete consequence>
-- **Evidence / boundary:** `<path#symbol-or-external contract>`
+- **Evidence:** `<path#symbol-or-external contract>`
 - **Current handling / unknown:** <current behavior or bounded unknown>
 - **How to work with it:** <safe handling>
 - **When it applies:** <recognizable condition>

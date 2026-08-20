@@ -14,6 +14,7 @@ PACKET = ROOT / "validate_packet.py"
 RENDER = ROOT / "render_documents.py"
 INDEX = ROOT / "build_index.py"
 VALIDATE = ROOT / "validate_docs.py"
+COORDINATOR = ROOT / "projectspec.py"
 
 
 def write(path: Path, value: str) -> None:
@@ -119,6 +120,50 @@ class ProjectSpecScriptsTest(unittest.TestCase):
         result = subprocess.run([sys.executable, str(PACKET), str(packet)], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid JSON", result.stderr)
+
+    def test_schema_v3_coordinator_requires_full_graph_gate(self) -> None:
+        directory = self.fixture()
+        self.bootstrap(directory)
+        docs = directory / "docs"
+        started = subprocess.run([sys.executable, str(COORDINATOR), "start", str(docs)], capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(started.stdout)["schemaVersion"], 3)
+        blocked = subprocess.run([sys.executable, str(COORDINATOR), "graph-ready", str(docs), "--status", "ready"], capture_output=True, text=True)
+        self.assertNotEqual(blocked.returncode, 0)
+        ready = subprocess.run([sys.executable, str(COORDINATOR), "graph-ready", str(docs), "--status", "ready", "--files", "ready", "--explore", "ready"], capture_output=True, text=True)
+        self.assertEqual(ready.returncode, 0, ready.stderr)
+        self.assertEqual(json.loads((docs / ".projectspec" / "project-scan-report.json").read_text(encoding="utf-8"))["schemaVersion"], 3)
+
+    def test_schema_v3_finish_uses_documents_without_packets(self) -> None:
+        directory = self.fixture()
+        self.bootstrap(directory)
+        docs = directory / "docs"
+        plan_path = docs / ".projectspec" / "documentation-plan.json"
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        plan["requiresHomeGraphVerification"] = False
+        for project in plan["projects"]:
+            project["boundaryStatus"] = "verified"
+        plan_path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+        packet_path = docs / ".projectspec" / "analysis" / "fixture.json"
+        packet_path.parent.mkdir(parents=True, exist_ok=True)
+        modules = []
+        for project in plan["projects"]:
+            for module in project["modules"]:
+                modules.append({"moduleId": module["id"], "responsibility": "fixture", "businessRole": module["businessRole"], "businessDetail": module["businessDetail"], "analysisDepth": module["analysisDepth"], "nonResponsibilities": [], "entrySurfaces": [], "dependencies": [], "consumers": [], "flows": [], "detectedTopics": [], "stateDataOwners": [], "integrations": [], "referencePatterns": [], "arcLimCandidates": [{"id": "ARC-fixture", "title": "fixture", "claim": "fixture", "anchor": module["path"], "scope": "module"}], "unknowns": [], "evidence": [{"claim": "fixture", "status": "observed", "anchor": module["path"], "scope": "module"}], "completeness": {}})
+        packet_path.write_text(json.dumps({"schemaVersion": 2, "projectId": plan["projects"][0]["id"], "modules": modules}, indent=2), encoding="utf-8")
+        subprocess.run([sys.executable, str(RENDER), str(docs), "--plan", str(plan_path), "--inventory", str(docs / ".projectspec" / "workspace-inventory.json"), "--packet", str(packet_path)], check=True)
+        for document in docs.rglob("*.md"):
+            document.write_text(document.read_text(encoding="utf-8").replace("Evidence pending", "fixture evidence"), encoding="utf-8")
+        self.run_coordinator(docs, "graph-ready", "--status", "ready", "--files", "ready", "--explore", "ready")
+        for module in plan["projects"][0]["modules"]:
+            self.run_coordinator(docs, "check", "--scope", f"module:{module['id']}")
+        self.run_coordinator(docs, "check", "--scope", f"project:{plan['projects'][0]['id']}")
+        finished = self.run_coordinator(docs, "finish")
+        self.assertEqual(finished["status"], "complete")
+
+    def run_coordinator(self, docs: Path, command: str, *extra: str) -> dict:
+        result = subprocess.run([sys.executable, str(COORDINATOR), command, str(docs), *extra], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
 
 
 if __name__ == "__main__":
