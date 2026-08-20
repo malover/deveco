@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+"""Mechanical validator for the balanced ProjectSpec document contract."""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+from urllib.parse import unquote
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from validate_packet import load as load_packet
+from validate_packet import validate_packet
+
+START = "<!-- PROJECTSPEC:GENERATED:START -->"
+END = "<!-- PROJECTSPEC:GENERATED:END -->"
+ROLES = {"behavior-owner", "supporting-behavior", "architecture-only"}
+DETAILS = {"standalone", "project-grouped", "none"}
+DEPTHS = {"focused", "standard", "deep"}
+KINDS = {"index", "project-business", "project-architecture", "module-business", "module-architecture", "capability-business", "constraints-and-limitations"}
+HEADINGS = {
+    "index": {"Repository Overview", "Projects", "Modules", "Start here / how to use this documentation for feature work"},
+    "project-business": {"Purpose and Observable Boundary", "Actors and Main Journeys", "Module Contributions", "Business Concepts and Data", "Rules, States, Failures, and Outcomes", "Architecture and Governance Traceability", "Source Evidence"},
+    "project-architecture": {"Project Boundary and Architecture", "Physical Modules and Ownership Map", "Module Responsibilities and Dependency Direction", "Cross-Module Runtime and Data Flows", "Scope Matrix", "Extension and Modification Points", "Source Evidence"},
+    "module-business": {"Role in the Product", "User / Domain Flows", "Business Concepts and Data", "Rules, States, and Outcomes", "Source Evidence"},
+    "module-architecture": {"Purpose and Responsibilities", "Entry, Lifecycle, and Public Contracts", "Architecture and Dependencies", "Runtime and Data Flow", "Scope Matrix", "Extension and Modification Points", "Source Evidence"},
+    "constraints-and-limitations": {"Architecture Constraints and Limitations"},
+}
+LINK = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+)\)")
+MERMAID = re.compile(r"```mermaid\s*\n(.*?)\n```", re.DOTALL | re.IGNORECASE)
+IDS = re.compile(r"^###\s+((?:ARC|LIM)-[A-Za-z0-9][A-Za-z0-9._-]*)\b", re.MULTILINE)
+
+
+def load(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"{path}: expected object")
+    return value
+
+
+def region(text: str) -> str:
+    if START not in text or END not in text:
+        return text
+    return text.split(START, 1)[1].split(END, 1)[0]
+
+
+def h2(text: str) -> set[str]:
+    return {match.group(1).strip() for match in re.finditer(r"^##\s+(.+?)\s*$", region(text), re.MULTILINE)}
+
+
+def h2_body(text: str, title: str) -> str:
+    match = re.search(rf"^##\s+{re.escape(title)}\s*$", region(text), re.MULTILINE)
+    if not match:
+        return ""
+    remainder = region(text)[match.end():]
+    next_heading = re.search(r"^##\s+", remainder, re.MULTILINE)
+    return remainder[:next_heading.start() if next_heading else len(remainder)]
+
+
+def field(body: str, name: str) -> bool:
+    return re.search(rf"^-\s*\*\*{re.escape(name)}:\*\*\s*\S", body, re.MULTILINE | re.IGNORECASE) is not None
+
+
+def planned(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    return [item for item in plan.get("documents", []) if isinstance(item, dict) and isinstance(item.get("path"), str)]
+
+
+def validate_markers(path: Path, text: str) -> list[str]:
+    return [] if text.count(START) == 1 and text.count(END) == 1 and text.index(START) < text.index(END) else [f"{path}: expected one balanced generated region"]
+
+
+def validate_links(path: Path, root: Path) -> list[str]:
+    errors = []
+    text = path.read_text(encoding="utf-8")
+    for raw in LINK.findall(text):
+        target = unquote(raw.strip().split()[0].strip("<>").split("#", 1)[0].split("?", 1)[0])
+        if not target or target.startswith(("http://", "https://", "mailto:")):
+            continue
+        resolved = (path.parent / target).resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            errors.append(f"{path}: link escapes docs root: {raw}")
+        else:
+            if not resolved.exists(): errors.append(f"{path}: broken local link: {raw}")
+    return errors
+
+
+def validate_mermaid(path: Path, text: str) -> list[str]:
+    errors = []
+    if text.count("```") % 2: errors.append(f"{path}: unbalanced code fences")
+    supported = {"flowchart", "graph", "stateDiagram-v2", "sequenceDiagram", "classDiagram"}
+    for index, block in enumerate(MERMAID.findall(text), 1):
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
+        if not lines or lines[0].split()[0] not in supported:
+            errors.append(f"{path}: unsupported or empty Mermaid block {index}")
+            continue
+        if "classDiagram" in lines[0] and len(lines) < 3:
+            errors.append(f"{path}: selective classDiagram must contain a relationship")
+        for line in lines[1:]:
+            for match in re.finditer(r"(?:-->|---|-.->|==>)\|([^|]+)\|", line):
+                if not (match.group(1).strip().startswith('"') and match.group(1).strip().endswith('"')):
+                    errors.append(f"{path}: Mermaid edge label must be quoted: {match.group(1)}")
+    return errors
+
+
+def validate_headings(path: Path, text: str, kind: str) -> list[str]:
+    titles = h2(text)
+    return [f"{path}: missing required section ## {title}" for title in sorted(HEADINGS.get(kind, set()) - titles)]
+
+
+def validate_evidence(path: Path, text: str, kind: str) -> list[str]:
+    if kind in {"index", "constraints-and-limitations"}: return []
+    body = h2_body(text, "Source Evidence")
+    if not re.search(r"`(?!Evidence pending)[^`\n]+`", body):
+        return [f"{path}: Source Evidence lacks a concrete path, symbol, or descriptor anchor"]
+    return []
+
+
+def validate_governance(path: Path, text: str) -> list[str]:
+    errors = []
+    body = region(text)
+    if re.search(r"\bCHK-[A-Za-z0-9]", body) or re.search(r"^##\s+.*Change Checks", body, re.MULTILINE | re.IGNORECASE):
+        errors.append(f"{path}: balanced governance must not contain CHK-* or a Change Checks table")
+    ids = IDS.findall(body)
+    for identifier in sorted({value for value in ids if ids.count(value) > 1}): errors.append(f"{path}: duplicate governance ID {identifier}")
+    entries = list(re.finditer(r"^###\s+((?:ARC|LIM)-[^\n]+)\s*$", body, re.MULTILINE))
+    if not entries: return errors + [f"{path}: governance has no ARC-* or LIM-* entries"]
+    for index, match in enumerate(entries):
+        entry_id = match.group(1).split()[0]
+        entry = body[match.end():entries[index + 1].start() if index + 1 < len(entries) else len(body)]
+        required = ["Scope", "Implementation impact / blast radius", "Evidence", "How to work with it", "When it applies", "What to check"]
+        if entry_id.startswith("ARC-"): required += ["Constraint / invariant", "Basis"]
+        else: required += ["Category", "Limitation / evidence gap", "Current handling / unknown"]
+        for name in required:
+            if not field(entry, name) and not re.search(rf"\*\*{re.escape(name)}:\*\*", entry, re.IGNORECASE): errors.append(f"{path}: {entry_id} missing field {name}")
+        if not re.search(r"^\s*1\.\s+\S", entry, re.MULTILINE): errors.append(f"{path}: {entry_id} What to check must be numbered and actionable")
+    return errors
+
+
+def validate_plan(root: Path, inventory: dict[str, Any], plan: dict[str, Any]) -> list[str]:
+    errors = []
+    if plan.get("requiresHomeGraphVerification") is True: errors.append("plan: HomeGraph boundary verification is still pending")
+    docs = {item["path"]: item.get("kind") for item in planned(plan)}
+    if docs.get(plan.get("indexDocument", "index.md")) != "index": errors.append("plan: index.md must be planned as index")
+    inventory_projects = {item.get("id"): item for item in inventory.get("projects", []) if isinstance(item, dict)}
+    plan_projects = {item.get("id") for item in plan.get("projects", []) if isinstance(item, dict)}
+    if set(inventory_projects) != plan_projects:
+        errors.append("plan: inventory and plan project identities do not agree")
+    if plan.get("workspaceMode") == "multi-project" and docs.get("constraints-and-limitations") != "constraints-and-limitations":
+        errors.append("plan: multi-Project workspace requires root cross-Project constraints-and-limitations.md")
+    for project in plan.get("projects", []):
+        if not isinstance(project, dict): continue
+        pid = str(project.get("id"))
+        if project.get("boundaryStatus") not in {"verified", "corrected-and-verified"}: errors.append(f"plan: Project {pid} boundary is not verified")
+        for key, kind in (("architectureDocument", "project-architecture"), ("businessDocument", "project-business"), ("governanceDocument", "constraints-and-limitations")):
+            if docs.get(project.get(key)) != kind: errors.append(f"plan: {pid} missing {kind}")
+        inventory_modules = {item.get("id") for item in inventory_projects.get(pid, {}).get("modules", []) if isinstance(item, dict)}
+        planned_modules = {item.get("id") for item in project.get("modules", []) if isinstance(item, dict)}
+        for module_id in inventory_modules - planned_modules: errors.append(f"plan: inventory module missing from {pid}: {module_id}")
+        for module in project.get("modules", []):
+            if not isinstance(module, dict): continue
+            mid = str(module.get("id")); role = module.get("businessRole"); detail = module.get("businessDetail")
+            if docs.get(module.get("architectureDocument")) != "module-architecture": errors.append(f"plan: {mid} lacks module Architecture")
+            if role not in ROLES: errors.append(f"plan: {mid} has unresolved role {role!r}")
+            if detail not in DETAILS: errors.append(f"plan: {mid} has unresolved detail {detail!r}")
+            if module.get("analysisDepth") not in DEPTHS: errors.append(f"plan: {mid} has invalid analysis depth")
+            if role == "behavior-owner" and detail != "standalone": errors.append(f"plan: {mid} behavior-owner must be standalone")
+            if role == "architecture-only" and detail != "none": errors.append(f"plan: {mid} architecture-only must have no Business")
+            if detail == "standalone" and docs.get(module.get("businessOwnerDocument")) != "module-business": errors.append(f"plan: {mid} standalone Business missing")
+            if detail != "standalone" and module.get("businessOwnerDocument") not in {None, ""}: errors.append(f"plan: {mid} non-standalone module has a Business owner document")
+        business_path = root / str(project.get("businessDocument", ""))
+        business_text = business_path.read_text(encoding="utf-8") if business_path.is_file() else ""
+        for module in project.get("modules", []):
+            if not isinstance(module, dict) or module.get("businessDetail") != "project-grouped": continue
+            needles = [str(module.get("name", "")), str(module.get("path", "")), str(module.get("id", "")).split("@", 1)[0]]
+            if business_text and not any(needle and needle.casefold() in business_text.casefold() for needle in needles):
+                errors.append(f"plan: project-grouped module {module.get('id')} is not covered in {project.get('businessDocument')}")
+    return errors
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("docs_root", type=Path)
+    parser.add_argument("--inventory", type=Path, required=True)
+    parser.add_argument("--plan", type=Path, required=True)
+    parser.add_argument("--scan-report", type=Path)
+    parser.add_argument("--packet", type=Path, action="append")
+    args = parser.parse_args()
+    root = args.docs_root.resolve(); inventory = load(args.inventory.resolve()); plan = load(args.plan.resolve())
+    errors = validate_plan(root, inventory, plan)
+    packet_paths = args.packet or sorted((root / ".projectspec" / "analysis").glob("*.json"))
+    if not packet_paths:
+        errors.append("packet: no analysis packets found")
+    for packet_path in packet_paths:
+        try:
+            packet = load_packet(packet_path.resolve())
+            errors.extend(validate_packet(packet, plan))
+        except ValueError as error:
+            errors.append(str(error))
+    expected_modules = {str(module.get("id")) for project in plan.get("projects", []) if isinstance(project, dict) for module in project.get("modules", []) if isinstance(module, dict)}
+    packet_modules = set()
+    for packet_path in packet_paths:
+        try:
+            packet = load_packet(packet_path.resolve())
+            packet_modules.update(str(module.get("moduleId")) for module in packet.get("modules", [packet]) if isinstance(module, dict) and module.get("moduleId"))
+        except ValueError:
+            pass
+    if expected_modules - packet_modules:
+        errors.append(f"packet: missing modules {', '.join(sorted(expected_modules - packet_modules))}")
+    if args.scan_report and args.scan_report.is_file():
+        try:
+            report = load(args.scan_report.resolve())
+            for key in ("raw", "rawSource", "rawGraph", "sourceDump", "graphResponse"):
+                if key in report:
+                    errors.append(f"scan report: raw evidence field {key} is not allowed")
+        except ValueError as error:
+            errors.append(str(error))
+    for item in planned(plan):
+        path = root / item["path"]
+        if not path.is_file(): errors.append(f"plan: missing planned document {item['path']}"); continue
+        content = path.read_text(encoding="utf-8")
+        errors += validate_markers(path, content) + validate_links(path, root) + validate_mermaid(path, content) + validate_headings(path, content, item.get("kind", "")) + validate_evidence(path, content, item.get("kind", ""))
+        kind = item.get("kind")
+        if kind == "constraints-and-limitations": errors += validate_governance(path, content)
+        if kind in {"project-architecture", "module-architecture"} and re.search(r"^##\s+(?:Architecture Constraints|Known Limitations|Change Checks)", region(content), re.MULTILINE | re.IGNORECASE): errors.append(f"{path}: Architecture contains governance section")
+    if errors:
+        print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr); return 1
+    print(f"Validated balanced ProjectSpec documents under {root}")
+    return 0
+
+
+if __name__ == "__main__": raise SystemExit(main())

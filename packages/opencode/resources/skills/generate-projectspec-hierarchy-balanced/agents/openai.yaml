@@ -1,0 +1,13 @@
+interface:
+  display_name: ProjectSpec Hierarchy Balanced
+  short_description: Generate module-first balanced ProjectSpec documentation
+  default_prompt: Use $generate-projectspec-hierarchy-balanced to document this repository with module-first Business, Architecture, and ARC/LIM governance.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
