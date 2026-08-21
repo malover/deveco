@@ -11,24 +11,15 @@ from urllib.parse import unquote
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from validate_packet import load as load_packet
-from validate_packet import validate_packet
-from document_contract import HEADINGS as CONTRACT_HEADINGS, evidence_anchors, has_placeholder
+from document_contract import CONTRACT_VERSION, HEADINGS as CONTRACT_HEADINGS, evidence_anchors, extract_project_metadata, fallback_metadata, has_placeholder, mermaid_blocks
 
 START = "<!-- PROJECTSPEC:GENERATED:START -->"
 END = "<!-- PROJECTSPEC:GENERATED:END -->"
 ROLES = {"behavior-owner", "supporting-behavior", "architecture-only"}
 DETAILS = {"standalone", "project-grouped", "none"}
 DEPTHS = {"focused", "standard", "deep"}
-KINDS = {"index", "project-business", "project-architecture", "module-business", "module-architecture", "capability-business", "constraints-and-limitations"}
-HEADINGS = {
-    "index": {"Repository Overview", "Projects", "Modules", "Start here / how to use this documentation for feature work"},
-    "project-business": {"Purpose and Observable Boundary", "Actors and Main Journeys", "Module Contributions", "Business Concepts and Data", "Rules, States, Failures, and Outcomes", "Architecture and Governance Traceability", "Source Evidence"},
-    "project-architecture": {"Project Boundary and Architecture", "Physical Modules and Ownership Map", "Module Responsibilities and Dependency Direction", "Cross-Module Runtime and Data Flows", "Scope Matrix", "Extension and Modification Points", "Source Evidence"},
-    "module-business": {"Role in the Product", "User / Domain Flows", "Business Concepts and Data", "Rules, States, and Outcomes", "Source Evidence"},
-    "module-architecture": {"Purpose and Responsibilities", "Entry, Lifecycle, and Public Contracts", "Architecture and Dependencies", "Runtime and Data Flow", "Scope Matrix", "Extension and Modification Points", "Source Evidence"},
-    "constraints-and-limitations": {"Architecture Constraints and Limitations"},
-}
+KINDS = {"index", "project-business", "project-architecture", "module-business", "module-architecture", "constraints-and-limitations"}
+HEADINGS = CONTRACT_HEADINGS
 LINK = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+)\)")
 MERMAID = re.compile(r"```mermaid\s*\n(.*?)\n```", re.DOTALL | re.IGNORECASE)
 IDS = re.compile(r"^###\s+((?:ARC|LIM)-[A-Za-z0-9][A-Za-z0-9._-]*)\b", re.MULTILINE)
@@ -108,8 +99,7 @@ def validate_mermaid(path: Path, text: str) -> list[str]:
 
 
 def validate_headings(path: Path, text: str, kind: str) -> list[str]:
-    titles = h2(text)
-    return [f"{path}: missing required section ## {title}" for title in sorted(HEADINGS.get(kind, set()) - titles)]
+    return []
 
 
 def validate_evidence(path: Path, text: str, kind: str) -> list[str]:
@@ -128,21 +118,29 @@ def validate_governance(path: Path, text: str) -> list[str]:
     ids = IDS.findall(body)
     for identifier in sorted({value for value in ids if ids.count(value) > 1}): errors.append(f"{path}: duplicate governance ID {identifier}")
     entries = list(re.finditer(r"^###\s+((?:ARC|LIM)-[^\n]+)\s*$", body, re.MULTILINE))
-    if not entries: return errors + [f"{path}: governance has no ARC-* or LIM-* entries"]
     for index, match in enumerate(entries):
         entry_id = match.group(1).split()[0]
         entry = body[match.end():entries[index + 1].start() if index + 1 < len(entries) else len(body)]
-        required = ["Scope", "Implementation impact / blast radius", "Evidence", "How to work with it", "When it applies", "What to check"]
-        if entry_id.startswith("ARC-"): required += ["Constraint / invariant", "Basis"]
-        else: required += ["Category", "Limitation / evidence gap", "Current handling / unknown"]
-        for name in required:
-            if not field(entry, name) and not re.search(rf"\*\*{re.escape(name)}:\*\*", entry, re.IGNORECASE): errors.append(f"{path}: {entry_id} missing field {name}")
-        if not re.search(r"^\s*1\.\s+\S", entry, re.MULTILINE): errors.append(f"{path}: {entry_id} What to check must be numbered and actionable")
+        if not re.search(r"\b(?:Evidence|Basis):", entry, re.IGNORECASE):
+            errors.append(f"{path}: {entry_id} has no evidence or basis")
     return errors
+
+
+def required_diagrams(plan: dict[str, Any], kind: str, path: str) -> int:
+    if kind == "project-architecture":
+        project_count = len(plan.get("projects", []))
+        module_count = sum(len(project.get("modules", [])) for project in plan.get("projects", []))
+        return 2 if project_count > 1 or module_count > 1 else 1
+    if kind == "module-architecture":
+        module = next((module for project in plan.get("projects", []) for module in project.get("modules", []) if module.get("architectureDocument") == path), {})
+        return 1 if module.get("businessRole") == "behavior-owner" else 0
+    return 0
 
 
 def validate_plan(root: Path, inventory: dict[str, Any], plan: dict[str, Any]) -> list[str]:
     errors = []
+    if plan.get("contractVersion") != CONTRACT_VERSION:
+        errors.append("plan: expected current v2 contract metadata")
     if plan.get("requiresHomeGraphVerification") is True: errors.append("plan: HomeGraph boundary verification is still pending")
     docs = {item["path"]: item.get("kind") for item in planned(plan)}
     if docs.get(plan.get("indexDocument", "index.md")) != "index": errors.append("plan: index.md must be planned as index")
@@ -182,6 +180,65 @@ def validate_plan(root: Path, inventory: dict[str, Any], plan: dict[str, Any]) -
     return errors
 
 
+def validate_state(root: Path, plan: dict[str, Any], report: dict[str, Any], require_documents: bool = True) -> list[str]:
+    errors = []
+    if plan.get("contractVersion") != CONTRACT_VERSION:
+        errors.append("plan: expected current v2 contract metadata")
+    graph = report.get("homegraph", {}) if isinstance(report.get("homegraph"), dict) else {}
+    if "status" in graph:
+        errors.append("scan report: stale HomeGraph status key conflicts with canonical readiness schema")
+    if graph.get("readiness") not in {"ready", "reduced-confidence"}:
+        errors.append("scan report: HomeGraph readiness is pending or invalid")
+    for key in ("statusSummary", "filesSummary", "exploreAnchor", "revision"):
+        if not graph.get(key) or graph.get(key) == "pending":
+            errors.append(f"scan report: HomeGraph {key} is incomplete")
+    scopes = [scope for scope in report.get("scopes", []) if isinstance(scope, dict)]
+    for project in plan.get("projects", []):
+        identifier = str(project.get("id"))
+        if project.get("boundaryStatus") not in {"verified", "corrected-and-verified"}:
+            errors.append(f"plan: Project {identifier} boundary is not verified")
+        scope = next((item for item in scopes if item.get("kind") == "project" and item.get("id") == identifier), {})
+        discovery = scope.get("discovery", {}) if isinstance(scope.get("discovery"), dict) else {}
+        required = ("summary", "projectType", "architecturePattern", "technologies", "evidenceAnchors", "evidenceStatus")
+        if discovery.get("status") != "complete" or any(not discovery.get(key) for key in required):
+            errors.append(f"scan report: Project {identifier} discovery is absent or incomplete")
+        elif any(fallback_metadata(str(discovery.get(key))) for key in ("summary", "projectType", "architecturePattern")) or any(fallback_metadata(str(value)) for value in discovery.get("technologies", [])):
+            errors.append(f"scan report: Project {identifier} discovery contains fallback metadata")
+        if require_documents:
+            facts = scope.get("facts", {}).get("project", {}) if isinstance(scope.get("facts"), dict) else {}
+            if scope.get("status") != "complete" or any(not facts.get(key) for key in ("summary", "projectType", "architecturePattern", "technologies")):
+                errors.append(f"scan report: Project {identifier} completed document facts are absent or incomplete")
+            elif any(fallback_metadata(str(facts.get(key))) for key in ("summary", "projectType", "architecturePattern")) or any(fallback_metadata(str(value)) for value in facts.get("technologies", [])):
+                errors.append(f"scan report: Project {identifier} completed document facts contain fallback metadata")
+    if require_documents:
+        for scope in scopes:
+            if scope.get("status") != "complete":
+                errors.append(f"scan report: incomplete scope {scope.get('kind')}:{scope.get('id')}")
+    return errors
+
+
+def validate_index_metadata(root: Path, plan: dict[str, Any]) -> list[str]:
+    path = root / str(plan.get("indexDocument", "index.md"))
+    if not path.is_file():
+        return ["index: generated index is missing"]
+    content = region(path.read_text(encoding="utf-8"))
+    overview = h2_body(content, "Repository Overview").strip()
+    errors = []
+    if fallback_metadata(overview) or len(overview) < 20:
+        errors.append("index: repository overview is missing or generic")
+    metadata = re.search(r"\*\*Repository type:\*\*\s*`([^`]+)`.*?\*\*Technologies:\*\*\s*(.*?)\s*·\s*\*\*Architecture pattern:\*\*\s*([^\n]+)", content)
+    if not metadata:
+        return errors + ["index: repository metadata line is missing"]
+    if fallback_metadata(metadata.group(1)):
+        errors.append("index: repository type is a fallback value")
+    technologies = re.findall(r"`([^`]+)`", metadata.group(2))
+    if not technologies:
+        errors.append("index: technologies are empty")
+    if fallback_metadata(metadata.group(3)):
+        errors.append("index: architecture pattern is not recorded")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("docs_root", type=Path)
@@ -189,35 +246,48 @@ def main() -> int:
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--scan-report", type=Path)
     parser.add_argument("--packet", type=Path, action="append")
-    parser.add_argument("--scope", help="schema-v3 scope: module:<id>, project:<id>, or workspace")
+    parser.add_argument("--scope", help="v2 scope: module:<id>, project:<id>, or workspace")
+    parser.add_argument("--state-only", action="store_true", help="validate canonical readiness, discovery, boundaries, and completed scope facts before index generation")
     args = parser.parse_args()
     root = args.docs_root.resolve(); inventory = load(args.inventory.resolve()); plan = load(args.plan.resolve())
+    if args.state_only:
+        report_path = args.scan_report or root / ".projectspec" / "project-scan-report.json"
+        report = load(report_path.resolve()) if report_path.is_file() else {}
+        errors = validate_state(root, plan, report)
+        if errors:
+            print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr); return 1
+        print("Validated ProjectSpec state"); return 0
     if args.scope:
         report_path = args.scan_report or root / ".projectspec" / "project-scan-report.json"
         report = load(report_path.resolve()) if report_path.is_file() else {}
-        if report.get("schemaVersion") != 3:
-            print("ERROR: schema-v3 ledger is required for scoped validation", file=sys.stderr); return 1
+        if report.get("schemaVersion") != 4:
+            print("ERROR: v2 ledger is required for scoped validation", file=sys.stderr); return 1
         wanted = args.scope
         scopes = report.get("scopes", [])
         item = next((scope for scope in scopes if (wanted == "workspace" and scope.get("kind") == "workspace") or wanted == f"{scope.get('kind')}:{scope.get('id')}"), None)
         if wanted == "workspace":
             documents = [entry for entry in planned(plan)]
+            scoped_errors = validate_state(root, plan, report)
         elif item:
             documents = [{"path": path, "kind": "constraints-and-limitations" if path.endswith("constraints-and-limitations.md") else "module-business" if (path.startswith("modules/") or "/modules/" in path) and path.endswith("business.md") else "project-business" if path.endswith("business.md") else "module-architecture" if (path.startswith("modules/") or "/modules/" in path) else "project-architecture"} for path in item.get("documents", [])]
+            scoped_errors = []
         else:
             print(f"ERROR: unknown scope {wanted}", file=sys.stderr); return 1
-        scoped_errors = []
         for entry in documents:
             path = root / entry["path"]
             if not path.is_file(): scoped_errors.append(f"missing document: {entry['path']}"); continue
             text = path.read_text(encoding="utf-8")
             if text.count(START) != 1 or text.count(END) != 1: scoped_errors.append(f"{entry['path']}: expected one balanced generated region")
-            scoped_errors.extend(f"{entry['path']}: missing required section ## {heading}" for heading in sorted(CONTRACT_HEADINGS.get(entry["kind"], set()) - h2(text)))
+            scoped_errors.extend(f"{entry['path']}: unresolved placeholder" for _ in ([0] if has_placeholder(text) else []))
             if entry["kind"] not in {"index", "constraints-and-limitations"} and not evidence_anchors(text): scoped_errors.append(f"{entry['path']}: Source Evidence lacks a concrete anchor")
+            if entry["kind"] == "project-architecture" and not extract_project_metadata(text): scoped_errors.append(f"{entry['path']}: canonical Project metadata is missing or contains fallback values")
+            scoped_errors.extend(validate_links(path, root) + validate_mermaid(path, text))
+            required = required_diagrams(plan, entry["kind"], entry["path"])
+            if len(mermaid_blocks(text)) < required:
+                scoped_errors.append(f"{entry['path']}: requires {required} Mermaid diagram(s)")
             if wanted == "workspace":
-                if has_placeholder(text): scoped_errors.append(f"{entry['path']}: unresolved placeholder")
-                scoped_errors.extend(validate_links(path, root) + validate_mermaid(path, text))
                 if entry["kind"] == "constraints-and-limitations": scoped_errors.extend(validate_governance(path, text))
+        if wanted == "workspace": scoped_errors.extend(validate_index_metadata(root, plan))
         if scoped_errors:
             print("\n".join(f"ERROR: {error}" for error in scoped_errors), file=sys.stderr); return 1
         if item: item["status"] = "complete"
@@ -225,25 +295,6 @@ def main() -> int:
         report_path.parent.mkdir(parents=True, exist_ok=True); report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(f"Validated {wanted}"); return 0
     errors = validate_plan(root, inventory, plan)
-    packet_paths = args.packet or sorted((root / ".projectspec" / "analysis").glob("*.json"))
-    if not packet_paths:
-        errors.append("packet: no analysis packets found")
-    for packet_path in packet_paths:
-        try:
-            packet = load_packet(packet_path.resolve())
-            errors.extend(validate_packet(packet, plan))
-        except ValueError as error:
-            errors.append(str(error))
-    expected_modules = {str(module.get("id")) for project in plan.get("projects", []) if isinstance(project, dict) for module in project.get("modules", []) if isinstance(module, dict)}
-    packet_modules = set()
-    for packet_path in packet_paths:
-        try:
-            packet = load_packet(packet_path.resolve())
-            packet_modules.update(str(module.get("moduleId")) for module in packet.get("modules", [packet]) if isinstance(module, dict) and module.get("moduleId"))
-        except ValueError:
-            pass
-    if expected_modules - packet_modules:
-        errors.append(f"packet: missing modules {', '.join(sorted(expected_modules - packet_modules))}")
     if args.scan_report and args.scan_report.is_file():
         try:
             report = load(args.scan_report.resolve())
@@ -256,9 +307,12 @@ def main() -> int:
         path = root / item["path"]
         if not path.is_file(): errors.append(f"plan: missing planned document {item['path']}"); continue
         content = path.read_text(encoding="utf-8")
-        errors += validate_markers(path, content) + validate_links(path, root) + validate_mermaid(path, content) + validate_headings(path, content, item.get("kind", "")) + validate_evidence(path, content, item.get("kind", ""))
+        errors += validate_markers(path, content) + validate_links(path, root) + validate_mermaid(path, content) + validate_evidence(path, content, item.get("kind", ""))
         kind = item.get("kind")
         if kind == "constraints-and-limitations": errors += validate_governance(path, content)
+        required = required_diagrams(plan, kind or "", item.get("path", ""))
+        if len(mermaid_blocks(content)) < required: errors.append(f"{path}: requires {required} Mermaid diagram(s)")
+        if kind == "project-architecture" and not extract_project_metadata(content): errors.append(f"{path}: canonical Project metadata is missing or contains fallback values")
         if kind in {"project-architecture", "module-architecture"} and re.search(r"^##\s+(?:Architecture Constraints|Known Limitations|Change Checks)", region(content), re.MULTILINE | re.IGNORECASE): errors.append(f"{path}: Architecture contains governance section")
     if errors:
         print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr); return 1

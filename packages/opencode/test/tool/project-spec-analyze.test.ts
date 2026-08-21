@@ -20,6 +20,14 @@ async function fixture(files: Record<string, string>, run: (root: string) => Pro
 }
 
 describe("project_spec_analyze", () => {
+  test("does not depend on an external file-search executable", async () => {
+    const projectSpecWorkspaceSource = await Bun.file(
+      new URL("../../src/tool/project-spec-workspace.ts", import.meta.url),
+    ).text()
+    expect(projectSpecWorkspaceSource).not.toContain('"rg"')
+    expect(projectSpecWorkspaceSource).not.toContain("Bun.spawn")
+  })
+
   test("keeps declared ArkTS modules in one project", async () => {
     await fixture(
       {

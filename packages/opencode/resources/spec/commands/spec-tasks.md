@@ -21,7 +21,7 @@ agent: goal
 3. **No Auto-Execute Next Phase**: This command covers only its own scope. Upon completion, it must NOT auto-trigger the next SDD phase. Phase transitions (to Phase 4 and beyond) are managed by the parent orchestrator (`goal.txt`), which controls Review Gates and progression. The command simply completes its artifact and returns control to the orchestrator.
 4. **Strict Path Resolution**: `CONFIG_ROOT` MUST be set to `~/.local/share/deveco/`. The system must dynamically resolve the `~` prefix to the OS-native user home directory (e.g., `C:\Users\${username}` on Windows, `/Users/${username}` on macOS). ${username} is a placeholder for the current system username. `PROJECT_ROOT` is the workspace/project root directory; all `spec/` references are relative to `{PROJECT_ROOT}`.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
-6. **Phase 3 Context Boundary**: Generate tasks from `Confirmed_Feature_Dir/spec.md` and `Confirmed_Feature_Dir/plan.md`. Do not reread project documentation, HomeGraph, or repository source by default. If either artifact is missing or lacks information required for actionable tasks, apply the fallback below without rediscovering or inventing design context.
+6. **Phase 3 Context Boundary**: Generate tasks from `spec.md`, `plan.md`, and `architecture-compliance.md` in `Confirmed_Feature_Dir`. Do not reread project documentation, HomeGraph, or repository source. Require `Plan Gate: PASS` in both planning artifacts; missing or unresolved compliance is an invalid planning state, not permission to rediscover context.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -31,13 +31,14 @@ agent: goal
 
 ## Outline & Workflow
 1. **Load & Validate Design Documents**: Read from `Confirmed_Feature_Dir`:
-    - **Expected**: `plan.md` (tech stack, libraries, structure), `spec.md` (user stories with priorities)
-    - These two artifacts are the complete Phase 3 planning context; do not reload Step 0 documentation.
-    - **Fallback Rule**: If `plan.md` or `spec.md` is missing, insert a `⚠️ MISSING ARTIFACTS` block at the top of `tasks.md`. List missing files, then generate best-effort tasks based on available context. **DO NOT fabricate fictional specs.**
+    - **Expected**: `plan.md`, `spec.md`, and `architecture-compliance.md` with matching `Plan Gate: PASS` status.
+    - These artifacts are the complete Phase 3 context; do not reload Step 0 documentation.
+    - If an artifact is missing or a gate is not PASS, report `[ERROR] architecture compliance is missing or unresolved` and return to Goal without generating `tasks.md`.
 2. **Execute Task Generation**:
     - Extract tech stack & project structure from `plan.md`
     - Extract user stories & priorities (P1, P2, P3...) from `spec.md`
     - Map tasks to stories, generate dependency graph, and identify parallel opportunities
+    - Carry applicable ARC/LIM IDs and their actionable `What to check` obligations into relevant task descriptions or acceptance criteria. Put static obligations in implementation phases and build/runtime/UI obligations in Verification.
     - Validate completeness: Each story must have independent test criteria and be incrementally deliverable
 3. **Generate tasks.md**: Use `{CONFIG_ROOT}/specs/templates/tasks-template.md` as structural skeleton. If template is missing, generate directly using the "Phase Structure" defined below. Fill with:
     - Correct feature name from `plan.md`

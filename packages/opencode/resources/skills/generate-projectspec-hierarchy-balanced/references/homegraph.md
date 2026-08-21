@@ -1,37 +1,18 @@
 # HomeGraph readiness and fallback
 
-HomeGraph is the only semantic graph provider for this skill. The index is repository-wide
-so module packets can account for shared consumers and cross-Project contracts. Run one
-readiness chain per run; do not repeat status checks or overlap broad explores.
+HomeGraph supplies bounded semantic evidence after the canonical workspace inventory. Run one
+status check per run and one anchored explore per Project or module; never overlap broad explores.
+The `projectPath` is always the directory in which DevEco Code was invoked. Queries and fallback
+source evidence must remain inside it.
 
-## Lifecycle
+1. Run `homegraph_status` once.
+2. If unavailable, call `question` before fallback. Stop/retry is recommended; reduced-confidence
+   direct source evidence requires explicit approval and must be recorded.
+3. Use exact inventory-provided Project/module paths and entry surfaces in bounded
+   `homegraph_explore` calls with the invocation root as `projectPath`.
+4. Allow at most one focused fallback per scope for an exact missing symbol or relationship.
+5. Record only compact readiness, anchors, claims, flows, unknowns, and the explicit fallback
+   decision. Never store raw graph responses, source dumps, secrets, tokens, or personal data.
 
-1. Check whether `<repository-root>/.homegraph/` exists.
-2. If absent, run the installed `homegraph init -i <repository-root>` command.
-3. If present, use the tool-reported identity only; unavailable revision data is `not-exposed`.
-   Never inspect persisted HomeGraph storage. Synchronize
-   with the installed HomeGraph update/index command. Never guess a provider-specific API.
-4. Prove readiness serially: `homegraph_status`, then `homegraph_files`, then one bounded
-   anchored `homegraph_explore` using a real descriptor, module path, ability, page, route,
-   or entry symbol.
-5. If any readiness step fails, make one bounded recovery/reindex attempt and probe again.
-6. If it still fails, ask the user to **retry**, **approve reduced-confidence direct scanning**,
-   or **stop**. Continue only after explicit approval and record the decision.
-
-No silent fallback and no CodeToGraph fallback are permitted. A failed query is narrowed by
-path/symbol/question, reduced in depth/limit, or split serially before recovery is attempted.
-
-## Coverage ledger
-
-Store only compact facts in `project-scan-report.json`: readiness, index/repository revision,
-anchors, Project/module coverage, representative trigger-to-outcome flows, state/data/
-persistence/integration coverage, unresolved questions, recovery attempts, and fallback
-approval. Do not store raw graph responses, source dumps, secrets, tokens, or personal data.
-
-## Query progression
-
-Use `homegraph_explore` once first for each significant named module or flow. Use exact
-`homegraph_node` for a specific symbol/file, callers/callees for directional packet gaps, and
-`homegraph_impact` only when blast radius changes documentation. Keep calls serial, bounded,
-and scoped to the current Project/module after repository readiness is proven. Record compact
-claims and release detailed response context after each packet.
+The v2 readiness object is `{readiness, statusSummary, filesSummary, exploreAnchor, revision}`.
+`readiness` is `pending`, `ready`, or `reduced-confidence`; there is no legacy migration.

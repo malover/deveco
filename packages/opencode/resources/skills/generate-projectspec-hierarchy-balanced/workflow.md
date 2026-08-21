@@ -1,32 +1,53 @@
-# Balanced streaming workflow
+# Balanced v2 streaming workflow
 
 ## Startup
 
-Run `node scripts/bootstrap_projectspec.mjs <root> --output-root docs --revision HEAD --scan-level deep`,
-then `python scripts/projectspec.py start docs`. Use the compact next item; do not perform a
-repository-wide pre-writing scan.
+Freeze `<repository-root>` as the directory in which DevEco Code was invoked. All project
+exploration, source reads, HomeGraph queries, and output paths must remain below this boundary.
+Do not inspect parent or sibling directories, enumerate a drive root, or discover other checkouts.
+
+Run `project_spec_analyze` once with `root: "."` before this workflow. It writes the canonical
+inventory to `docs/.projectspec/workspace-inventory.json`. Then run:
+
+`python <skill>/scripts/projectspec.py start <repository-root> --output-root docs --revision HEAD`
+
+`start` consumes that artifact without walking, hashing, globbing, or rescanning the repository.
+Missing or stale v2 inventory metadata is an actionable error.
+
+If `project_spec_analyze` fails, stop and report the exact error. Do not look for `rg` or other
+executables with shell commands, recursively search a drive, install tools, or retry through an
+equivalent broad filesystem scan.
 
 ## HomeGraph gate
 
-Run one serial `homegraph_status`, bounded `homegraph_files`, and anchored `homegraph_explore`.
-Record all three with `projectspec.py graph-ready`; use `not-exposed` when revision identity is
-not returned. Recover once when needed, then explicitly retry, reduce confidence, or stop.
+Run one `homegraph_status` and one bounded anchored `homegraph_explore` for the Project, using
+`<repository-root>` as `projectPath`. Prefer this explore for semantic structure instead of shell
+directory enumeration. If the status is unavailable, call `question` before any fallback and
+record the explicit decision.
+Record readiness with:
 
-## 3. Module-first documents
+`python <skill>/scripts/projectspec.py graph-ready <repository-root> --output-root docs --status ready --status-summary <summary> --explore <anchor> --homegraph-revision <identity-or-not-exposed>`
 
-For each deterministic provider-before-consumer item from `next`, read its one matching template,
-run one bounded anchored explore, write Architecture and any evidence-gated Business, and run
-`projectspec.py check --scope module:<id>`. Deferred links are permitted only when their exact
-target is in the deterministic plan. The check extracts summaries, anchors, governance IDs, and gaps.
+The Project explore is bounded to inventory-provided paths below `<repository-root>`. Each module
+gets one anchored explore and at most one focused fallback for an exact missing symbol or
+relationship. Do not run `homegraph_files`.
 
-## 4. Synthesize Projects
+## Project discovery
 
-After every child module is complete, synthesize Project Business, Architecture, and governance,
-then check `project:<id>`. No second repository-wide discovery pass is allowed. After all Projects
-pass, `projectspec.py finish` builds the router from validated documents, inventory, and ledger,
-then runs one strict workspace gate. Resume reconstructs schema-v3 state by checking existing docs;
-changed modules reset their impacted ancestors.
+`next` returns the exact template path, source anchors, suggested query, query limits, diagram
+requirement, business-role criteria, and the next command shape. Record only semantic facts that
+the inventory cannot establish with `projectspec.py discover`.
 
-## 5. Index and validate last
+## Module-first documents
 
-`finish` builds the index last and preserves the developer-maintained region.
+Process modules provider-before-consumer. Write Architecture for every module and Business only
+for `behavior-owner`; supporting behavior is covered by Project Business and architecture-only
+modules have no Business document. Complete the evidence self-review before each write, preserve
+content outside generated markers, and run `projectspec.py check --scope module:<id>` immediately.
+
+## Project synthesis and finish
+
+After all child modules are complete, synthesize Project Business, Architecture, governance, and
+the required Mermaid diagrams, then check `project:<id>`. `finish` uses the same shared structural
+contract as scoped checks, builds `index.md` once from completed scope facts, and atomically clears
+missing outputs and changed scopes before marking the ledger complete.

@@ -12,7 +12,7 @@ agent: goal
   * **Fallback**: If no valid user input is provided, default to the **current system language**.
   * **Ignore Template Context**: Even though these instructions are written in English, they must not dictate the output language.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
-6. **Step 0 Documentation Context Rule**: For existing projects, `{PROJECT_ROOT}/docs/high-level-architecture.md` and `{PROJECT_ROOT}/docs/high-level-business.md` are mandatory repository context. Read them in that order before repository exploration, use their mappings to select only feature-relevant modules, then read each selected module's architecture and business documents. Treat Step 0 documentation as precomputed derived context, not absolute truth. Use HomeGraph and current source/config only for feature-specific gaps, feature-critical validation, or stale/uncertain claims.
+6. **Step 0 Documentation Context Rule**: For existing projects, `{PROJECT_ROOT}/docs/index.md` is the mandatory entry point. Follow only its feature-relevant Business, Architecture, and Constraints links. Treat ProjectSpec as precomputed As-Is context; use HomeGraph/current source only for feature-specific gaps or stale/uncertain critical claims, recording discrepancies rather than silently discarding governance.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -28,17 +28,15 @@ agent: goal
     - Resolve artifact paths:
         - `FEATURE_SPEC` = `Confirmed_Feature_Dir/spec.md`
         - `IMPL_PLAN` = `Confirmed_Feature_Dir/plan.md`
-        - `HIGH_LEVEL_ARCHITECTURE` = `{PROJECT_ROOT}/docs/high-level-architecture.md`
-        - `HIGH_LEVEL_BUSINESS` = `{PROJECT_ROOT}/docs/high-level-business.md`
+        - `DOCS_INDEX` = `{PROJECT_ROOT}/docs/index.md`
+        - `COMPLIANCE_REPORT` = `Confirmed_Feature_Dir/architecture-compliance.md`
 
 2. **Ensure & Load Step 0 Context** (existing projects only):
-    - Check whether `HIGH_LEVEL_ARCHITECTURE` and `HIGH_LEVEL_BUSINESS` exist.
-    - Read `HIGH_LEVEL_ARCHITECTURE` first, then `HIGH_LEVEL_BUSINESS`.
-    - Use the module map and capability-to-module mapping to select only modules relevant to the requested feature, affected subsystems, data/contracts, UX, deployment, or testing decisions. For each selected module, read `docs/modules/<module-name>/architecture.md` and `docs/modules/<module-name>/business.md`.
-    - Do not scan the whole `docs/` folder or load unrelated module documentation.
-    - When invoked by the Goal workflow, if either high-level file or a selected module file does not exist, report `[TOOL_ERROR] step0-docs: required Step 0 documentation is unavailable` and return control to Goal. Do not regenerate Step 0 documentation in Phase 2.
-    - Outside Goal, do not silently replace missing Step 0 context with broad repository discovery. The user must generate the missing project documentation before planning.
-    - Use HomeGraph/current source/config only to resolve feature-specific gaps or verify claims that are stale-looking, uncertain, conflicting, or directly determine implementation correctness. Current graph/source evidence wins.
+    - Read `DOCS_INDEX` first and route exclusively through its links; do not scan `docs/` or construct document paths.
+    - Read affected Project Business for observable/grouped behavior, Project Architecture for composition/boundaries, module Architecture for ownership/extension seams, standalone module Business only when linked, and applicable Project/root Constraints registries.
+    - Project-grouped Business and absent Business for architecture-only modules are valid.
+    - If the index or a selected linked document is unavailable under Goal, report `[TOOL_ERROR] step0-docs: required Step 0 documentation is unavailable` and return control. Outside Goal, require documentation generation rather than broad discovery.
+    - Current source/config wins stale descriptive claims, but record the discrepancy. Do not silently override enforced or developer-maintained governance.
 
 3. **Check Existing Document** (if `IMPL_PLAN` already exists):
     - Preserve existing sections that remain valid and relevant.
@@ -49,17 +47,18 @@ agent: goal
     - Read `FEATURE_SPEC`.
     - Use the high-level documents plus the selectively loaded module documents as precomputed repository context.
     - Load plan template from `{CONFIG_ROOT}/specs/templates/plan-template.md`.
-    - **Fallback:** If the template is missing, initialize `IMPL_PLAN` with the minimal required structure: `## Summary`, `## Technical Context`, `## Project Structure`, `## Complexity Tracking`, `## Research & Decisions`, `## Data Model`, `## Contracts & Interfaces`.
+    - **Fallback:** If the template is missing, initialize `IMPL_PLAN` with: `## Summary`, `## Technical Context`, `## Project Structure`, `## Complexity Tracking`, `## Research & Decisions`, `## Data Model`, `## Contracts & Interfaces`, `## Architecture Drift Gate`.
 
 5. **Execute Plan Workflow**: Follow the loaded/initialized template structure to:
     - Fill `Technical Context` section
     - Execute Phase 0: Research unknowns and document decisions inline
     - Execute Phase 1: Select the architecture structure, then design data structures, interfaces, and setup guidelines inline
-    - Finalize and validate the complete plan
+    - Populate `Architecture Drift Gate` with the selected documentation baseline, affected owners, applicable ARC/LIM IDs or an explicit zero-applicable result, planned compliance, blast radius, required checks, migrations, unresolved conflicts, and `Plan Gate: PENDING` for Goal Phase 2.5 to resolve.
+    - Finalize and validate the complete plan.
 
 6. **Write Plan Artifact**: Use the `spec_write` tool with `filePath: "{IMPL_PLAN}"` to write the completed implementation plan. Do NOT use the generic `write` tool for plan artifacts.
 
-7. **Stop and Report**: Command ends after Phase 1 Design & Contracts. Report the absolute path of `IMPL_PLAN`, which Step 0 documents were selectively used, and list all generated artifacts. Do not trigger further actions.
+7. **Stop and Report**: Report `IMPL_PLAN`, `DOCS_INDEX`, selected Business/Architecture/Constraints documents, applicable ARC/LIM IDs, and the pending gate status. Do not trigger Phase 2.5 yourself.
 
 ## Phases
 ### Phase 0: Research & Resolution
@@ -107,13 +106,14 @@ agent: goal
     - Review all sections for completeness, internal consistency, and alignment with `FEATURE_SPEC`.
     - Ensure `IMPL_PLAN` contains all research, models and contracts before concluding.
     - For HarmonyOS/ArkTS plans, verify that `Structure Decision` states whether the plan follows an existing architecture or selects a new tier. For new-tier plans, verify that the selected tier and file-count rationale are named, that the directory tree matches the selected tier, and that pages do not directly own algorithms, persistence, or complex business orchestration when MVVM is required.
+    - An intentional architecture migration is valid only when `FEATURE_SPEC` requests it. Record affected ARC/LIM IDs, migration steps, compatibility measures, and required ProjectSpec follow-up.
 
 ## Key Rules
 - Consolidate all design artifacts—research decisions, data models, interface contracts directly into `IMPL_PLAN` using the designated sections.
 - Use absolute paths for all file and directory references.
-- Project knowledge describes current repository state; `FEATURE_SPEC` describes desired behavior; `IMPL_PLAN` describes the delta. Do not merge these roles.
-- For existing-project planning, read high-level architecture and business documentation, selectively load only feature-relevant module documentation, then use HomeGraph/current source/config only for feature-relevant verification and gaps.
-- Do not enumerate every module document in this workflow; use the high-level module and capability mappings as the router.
+- ProjectSpec describes current repository state; `FEATURE_SPEC` describes desired behavior; `IMPL_PLAN` describes the delta. Do not merge these roles.
+- For existing-project planning, route from `docs/index.md` to only feature-relevant linked documents, then use HomeGraph/current source/config only for feature-relevant verification and gaps.
+- Do not enumerate every document; use the index as the router.
 - For HarmonyOS/ArkTS plans, do not generate a vague `pages/components/service` structure for complex features. If MVVM triggers apply, include `viewmodel/`; if they do not apply, explicitly justify the lighter structure.
 - For HarmonyOS/ArkTS plans, do not expand many pages, views, services, models, or components merely because MVVM directories exist. Default to minimal viable file splitting within MVVM and split files only when the feature complexity makes the split necessary.
 - For existing HarmonyOS/ArkTS projects, do not introduce MVVM directories or restructure the project unless the user's request explicitly asks for MVVM optimization or migration.

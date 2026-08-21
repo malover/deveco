@@ -3,6 +3,8 @@
 
 > Scope: `<project path>` · Baseline: `<revision>` · Governance: [Constraints](<path>)
 
+> Project metadata: **Type:** `<confirmed-project-type>` · **Architecture pattern:** `<observed-pattern>` · **Primary technologies:** `<technology>`, `<technology>` · **Supersedes discovery:** `no`
+
 ## Project Boundary and Architecture
 
 <observed ownership boundary, architecture pattern, and explicit non-responsibilities>
@@ -20,6 +22,18 @@
 ## Cross-Module Runtime and Data Flows
 
 <trigger -> orchestration -> state/data -> integration/persistence -> result/handoff>
+
+```mermaid
+flowchart LR
+  <owner> -->|"owns"| <consumer>
+```
+
+```mermaid
+sequenceDiagram
+  participant Trigger
+  participant Provider
+  Trigger->>Provider: representative runtime flow
+```
 
 ## Scope Matrix
 

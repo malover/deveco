@@ -41,6 +41,13 @@
 
 <include a small evidenced Mermaid classDiagram or runtime/state/sequence diagram only when useful; never a class dump>
 
+```mermaid
+sequenceDiagram
+  participant Entry
+  participant Owner
+  Entry->>Owner: representative behavior
+```
+
 ## Source Evidence
 
 - `<path#symbol-or-descriptor>` — <claim supported>

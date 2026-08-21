@@ -109,25 +109,6 @@ function isExcluded(relative: string) {
 }
 
 async function listWorkspaceFiles(root: string) {
-  const processHandle = Bun.spawn(
-    [
-      "rg",
-      "--files",
-      "--hidden",
-      "-0",
-      ...DEFAULT_EXCLUDES.flatMap((directory) => ["-g", `!**/${directory}/**`]),
-    ],
-    { cwd: root, stdout: "pipe", stderr: "pipe" },
-  )
-  const [exitCode, stdout] = await Promise.all([processHandle.exited, new Response(processHandle.stdout).text()])
-  if (exitCode === 0 || (exitCode === 1 && !stdout)) {
-    return stdout
-      .split("\0")
-      .map(normalize)
-      .filter((item) => item !== "." && !isExcluded(item))
-      .toSorted()
-  }
-
   const files: string[] = []
   const visit = async (directory: string) => {
     const entries = await fs.readdir(directory, { withFileTypes: true })

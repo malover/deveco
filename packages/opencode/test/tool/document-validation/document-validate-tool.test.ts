@@ -139,6 +139,10 @@ model
 
 contracts
 
+## Architecture Drift Gate
+
+gate
+
 ## Quickstart
 
 quick
@@ -529,9 +533,9 @@ describe("validateDocumentSimple: design missing individual sections", () => {
     })
   })
 
-    describe("Quickstart is optional", () => {
-      test("passes when Quickstart is absent", () => {
-        const md = `# Implementation Plan: Auth
+  describe("Quickstart is optional", () => {
+    test("passes when Quickstart is absent", () => {
+      const md = `# Implementation Plan: Auth
 
 ## Summary
 
@@ -544,12 +548,14 @@ describe("validateDocumentSimple: design missing individual sections", () => {
 ## Data Model
 
 ## Contracts & Interfaces
+
+## Architecture Drift Gate
 `
-        const p = tempFile(md)
-        const result = Effect.runSync(validateDocumentSimple(p, "design"))
-        expect(result).toBe("")
-      })
+      const p = tempFile(md)
+      const result = Effect.runSync(validateDocumentSimple(p, "design"))
+      expect(result).toBe("")
     })
+  })
 
   describe("prefix match", () => {
     test("passes with prefix match for H1", () => {
@@ -566,6 +572,8 @@ describe("validateDocumentSimple: design missing individual sections", () => {
 ## Data Model
 
 ## Contracts & Interfaces
+
+## Architecture Drift Gate
 
 ## Quickstart
 `
@@ -748,6 +756,8 @@ describe("validateDocumentSimple: aliases", () => {
 
 ## 契约与接口
 
+## 架构漂移门禁
+
 ## 快速开始
 `
       const p = tempFile(md)
@@ -861,6 +871,8 @@ describe("validateDocumentSimple: design extra & duplicate", () => {
 
 ## Contracts & Interfaces
 
+## Architecture Drift Gate
+
 ## Quickstart
 
 ## Random Section
@@ -892,6 +904,8 @@ describe("validateDocumentSimple: design extra & duplicate", () => {
 ## Data Model
 
 ## Contracts & Interfaces
+
+## Architecture Drift Gate
 
 ## Quickstart
 

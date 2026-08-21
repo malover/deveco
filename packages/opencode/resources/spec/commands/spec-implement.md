@@ -13,6 +13,7 @@ agent: goal
 4. **Implement Phase Tool Restriction**: The `verify_ui`, `build_project`, and `start_app` tools MUST NOT be invoked in the `spec-implement` phase. Build verification, deployment, and (optionally) UI validation are handled in the next phase via subagent `spec-verify`. Correspondingly, the **Verification phase** in `tasks.md` (the final phase added by `/spec-tasks`, marked with `<!-- verification_scope: ... -->`) is **OUT OF SCOPE for `/spec-implement`** — DO NOT execute its tasks, DO NOT mark its checkboxes as `[X]`. Stop after completing the Polish phase. The `spec-verify` subagent will execute and check off the Verification phase tasks during Phase 5.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
 6. **Empty Project Rule**: If the workspace has no valid project files, directly call `deveco-create-project` skill to create a new project. Do not ask any questions when creating a project.
+7. **Architecture Conformance Boundary**: Static inspection of source/config/resource changes against approved ownership and governance is mandatory and is not functional verification. Build, deployment, runtime, and UI checks remain owned by Phase 5.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -30,7 +31,11 @@ agent: goal
    - **REQUIRED:** Complete feature directory resolution and user confirmation per the logic above.
    - **REQUIRED:** Read `spec.md` from `Confirmed_Feature_Dir` for feature requirements, user stories, and acceptance criteria. This is the authoritative source of truth for what the feature must accomplish — always refer back to it when making implementation decisions to avoid drifting from the original requirements.
    - **REQUIRED:** Read `plan.md` from `Confirmed_Feature_Dir` for tech stack, architecture, and file structure references.
-   - **REQUIRED:** Read `tasks.md` from `Confirmed_Feature_Dir` for the complete task list and execution plan within the approved directory.
+    - **REQUIRED:** Read `tasks.md` from `Confirmed_Feature_Dir` for the complete task list and execution plan within the approved directory.
+    - **REQUIRED:** Read `architecture-compliance.md` from `Confirmed_Feature_Dir` and require `Plan Gate: PASS` before editing source.
+    - **REQUIRED:** Read `{PROJECT_ROOT}/docs/index.md`, then follow only links relevant to the feature and planned target paths. Read affected Project/module Architecture and applicable Project/root Constraints registries. Project-grouped Business and missing standalone Business for architecture-only modules are valid.
+    - **REQUIRED:** Resolve an implementation checklist from applicable ARC/LIM `Scope`, `When it applies`, blast radius, ownership, dependency direction, contracts, extension seams, and inline `What to check` procedures. Parent summaries never replace these documents.
+    - If the index, a selected linked owner/governance file, the compliance report, or a passing Plan Gate is unavailable, return a repository-documentation precondition failure. Do not regenerate ProjectSpec during implementation.
 
 2. **Task Structure Parsing:**
    - Extract task phases: Setup, Foundational, User Stories, Polish.
@@ -49,15 +54,23 @@ agent: goal
    - **Setup:** Initialize project structure, dependencies, and base configuration.
    - **Core Development:** Implement models, services, components, or endpoints as planned.
    - **Integration:** Wire up databases, middleware, logging, and external services.
-   - **Polish & Validation:** update documentation.
+    - **Polish & Validation:** update documentation.
 
-5. **Progress Tracking & Error Handling:**
+5. **Code Gate And In-Session Remediation:**
+    - After all implementation tasks and before the final report, inspect every created or modified source, configuration, and resource file plus the complete feature diff.
+    - Compare the result with the approved plan delta, selected Architecture owners, and every applicable ARC/LIM obligation. Do not treat a requested, explicitly approved migration as drift when the plan records affected IDs, migration steps, compatibility measures, and documentation follow-up.
+    - Run at most three total static conformance attempts. Attempt 1 evaluates the completed implementation. After a failed attempt 1 or 2, return to the responsible task in this same subagent session, apply the smallest in-scope repair, reread the affected files, and recheck. Do not delegate remediation or ask a question for fixable drift.
+    - On a failed attempt 3, or when resolution requires a requirement/scope decision, stop with unresolved findings and return `PARTIAL` or `FAILED`.
+    - Update only the Code Gate section of `architecture-compliance.md`. Preserve the Plan Gate. Record attempts, files and governance checked, findings, repairs, deferred Phase 5 checks, unresolved conflicts, and final status.
+    - `COMPLETED` requires `Code Gate: PASS` and no unresolved actionable architecture finding.
+
+6. **Progress Tracking & Error Handling:**
    - Report concise progress after each completed task.
    - **Failure Protocol:** Halt execution immediately if any critical sequential task fails. For `[P]` tasks, continue with successful ones, log failures explicitly, and adjust downstream dependencies if necessary.
    - Provide actionable debugging context and next steps when blocked.
 
-6. **Completion Validation:**
-   - Do **not** perform any functional validation within the current phase. If functional validation is required, conclude the current phase and proceed to the next phase.
-   - Output a final summary report detailing completed work, skipped/failed items (if any), and conclude implementation.
+7. **Completion Validation:**
+    - Do not perform functional validation. Record build/runtime/UI-dependent `What to check` obligations as deferred Phase 5 checks.
+    - Output a final report with documents read, Architecture owners, applicable ARC/LIM IDs, Code Gate attempts, detected drift and repairs, deferred checks, unresolved conflicts, and overall status.
 
 > **Note:** This workflow assumes a complete and valid task breakdown exists in `tasks.md`. If tasks are incomplete, ambiguous, or missing critical dependencies, halt execution and regenerate the plan before proceeding.

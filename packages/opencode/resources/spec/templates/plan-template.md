@@ -104,3 +104,19 @@ and justify why the planned file count is sufficient.]
 ## Data Model
 
 ## Contracts & Interfaces
+
+## Architecture Drift Gate
+
+**Documentation baseline**: `docs/index.md` and [selected linked documents]
+
+**Affected ownership**: [Projects, modules, contracts, dependency boundaries, and extension seams]
+
+| ARC/LIM ID | Scope / trigger | Planned compliance | Blast radius | Required checks |
+|------------|-----------------|--------------------|--------------|-----------------|
+| [Applicable ID or explicit zero-applicable result] | [Scope and When it applies] | [How the delta complies] | [Affected consumers] | [What to check actions] |
+
+**Intentional migrations**: [Requirement, affected IDs, migration steps, compatibility measures, and documentation follow-up, or None]
+
+**Unresolved conflicts**: [None or actionable findings]
+
+Plan Gate: PENDING

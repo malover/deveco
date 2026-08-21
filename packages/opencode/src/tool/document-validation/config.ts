@@ -127,6 +127,13 @@ export const FORMAT_RULES: Record<string, DocumentFormatRules> = {
         message: "Missing '## Contracts & Interfaces'",
         suggestion: "Add '## Contracts & Interfaces'",
       },
+      {
+        level: 2,
+        standardTitle: "Architecture Drift Gate",
+        ruleId: "DES-SEC-7",
+        message: "Missing '## Architecture Drift Gate'",
+        suggestion: "Add '## Architecture Drift Gate'",
+      },
     ],
     allowedSections: [
       "Implementation Plan:",
@@ -137,6 +144,7 @@ export const FORMAT_RULES: Record<string, DocumentFormatRules> = {
       "Research & Decisions",
       "Data Model",
       "Contracts & Interfaces",
+      "Architecture Drift Gate",
       "Quickstart",
       "Changelog",
     ],

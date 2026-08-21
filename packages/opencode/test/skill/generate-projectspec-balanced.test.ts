@@ -1,77 +1,87 @@
 import { describe, expect, test } from "bun:test"
 
 const skillRoot = new URL("../../resources/skills/generate-projectspec-hierarchy-balanced/", import.meta.url)
+const goal = Bun.file(new URL("../../src/agent/prompt/goal.txt", import.meta.url)).text()
 
 function read(relative: string) {
   return Bun.file(new URL(relative, skillRoot)).text()
 }
 
-describe("generate-projectspec-hierarchy-balanced skill contract", () => {
-  test("is independently discoverable and preserves the balanced output boundary", async () => {
-    const [skill, workflow, model, architecture, governance] = await Promise.all([
+describe("generate-projectspec-hierarchy-balanced v2 contract", () => {
+  test("uses one canonical inventory and bounded HomeGraph orchestration", async () => {
+    const [skill, workflow, coordinator] = await Promise.all([
       read("SKILL.md"),
       read("workflow.md"),
-      read("references/document-model.md"),
-      read("references/architecture.md"),
-      read("references/constraints-and-limitations.md"),
+      read("scripts/projectspec.py"),
     ])
-
-    expect(skill).toContain("name: generate-projectspec-hierarchy-balanced")
-    expect(skill).toContain("deep` is the default")
-    expect(skill).toContain("Every physical module/build unit receives Architecture")
-    expect(skill).toContain("old `document-project` Deep Scan")
-    expect(skill).toContain("no `CHK-*` namespace")
-    expect(skill).toContain("preserve developer content outside")
-    expect(workflow.indexOf("bootstrap_projectspec.mjs")).toBeGreaterThan(-1)
-    expect(workflow.indexOf("homegraph_status")).toBeGreaterThan(workflow.indexOf("bootstrap_projectspec.mjs"))
-    expect(workflow.indexOf("homegraph_files")).toBeGreaterThan(workflow.indexOf("homegraph_status"))
-    expect(workflow.indexOf("anchored `homegraph_explore`")).toBeGreaterThan(workflow.indexOf("homegraph_files"))
-    const modules = workflow.indexOf("## 3. Module-first")
-    const projects = workflow.indexOf("## 4. Synthesize Projects")
-    const index = workflow.indexOf("## 5. Index and validate last")
-    expect(modules).toBeGreaterThan(workflow.indexOf("HomeGraph"))
-    expect(projects).toBeGreaterThan(modules)
-    expect(index).toBeGreaterThan(projects)
-    expect(model).toContain("behavior-owner")
-    expect(model).toContain("architecture-only")
-    expect(architecture).toContain("Scope matrix")
-    expect(architecture).toContain("classDiagram")
-    expect(governance).toContain("How to work with it")
-    expect(governance).toContain("What to check")
-    expect(governance).toContain("Do not use `CHK-*`")
-    expect(governance).not.toContain("## Change Checks")
+    expect(skill).toContain("project_spec_analyze")
+    expect(skill).toContain('`root: "."`')
+    expect(skill).toContain("never search the machine for missing executables")
+    expect(skill).toContain("do not run `homegraph_files`")
+    expect(skill).toContain("behavior-owner")
+    expect(workflow).toContain("project_spec_analyze")
+    expect(workflow).toContain("directory in which DevEco Code was invoked")
+    expect(workflow).toContain("Do not look for `rg`")
+    expect(workflow).toContain("question")
+    expect(workflow).toContain("one bounded anchored `homegraph_explore`")
+    expect(coordinator).toContain('"contractVersion": CONTRACT_VERSION')
+    expect(coordinator).toContain("derive_plan")
+    expect(coordinator).not.toContain("bootstrap_projectspec")
   })
 
-  test("retains the old scan as metadata and keeps all planned resources present", async () => {
-    const [planScript, csv, indexTemplate, constraintsTemplate, moduleTemplate] = await Promise.all([
-      read("scripts/bootstrap_projectspec.mjs"),
-      read("documentation-requirements.csv"),
-      read("templates/index.md"),
-      read("templates/constraints-and-limitations.md"),
+  test("requires diagrams and keeps structural validation shared", async () => {
+    const [contract, validator, project, module] = await Promise.all([
+      read("scripts/document_contract.py"),
+      read("scripts/validate_docs.py"),
+      read("templates/project-architecture.md"),
       read("templates/module-architecture.md"),
     ])
-
-    expect(planScript).toContain("oldDeepScan")
-    expect(planScript).toContain("llm-primary")
-    expect(planScript).toContain("csv-baseline-only")
-    expect(planScript).toContain("repository-wide HomeGraph")
-    expect(planScript).toContain("explicit fallback approval")
-    expect(planScript).toContain("moduleArchitecture")
-    expect(csv).toContain("web,true,true,true,true")
-    expect(csv).toContain("harmony,true,true,true,true")
-    expect(indexTemplate).toContain("Repository Overview")
-    expect(indexTemplate).toContain("Start here / how to use this documentation for feature work")
-    expect(constraintsTemplate).toContain("ARC-")
-    expect(constraintsTemplate).toContain("LIM-")
-    expect(constraintsTemplate).not.toContain("CHK-<")
-    expect(moduleTemplate).toContain("Scope Matrix")
+    expect(contract).toContain("mermaid_blocks")
+    expect(validator).toContain("behavior-owner")
+    expect(project).toContain("flowchart")
+    expect(project).toContain("sequenceDiagram")
+    expect(module).toContain("sequenceDiagram")
+    expect(validator).not.toContain("validate_packet")
   })
 
-  test("does not reference or mutate the three protected skill identities", async () => {
-    const skill = await read("SKILL.md")
-    expect(skill).toContain("does not modify or replace")
-    expect(skill).toContain("generate-projectspec-hierarchy-v7")
-    expect(skill).toContain("combined-doc-generation")
-    expect(skill).toContain("document-project")
+  test("retires v1 resources and publishes v2", async () => {
+    const version = await read(".version")
+    expect(version.trim()).toBe("2.0.0")
+    for (const resource of [
+      "scripts/bootstrap_projectspec.mjs",
+      "scripts/render_documents.py",
+      "scripts/validate_packet.py",
+      "documentation-requirements.csv",
+      "templates/capability-business.md",
+    ]) {
+      expect(await Bun.file(new URL(resource, skillRoot)).exists()).toBe(false)
+    }
+  })
+
+  test("is the always-run Goal documentation bootstrap", async () => {
+    const [prompt, index, governance] = await Promise.all([
+      goal,
+      read("templates/index.md"),
+      read("templates/constraints-and-limitations.md"),
+    ])
+    expect(prompt).toContain("`generate-projectspec-hierarchy-balanced` exactly once")
+    expect(prompt).toContain("even when `docs/index.md` already exists")
+    expect(prompt).not.toContain("generate-projectspec-hierarchy-v6")
+    expect(prompt).not.toContain("docs/high-level-architecture.md")
+    expect(prompt.indexOf("Invoke `generate-projectspec-hierarchy-balanced`")).toBeLessThan(
+      prompt.indexOf("read `docs/index.md` first"),
+    )
+    expect(index).toContain("| Project | Type / technology | Summary | Business | Architecture | Constraints |")
+    expect(index).toContain("Business / grouped")
+    expect(index).toContain("ARC/LIM IDs")
+    for (const field of [
+      "Scope",
+      "Implementation impact / blast radius",
+      "When it applies",
+      "Evidence",
+      "What to check",
+    ]) {
+      expect(governance).toContain(field)
+    }
   })
 })

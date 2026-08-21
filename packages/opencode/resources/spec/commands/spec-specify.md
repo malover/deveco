@@ -12,7 +12,7 @@ agent: goal
   * **Fallback**: If no valid user input is provided, default to the **current system language**.
   * **Ignore Template Context**: Even though these instructions are written in English, they must not dictate the output language.
 5. **Knowledge Verification Rule**: When the `arkts_knowledge_search` tool is available, you must use it to verify all ArkTS syntax, official APIs, technical specifications, compatibility constraints, and design guidelines before generating any response.
-6. **Project Knowledge Precondition**: For an existing project, `{PROJECT_ROOT}/docs/high-level-architecture.md` and `{PROJECT_ROOT}/docs/high-level-business.md` MUST already exist because the parent Goal orchestrator generates or verifies them in Step 0 before entering Phase 1. This command must consume that knowledge, but MUST NOT invoke `generate-projectspec` or reset the Step 0 todo state.
+6. **Project Knowledge Precondition**: For an existing project, `{PROJECT_ROOT}/docs/index.md` and its feature-relevant linked ProjectSpec documents MUST already exist because Goal regenerates them in Step 0. Consume that knowledge without invoking a documentation skill or resetting Step 0.
 
 ## Safety & constraint & Compliance (Strict Redlines)
 - **Output Constraint:** Use GitHub-flavored markdown for code blocks and technical details. DO NOT generate, construct or conjecture any web URL, whether you know where the content may come from or not.
@@ -23,9 +23,10 @@ agent: goal
 ## Execution Workflow
 
 0. **Load project knowledge**:
-    - Read `{PROJECT_ROOT}/docs/high-level-architecture.md` first, then `{PROJECT_ROOT}/docs/high-level-business.md`.
-    - Use their module and capability mappings to identify only modules relevant to the requested feature, then read each selected module's `docs/modules/<module-name>/architecture.md` and `docs/modules/<module-name>/business.md`.
-    - If either high-level document or a selected module document is missing or unreadable, report `[TOOL_ERROR] project-knowledge: required Step 0 documentation is unavailable` and return control to the parent Goal orchestrator. Do NOT silently continue and do NOT generate it here.
+    - Read `{PROJECT_ROOT}/docs/index.md` first and use only its links; never construct Project/module document paths.
+    - For requested behavior, read the affected Project Business document and standalone module Business only when linked. Project-grouped Business is valid for supporting modules, and architecture-only modules need no Business document.
+    - Read only the module/Project Architecture needed to establish ownership and scope for the requirements. Detailed design and governance evaluation belong to Phase 2/2.5.
+    - If the index or a selected linked owner is missing or unreadable, report `[TOOL_ERROR] project-knowledge: required Step 0 documentation is unavailable` and return control to Goal. Do not continue or regenerate documentation here.
     - Use project knowledge only to understand verified existing behavior and scope. Do not copy technical architecture into the feature specification unless it is itself a user-visible constraint.
     - Do not modify project documentation during Phase 1.
 

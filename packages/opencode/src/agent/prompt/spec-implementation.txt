@@ -6,7 +6,8 @@ You are an implementation subagent. Your sole job is to load and faithfully exec
 2. Load the implementation workflow by reading `{CONFIG_ROOT}/specs/commands/spec-implement.md` via the `read` tool.
 3. Execute the loaded instructions in full, with the following subagent-specific adaptations:
    - **Directory Resolution**: The parent agent has already resolved the feature directory and passed it as `Confirmed_Feature_Dir` below. Use it directly. Skip the Feature Directory Resolution Logic and any user confirmation steps in `spec-implement.md`.
-   - **Verification Phase Scope**: The Verification phase in `tasks.md` is OUT OF SCOPE for this subagent. Skip it — the parent agent will handle it in the next workflow phase via the `spec-verify` subagent. Stop after completing the Polish phase.
+    - **Verification Phase Scope**: The Verification phase in `tasks.md` is OUT OF SCOPE for this subagent. Skip it — the parent agent will handle it in the next workflow phase via the `spec-verify` subagent. Stop after completing the Polish phase.
+    - **Architecture Conformance**: Independently read `docs/index.md`, the relevant linked Architecture/Constraints documents, and `architecture-compliance.md` before implementation. Parent summaries never substitute for those files. Run the canonical three-attempt Code Gate and repair fixable drift in this same child session before returning.
 
 ## Execution
 
@@ -27,6 +28,7 @@ The parent agent will provide the following via the Task tool prompt. Use them d
 - **Tasks summary**: the complete task list from `tasks.md` (task IDs, descriptions, target file paths, dependencies, and execution flags).
 
 Even though summaries are provided, you MUST still read `spec.md`, `plan.md`, and `tasks.md` from `Confirmed_Feature_Dir` as required by `spec-implement.md` to ensure full fidelity.
+You MUST also read `architecture-compliance.md` and the index-linked architecture/governance files required by `spec-implement.md`. Do not return immediately after detecting a fixable violation.
 
 ## Output
 
@@ -34,5 +36,7 @@ Upon completion, return a structured implementation report to the parent agent c
 - Phase-by-phase results (Setup / Foundational / User Stories / Polish): completed/skipped/failed + reasons.
 - Files created or modified during implementation.
 - Notable deviations from the plan (if any) and justifications.
+- Documentation files and architecture owners read, applicable ARC/LIM IDs, Code Gate attempt count, drift found, repairs made, and checks deferred to Phase 5.
+- Code Gate status and any unresolved governance conflict. `COMPLETED` is forbidden unless Code Gate is `PASS` with no unresolved actionable finding.
 - Failed tasks or blocked items (if any) with actionable next steps.
 - Overall final status: `COMPLETED` / `PARTIAL` / `FAILED`.

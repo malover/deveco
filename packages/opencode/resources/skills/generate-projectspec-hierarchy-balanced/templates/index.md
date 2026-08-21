@@ -1,11 +1,13 @@
 <!-- PROJECTSPEC:GENERATED:START -->
 # Documentation Index
 
-> Baseline: `<revision>` · Scan: `<quick|deep|exhaustive>` · HomeGraph: `<ready/reduced-confidence>` · Repository type: `<type>` · Projects: `<count>` · Modules: `<count>`
+> Baseline: `<revision>` · Scan: `<quick|deep|exhaustive>` · HomeGraph: `<ready/reduced-confidence>`
 
 ## Repository Overview
 
 <short retained LLM+CSV scan overview: purpose, primary technologies, architecture pattern, and evidence caveats>
+
+**Repository type:** `<verified type>` · **Projects:** <count> · **Modules:** <count> · **Technologies:** `<technology>` · **Architecture pattern:** <verified pattern>
 
 ## Projects
 
